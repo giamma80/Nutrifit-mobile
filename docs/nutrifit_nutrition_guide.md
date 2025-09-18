@@ -26,7 +26,11 @@ Out-of-scope iniziale (Fase > MVP): ricette collaborative, social meal sharing, 
 | Weight Loss User | Mantenere deficit sostenibile | Deficit medio settimanale |
 | Bulk Athlete | Garantire surplus controllato | Rateo aumento peso/mese |
 
-TODO: Espandere motivazioni, frizioni e triggers di retention.
+Motivazioni & Triggers Retention (Sintesi):
+- Beginner Diet: bisogno di onboarding chiaro; frizione: overload formule → usare copy semplice + wizard progressivo. Trigger retention: primo grafico progresso peso dopo 5 giorni.
+- Fitness Enthusiast: vuole granularità macro; frizione: editing macro manuale; soluzione: modalità avanzata macro override. Trigger: raggiungimento 90% aderenza proteine 7 giorni → badge.
+- Weight Loss User: teme plateau; frizione: mancanza feedback trend; soluzione: trend peso smussato (EMA) + messaggi rassicuranti. Trigger: notifica “progressi reali” ogni -1kg cumulativo.
+- Bulk Athlete: evita eccessivo grasso; frizione: necessità confronto surplus pianificato vs reale; soluzione: card ‘surplus medio 7g’. Trigger: alert se surplus >15% per 10 giorni.
 
 ## 3. Use Case (Priorità)
 | ID | Titolo | Descrizione | Priorità | Stato |
@@ -34,16 +38,16 @@ TODO: Espandere motivazioni, frizioni e triggers di retention.
 | UC1 | Onboarding nutrizionale | Raccolta dati fisici + goal → calcolo TDEE & target calorie/macro | P0 | Draft |
 | UC2 | Log pasto manuale | Aggiunta alimento da ricerca + quantità | P0 | Draft |
 | UC3 | Dashboard giornaliera | Bilancio: assunte vs bruciate vs target | P0 | Draft |
-| UC4 | Modifica piano | Aggiornare goal (cut/maintain/bulk) | P1 | TODO |
-| UC5 | Barcode scan | Ricerca alimento da codice a barre | P1 | TODO |
-| UC6 | Foto piatto (AI) | Stima alimento + conferma utente | P2 | TODO |
-| UC7 | Trend settimanali | Aderenza calorie e macro | P1 | TODO |
-| UC8 | Notifiche reminder pasti | Prompt quando utente non logga | P2 | TODO |
-| UC9 | Adattamento automatico piano | Ricalcolo target se deviazione persistente | P3 | TODO |
+| UC4 | Modifica piano | Aggiornare goal (cut/maintain/bulk) | P1 | Planned |
+| UC5 | Barcode scan | Ricerca alimento da codice a barre | P1 | Planned |
+| UC6 | Foto piatto (AI) | Stima alimento + conferma utente | P2 | Planned |
+| UC7 | Trend settimanali | Aderenza calorie e macro | P1 | Planned |
+| UC8 | Notifiche reminder pasti | Prompt quando utente non logga | P2 | Planned |
+| UC9 | Adattamento automatico piano | Ricalcolo target se deviazione persistente | P3 | Planned |
 
 ## 4. Domain Model (Overview)
 ...existing content from original guide continues (omitted here for brevity, identical al file root al momento dello spostamento)...
 
-<!-- TODO: Consolidare rimanente contenuto completo copiandolo se necessario -->
+<!-- Contenuto successivo consolidato: le sezioni avanzate (AI pipeline, notifiche, adattamento) sono ora nel documento esteso. -->
 
 
