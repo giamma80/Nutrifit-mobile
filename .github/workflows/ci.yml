@@ -1,0 +1,68 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-test-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node (per markdownlint)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install markdownlint-cli
+        run: npm install -g markdownlint-cli
+
+      - name: Markdownlint
+        run: |
+          markdownlint . || (echo "Markdownlint warnings above" && exit 1)
+
+      - name: Codespell
+        uses: codespell-project/actions-codespell@v2
+        with:
+          check_filenames: true
+          ignore_words_list: nutrifit
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: Flutter Pub Get
+        run: flutter pub get || echo "No pubspec yet"
+
+      - name: Analyze (ignore failure if no Dart code)
+        run: |
+          if ls lib/*.dart >/dev/null 2>&1; then
+            flutter analyze
+          else
+            echo "No Dart sources yet, skipping analyze"
+          fi
+
+      - name: Test (ignore failure if no tests)
+        run: |
+          if ls test/*.dart >/dev/null 2>&1; then
+            flutter test --concurrency=4 --reporter=compact
+          else
+            echo "No tests yet, skipping"
+          fi
+
+      - name: Schema diff (nutrition)
+        run: |
+          diff -u lib/graphql/schema_nutrition.snapshot.graphql lib/graphql/schema_nutrition.graphql || echo "Schema changes detected (update snapshot if intentional)"
+
+      - name: Fail if schema changed without snapshot update
+        run: |
+          if ! diff -q lib/graphql/schema_nutrition.snapshot.graphql lib/graphql/schema_nutrition.graphql >/dev/null 2>&1; then
+            echo "ERROR: GraphQL schema changed. Update snapshot file to proceed." >&2
+            exit 1
+          fi
+
+  # Future job: backend lint/tests, docker build, etc.

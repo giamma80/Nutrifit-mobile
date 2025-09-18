@@ -1,0 +1,5 @@
+# Markdownlint configuration
+default: true
+MD013: false   # line length
+MD033: false   # inline HTML allowed (badge, centering)
+MD041: false   # first line heading not required (ASCII art allowed)

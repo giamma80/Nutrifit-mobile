@@ -1,0 +1,52 @@
+# Nutrition Queries & Mutations
+
+#import "../../fragments/nutrition_fragments.graphql"
+
+query GetNutritionPlan {
+  myNutritionPlan { ...NutritionPlanParts }
+}
+
+query GetDailyNutrition($date: Date!) {
+  dailyNutrition(date: $date) { ...DailyNutritionSummaryParts }
+}
+
+query SearchFoodsConnection($query: String!, $first: Int, $after: String, $filter: FoodSearchFilter) {
+  searchFoodsConnection(query: $query, first: $first, after: $after, filter: $filter) {
+    edges {
+      cursor
+      node { ...FoodItemParts }
+    }
+    pageInfo { hasNextPage endCursor }
+    totalCount
+  }
+}
+
+query MealsConnection($from: Date!, $to: Date!, $first: Int, $after: String) {
+  mealsConnection(dateFrom: $from, dateTo: $to, first: $first, after: $after) {
+    edges {
+      cursor
+      node { ...MealEntryParts }
+    }
+    pageInfo { hasNextPage endCursor }
+  }
+}
+
+query GetAIInference($id: ID!) {
+  aiInference(id: $id) { ...AIInferenceResultParts }
+}
+
+mutation LogMeal($input: LogMealInput!) {
+  logMeal(input: $input) { ...MealEntryParts }
+}
+
+mutation UpdateNutritionPlan($input: UpdateNutritionPlanInput!) {
+  updateNutritionPlan(input: $input) { ...NutritionPlanParts }
+}
+
+mutation AnalyzeMealPhoto($uploadId: ID!) {
+  analyzeMealPhoto(uploadId: $uploadId) { ...AIInferenceResultParts }
+}
+
+mutation ConfirmInference($id: ID!, $foodId: ID!, $quantity: Float!, $unit: String!) {
+  confirmInference(id: $id, foodId: $foodId, quantity: $quantity, unit: $unit) { ...MealEntryParts }
+}

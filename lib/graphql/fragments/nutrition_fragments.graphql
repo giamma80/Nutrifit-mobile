@@ -1,0 +1,61 @@
+# Nutrition Fragments
+
+fragment NutrientsParts on Nutrients {
+  calories
+  protein
+  carbs
+  fat
+  fiber
+  sugar
+  sodium
+}
+
+fragment PortionParts on Portion {
+  label
+  grams
+}
+
+fragment FoodItemParts on FoodItem {
+  id
+  name
+  brand
+  category
+  nutrients { ...NutrientsParts }
+  portionSuggestions { ...PortionParts }
+}
+
+fragment MealEntryParts on MealEntry {
+  id
+  mealType
+  quantity
+  unit
+  nutrients { ...NutrientsParts }
+  createdAt
+  food { ...FoodItemParts }
+}
+
+fragment NutritionPlanParts on NutritionPlan {
+  targetCalories
+  proteinTarget
+  carbsTarget
+  fatTarget
+  strategy
+  updatedAt
+}
+
+fragment DailyNutritionSummaryParts on DailyNutritionSummary {
+  date
+  total { ...NutrientsParts }
+  adherenceCalories
+  remainingCalories
+  macroAdherence
+  mealCount
+}
+
+fragment AIInferenceResultParts on AIInferenceResult {
+  id
+  rawLabel
+  confidence
+  status
+  normalizedFood { ...FoodItemParts }
+}

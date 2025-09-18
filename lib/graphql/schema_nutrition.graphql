@@ -1,0 +1,183 @@
+# Nutrition Domain Schema (Modular)
+# NOTE: Questo file estende lo schema principale esistente (health + user)
+#       Può essere unito in fase di build oppure usato con schema stitching/federation.
+
+"Piano nutrizionale corrente dell'utente"
+type NutritionPlan {
+  targetCalories: Int!
+  proteinTarget: Int!
+  carbsTarget: Int!
+  fatTarget: Int!
+  strategy: GoalStrategy!
+  updatedAt: DateTime!
+}
+
+"Valori nutrizionali standard (default 100g)"
+type Nutrients {
+  calories: Int!
+  protein: Float!
+  carbs: Float!
+  fat: Float!
+  fiber: Float
+  sugar: Float
+  sodium: Float
+}
+
+"Porzione suggerita per ridurre attrito nel logging"
+type Portion {
+  label: String!
+  grams: Float!
+}
+
+"Alimento normalizzato nel database interno"
+type FoodItem implements Node @cacheControl(maxAge: 3600) {
+  id: ID!
+  name: String!
+  brand: String
+  category: String
+  nutrients: Nutrients!             # valori base per 100g
+  portionSuggestions: [Portion!]!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+"Dettaglio pasto loggato"
+type MealEntry implements Node {
+  id: ID!
+  mealType: MealType!
+  food: FoodItem!
+  quantity: Float!                  # quantità inserita
+  unit: String!                     # g | ml | unit
+  nutrients: Nutrients!             # snapshot calcolato
+  createdAt: DateTime!
+}
+
+"Riepilogo nutrizionale giornaliero (materializzato o calcolato)"
+type DailyNutritionSummary {
+  date: Date!
+  total: Nutrients!
+  adherenceCalories: Float!
+  remainingCalories: Int!
+  macroAdherence: Float!
+  mealCount: Int!
+}
+
+"Risultato inference AI foto pasto"
+type AIInferenceResult implements Node {
+  id: ID!
+  rawLabel: String!
+  confidence: Float!
+  normalizedFood: FoodItem
+  status: InferenceStatus!
+  createdAt: DateTime!
+  items: [AIInferenceItem!]          # nuovi candidati strutturati
+  autoFilled: Boolean                # se è stato auto-confermato senza intervento
+}
+
+"Item candidato riconosciuto dall'AI con grounding nutrizionale opzionale"
+type AIInferenceItem {
+  id: ID
+  label: String!
+  grams: Float
+  originalGrams: Float
+  portionAdjusted: Boolean!
+  uncertainty: UncertaintyBand
+  confidence: Float!
+  matchFoodItemId: ID
+  source: InferenceSource!
+}
+
+type UncertaintyBand { low: Float!, high: Float! }
+
+enum InferenceSource { BARCODE OPEN_FOOD_FACTS INTERNAL_DB GENERIC }
+
+# Pagination Types (Relay-style)
+
+type PageInfo { hasNextPage: Boolean!, hasPreviousPage: Boolean!, startCursor: String, endCursor: String }
+
+type FoodItemEdge { cursor: String!, node: FoodItem! }
+
+type FoodItemConnection { edges: [FoodItemEdge!]!, pageInfo: PageInfo!, totalCount: Int }
+
+type MealEntryEdge { cursor: String!, node: MealEntry! }
+
+type MealEntryConnection { edges: [MealEntryEdge!]!, pageInfo: PageInfo! }
+
+# Inputs
+
+input LogMealInput {
+  mealType: MealType!
+  foodId: ID!
+  quantity: Float!
+  unit: String!
+}
+
+input UpdateNutritionPlanInput {
+  strategy: GoalStrategy
+  targetCalories: Int
+  proteinTarget: Int
+  carbsTarget: Int
+  fatTarget: Int
+}
+
+input FoodSearchFilter {
+  category: String
+  minProtein: Float
+  maxCalories: Int
+}
+
+# Enums
+
+enum MealType { BREAKFAST LUNCH DINNER SNACK }
+
+enum GoalStrategy { CUT MAINTAIN BULK }
+
+enum InferenceStatus { PENDING MATCHED REJECTED CONFIRMED }
+
+# Root Extensions
+
+extend type Query {
+  myNutritionPlan: NutritionPlan
+  dailyNutrition(date: Date!): DailyNutritionSummary
+  nutritionSummaryRange(start: Date!, end: Date!): [DailyNutritionSummary!]!
+  meals(date: Date!): [MealEntry!]!
+  mealsConnection(dateFrom: Date!, dateTo: Date!, first: Int, after: String): MealEntryConnection!
+  searchFoodsConnection(query: String!, first: Int, after: String, filter: FoodSearchFilter): FoodItemConnection!
+  aiInference(id: ID!): AIInferenceResult
+}
+
+extend type Mutation {
+  logMeal(input: LogMealInput!): MealEntry!
+  updateNutritionPlan(input: UpdateNutritionPlanInput!): NutritionPlan!
+  analyzeMealPhoto(uploadId: ID!): AIInferenceResult!
+  confirmInference(id: ID!, selections: [InferenceSelectionInput!]!): [MealEntry!]!
+}
+
+input InferenceSelectionInput {
+  inferenceItemId: ID
+  foodId: ID!
+  quantity: Float!
+  unit: String!
+}
+
+"Delta giornaliero pushato via subscription per aggiornare ring senza refetch"
+type DailyNutritionDelta {
+  date: Date!
+  addedCalories: Int!
+  addedProteinG: Float!
+  addedCarbsG: Float!
+  addedFatG: Float!
+  mealEntryId: ID
+  source: NutritionDeltaSource!
+}
+
+enum NutritionDeltaSource { MANUAL AI EDIT DELETE }
+
+extend type Subscription {
+  dailyNutritionUpdated(date: Date!): DailyNutritionDelta!
+}
+
+# TODO:
+# - Aggiungere directives custom (es. @auth(role: USER))
+# - Error codes standard (es. union o extension per field errors)
+# - Federation keys se si passa ad architettura multi-gateway
