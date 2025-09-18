@@ -51,3 +51,4 @@ Motivazioni & Triggers Retention (Sintesi):
 <!-- Contenuto successivo consolidato: le sezioni avanzate (AI pipeline, notifiche, adattamento) sono ora nel documento esteso. -->
 
 
+

@@ -8,6 +8,7 @@ Ultimo aggiornamento: 2025-09-18
 Fornire una app Flutter cross‑platform (iOS/Android) focalizzata su logging nutrizionale rapido, adattamento dinamico piano e insight storici, con evoluzione graduale da MVP offline → piattaforma real-time con AI e notifiche.
 
 ## 2. Principi Architetturali
+-
 - Progressive Enhancement: feature avanzate (AI, subscription) solo dopo base stabile.
 - Offline-first: logging pasti funziona anche senza rete (queue + sync). 
 - Clean Architecture: separazione Presentation / Application (use case) / Data / Domain.
@@ -16,6 +17,7 @@ Fornire una app Flutter cross‑platform (iOS/Android) focalizzata su logging nu
 - Security by Design: token handling isolato, minima esposizione segreti.
 
 ## 3. Bill of Materials (BOM)
+ 
 | Categoria | Strumento / Libreria | Note |
 |-----------|----------------------|------|
 | Framework | Flutter (stable) | Channel stable + LTS upgrade plan trimestrale |
@@ -35,6 +37,7 @@ Fornire una app Flutter cross‑platform (iOS/Android) focalizzata su logging nu
 | CI/CD | GitHub Actions + Codemagic | Build pipeline e distribuzione store |
 
 ## 4. Struttura Progetto (Proposta)
+ 
 ```
 lib/
   core/            # error, result, env, logging
@@ -61,6 +64,7 @@ lib/
 ```
 
 ## 5. Fasi di Rilascio (Roadmap Mobile)
+ 
 | Fase | Obiettivo | Scope Tecnico | Uscita |
 |------|-----------|---------------|--------|
 | M0 | Skeleton App | Routing, Theme, Auth0 login mock | Test interni |
@@ -75,12 +79,14 @@ lib/
 | M9 | Personalizzazioni UX | Layout configurabile, A/B macro ring | v1.4 |
 
 ## 6. Offline & Sync Strategy
+ 
 - Coda `pending_meals` Hive con stato (pending, syncing, failed).
 - Retry esponenziale (1m,5m,15m) fino max 24h.
 - Conflict Resolution: se server rifiuta (foodId deprecated) → trasformare in manual entry fallback.
 - Local projection daily summary aggiornata incrementale.
 
 ## 7. Error Handling & UX
+ 
 | Tipo | Pattern |
 |------|--------|
 | GraphQL Network | Banner temporaneo + retry icona |
@@ -89,12 +95,14 @@ lib/
 | Auth Expired | Silent refresh; se fallisce redirect login |
 
 ## 8. Sicurezza
+ 
 - Token OIDC memorizzato in secure storage, access token in memoria volatile.
 - PKCE flow obbligatorio.
 - Obfuscation codice (proguard/r8) per Android release.
 - Device attestation (fase avanzata) per proteggere AI feature premium.
 
 ## 9. Testing Strategy
+ 
 | Livello | Strumenti | Focus |
 |---------|-----------|-------|
 | Unit | flutter_test + mocktail | Use cases, calcoli TDEE, status ring |
@@ -105,30 +113,37 @@ lib/
 | Security | manuale + linters | Token leak, storage review |
 
 ## 10. CI/CD
+ 
 ### GitHub Actions
+ 
 - Lint & Analyze Workflow (push PR): `flutter analyze` + format check + tests
 - Schema Drift Check: scarica schema remoto (staging) → diff con locale
 - Build Artifacts: generazione build unsigned + upload come artifact
 
 ### Codemagic
+ 
 - Pipeline release: param environment (staging/prod)
 - Step: increment build number → run tests → build iOS/Android → notarize (iOS) → upload store / internal track
 
 Release Channels:
+ 
 - Internal (TestFlight / Closed track)
 - Beta
 - Production phased rollout (progressivo 10% → 50% → 100%)
 
 ## 11. Observability In-App
+ 
 - Event Wrapper: API unica `track(event, props)` per normalizzare.
 - Sessione giornaliera: correlazione meal logs.
 - Errori AI: bucket (timeout, parse_error, low_conf).
 
 ## 12. Feature Flags
+ 
 - Tabella `feature_flags` (Supabase) con chiavi: `ai_photo`, `subscription`, `autofill`.
 - Cache 5 min + override debug screen.
 
 ## 13. Performance Targets
+ 
 | Metrica | Target |
 |---------|--------|
 | Cold Start | <2.5s mid-tier device |
@@ -137,6 +152,7 @@ Release Channels:
 | Rebuild ring log pasto | <16ms frame |
 
 ## 14. Risk & Mitigations
+ 
 | Rischio | Mitigazione |
 |---------|------------|
 | Latenza AI elevata | Timeout + fallback manuale |
@@ -145,10 +161,12 @@ Release Channels:
 | Abuso foto (costi) | Rate limit lato backend + flag user |
 
 ## 15. Rollback Strategy
+ 
 - Feature behind flag → disattiva remoto se crash / regressione.
 - Version gating su subscription: fallback polling automatico.
 
 ## 16. TODO & Backlog (Estratto)
+ 
 - [ ] Implementare meal queue offline
 - [ ] Golden tests dashboard principali
 - [ ] Introduzione persisted queries fase M8
@@ -156,12 +174,14 @@ Release Channels:
 - [ ] Rate limit AI foto locale (finestra scorrevole)
 
 ## 17. Appendice: Naming Convenzioni
+ 
 - Providers: suffisso `Provider` (es. `dailySummaryProvider`)
 - Use case: verbo + oggetto (`LogMealUseCase`)
 - Eventi analytics: snake_case (`meal_logged`)
 
 ---
 ### 18. Diagramma Runtime Riverpod Providers
+
 ```mermaid
 graph TD
   UI["Log Meal Screen"] --> SR[SearchResultList]
@@ -189,6 +209,7 @@ graph TD
 ```
 
 ### 19. Sequence Diagram: Log Pasto (Offline → Sync)
+
 ```mermaid
 sequenceDiagram
   participant U as User

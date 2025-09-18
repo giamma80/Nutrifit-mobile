@@ -1,10 +1,10 @@
-```
+```text
  _   _       _   _  __ _ _ _ _   
 | \ | |_   _| |_| |/ _(_) (_) |_ 
 |  \| | | | | __| | |_| | | | __|
 | |\  | |_| | |_| |  _| | | | |_ 
 |_| \_|\__,_|\__|_|_| |_|_|_|\__|
-	 Nutrition · Fitness · AI
+  Nutrition · Fitness · AI
 ```
 
 <p align="center">
@@ -31,6 +31,7 @@
 
 ---
 ## 📖 Documentazione Principale
+
 | Documento | Link | Descrizione |
 |-----------|------|-------------|
 | Guida Nutrizione Estesa | [docs/nutrifit_nutrition_guide.md](docs/nutrifit_nutrition_guide.md) | Dominio, formule, UX dashboard, AI pipeline |
@@ -42,6 +43,7 @@
 
 ---
 ## 🏗 Architettura High-Level
+
 ```mermaid
 graph TD
 	A[Flutter App] -->|GraphQL| G[Apollo Gateway]
@@ -58,6 +60,7 @@ graph TD
 
 ---
 ## ✅ Feature Matrix
+
 | Area | MVP | v1 | v1.2 | Futuro |
 |------|-----|----|------|--------|
 | Logging Manuale | ✔ | ✔ | ✔ | Refinements |
@@ -73,7 +76,8 @@ Legenda: ✔ disponibile · ✖ non ancora · (noti) evoluzioni.
 
 ---
 ## 📈 Roadmap & Progress
-```
+
+```text
 Mobile   M0 ████░░░░ (20%)   → M1 → M2 → M3 ...
 Backend  B0 ████░░░░ (20%)   → B1 → B2 → B3 ...
 AI       POC ███░░░░ (15%)   → Baseline → Autofill
@@ -82,8 +86,10 @@ Dettagli granulari nelle rispettive roadmap dei documenti.
 
 ---
 ## 🗂 Struttura Repository (Estratto)
+
 nutrifit_nutrition_guide.md  # Stub redirect
-```
+
+```text
 docs/                # Documentazione architettura & guide
 lib/
 	graphql/           # Schema, fragments, queries
@@ -100,17 +106,39 @@ Planned:
 
 TODO: aggiungere workflow YAML (lint + schema snapshot) in `/ .github/workflows`.
 
+### Backend (uv) Quick Start
+```bash
+cd backend
+uv sync --all-extras --dev
+uv run uvicorn app:app --reload --port 8080
+```
+API disponibili ora: `GET /health`, `GET /version`, `POST /graphql` (query demo `hello`, `server_time`).
+
+### Commitlint
+Ogni PR esegue verifica convenzioni commit (`feat:`, `fix:`, `docs:`...). Per test locale:
+```bash
+npx commitlint --from=origin/main --to=HEAD --verbose
+```
+
+### Offline Meal Queue (WIP)
+Struttura futura in `lib/offline/` con coda persistente (Hive) e replay verso mutation `logMeal`. Placeholder ancora non implementato.
+
+### OpenFoodFacts Adapter
+Implementato adapter asincrono (`backend/openfoodfacts/adapter.py`) con normalizzazione nutrienti (fallback kJ→kcal, derivazione sodio da sale).
+
 ---
 ## 🤝 Contributi
+
 1. Fork / branch naming: `feature/<slug>` o `fix/<slug>`
 2. PR checklist:
-	 - [ ] Tests pass
-	 - [ ] Schema GraphQL invariato (o snapshot aggiornato con nota breaking)
-	 - [ ] Docs aggiornate se necessario
+   - [ ] Tests pass
+   - [ ] Schema GraphQL invariato (o snapshot aggiornato con nota breaking)
+   - [ ] Docs aggiornate se necessario
 3. Event naming: snake_case, no payload ridondante.
 
 ---
 ## 🧪 Quality Gates (Target)
+
 | Gate | Strumento | Esito Richiesto |
 |------|-----------|-----------------|
 | Lint | `flutter analyze` | 0 errori |
@@ -123,7 +151,7 @@ TODO: aggiungere workflow YAML (lint + schema snapshot) in `/ .github/workflows`
 > “All models are wrong, some are useful.” — G.E.P. Box
 
 Snippet pseudo-calcolo adattamento calorie:
-```pseudo
+```text
 delta_pct = clamp((trend_weight - expected)/expected, -0.15, 0.15)
 new_cal = round_to_50(old_cal * (1 - delta_pct))
 ```
@@ -139,6 +167,7 @@ Da definire. (Per ora nessuna licenza pubblicata; evitare uso in produzione este
 
 ---
 ## 🧭 Navigazione Rapida
+
 | Se vuoi... | Vai a |
 |------------|-------|
 | Capire il dominio nutrizionale | [Guida Nutrizione](docs/nutrifit_nutrition_guide.md) |

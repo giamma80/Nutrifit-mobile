@@ -3,7 +3,8 @@
 Version: v1.0 (Baseline Production Draft)
 
 ## Primary Prompt
-```
+
+```text
 Sei un assistente per ESTRARRE alimenti da una FOTO.
 REGOLE IMPORTANTI:
 - Massimo 5 elementi.
@@ -21,18 +22,21 @@ SCHEMA OUTPUT:
 ```
 
 ## Fallback Prompt (Parse Error)
-```
+
+```text
 Identifica gli alimenti visibili (max 5). JSON:
 {"items":[{"label":"string","portion_grams":123|null,"confidence":0.5}]}
 ```
 
 ## Validation Rules
+
 - JSON parsable (nessun trailing comma)
 - `confidence` ∈ [0,1]
 - Se porzione null → UI chiederà input manuale
 - Non aggiungere testo fuori JSON
 
 ## Post-Processing Mapping
+
 | Campo | Azione |
 |-------|-------|
 | label | lowercase, trim, remove adjectives superflui |
@@ -40,12 +44,15 @@ Identifica gli alimenti visibili (max 5). JSON:
 | confidence | clamp 0..1 |
 
 ## Rejection Criteria
+
 - Output non JSON → retry fallback
-- items vuoto & nessun errore → ritorna lista vuota (UI mostra stato “Nessun alimento”) 
+- items vuoto & nessun errore → ritorna lista vuota (UI mostra stato “Nessun alimento”)
 
 ## Security & Privacy Note
+
 - L'immagine potrebbe essere stata offuscata (volti/background) prima dell'invio.
 
 ## Evoluzioni Future (Note)
+
 - Aggiungere enumerazione tipologia contenitore (piatto, bowl, bicchiere) per migliorare stima peso
 - Richiedere bounding boxes se si integra segmentazione

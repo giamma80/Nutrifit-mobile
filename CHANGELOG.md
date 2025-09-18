@@ -5,7 +5,9 @@ Tutte le modifiche rilevanti a questo progetto saranno documentate in questo fil
 Formato ispirato a [Keep a Changelog](https://keepachangelog.com/it-IT/1.1.0/) e SemVer (fase pre-1.0: API instabili).
 
 ## [0.1.0] - 2025-09-18
+
 ### Added
+
 - Documentazione architettura mobile (`docs/mobile_architecture_plan.md`).
 - Documentazione architettura backend (`docs/backend_architecture_plan.md`).
 - Guida nutrizione spostata in `docs/nutrifit_nutrition_guide.md` con pipeline AI, dashboard UX, notifiche.
@@ -16,14 +18,18 @@ Formato ispirato a [Keep a Changelog](https://keepachangelog.com/it-IT/1.1.0/) e
 - CHANGELOG iniziale.
 
 ### Removed
+
 - Vecchio file root `nutrifit_nutrition_guide.md` (stub eliminato).
 
 ### Internal / Docs
+
 - Roadmap mobile (M0–M9) e backend (B0–B9).
 - TODO operativi nelle sezioni AI e notifiche.
 
 ## [Unreleased]
+
 ### Planned
+
 - Workflow CI (lint, test, schema diff).
 - Implementazione meal queue offline.
 - Adapter OpenFoodFacts + caching.

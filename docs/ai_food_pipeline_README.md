@@ -3,11 +3,13 @@
 Questa README descrive il flusso tecnico end-to-end del riconoscimento alimenti basato su GPT-4V + OpenFoodFacts + dizionario interno.
 
 ## Obiettivi
+
 - Time-to-value rapido senza modello custom iniziale.
 - Grounding deterministico nutrienti (mai fidarsi di stime LLM dirette).
 - Cost & Latency Control con early-exit (barcode-first) e caching profili.
 
 ## Flusso Sintetico
+
 1. Upload immagine → ottieni `uploadId` (fuori scope qui).
 2. Mutation `analyzeMealPhoto(uploadId)` → avvia pipeline.
 3. Backend:
@@ -29,21 +31,26 @@ Questa README descrive il flusso tecnico end-to-end del riconoscimento alimenti 
 Vedi `lib/graphql/schema_nutrition.graphql` (tipi: `AIInferenceItem`, `UncertaintyBand`, `InferenceSource`, `DailyNutritionDelta`).
 
 ## Matching Details
+
 - Fuzzy ratio (es. token set) + embedding cosine (>=0.62 soglia safe).
 - Normalizzazione heuristica: rimozione aggettivi marketing, plurali → singolare base.
 - Caricamento dizionario custom (alimentazione utente) come primo livello.
 
 ## Confidence Composition
-```
+
+```text
 final_conf = match_confidence * portion_confidence * source_weight
 ```
+
 Policy auto-fill: final_conf ≥ 0.70 AND items ≤2 AND kcal_totali_stimati < 800.
 
 ## Caching
+
 - Profili nutrienti OFF (chiave: product code) TTL 24h.
 - LRU 256 voci, frequenza alimenti utente → pre-warm.
 
 ## Metriche Chiave
+
 | Nome | Descrizione |
 |------|-------------|
 | ai_inference_latency_ms | end-to-end analyzeMealPhoto |
@@ -52,6 +59,7 @@ Policy auto-fill: final_conf ≥ 0.70 AND items ≤2 AND kcal_totali_stimati < 8
 | ai_autofill_accept_rate | % auto-fill confermati senza modifica |
 
 ## Error Handling
+
 | Caso | Azione |
 |------|--------|
 | Timeout GPT | fallback UI manuale immediato |
@@ -60,12 +68,13 @@ Policy auto-fill: final_conf ≥ 0.70 AND items ≤2 AND kcal_totali_stimati < 8
 | Confidenza bassa | richiesta selezione manuale |
 
 ## Evoluzione Futura
+
 - Segmentazione multi-item on-device, bounding boxes.
 - Distillazione modello per ridurre costo GPT.
 - Depth-based volume per piatti.
 
 ## TODO
-- [ ] Implementare adapter OpenFoodFacts
+
 - [ ] Implementare embedding index (alimentazione utente + global foods)
 - [ ] Logging structured tracing (traceId per pipeline)
 - [ ] Rate limiting GPT per utente (abuso foto)
