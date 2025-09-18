@@ -161,4 +161,56 @@ Release Channels:
 - Eventi analytics: snake_case (`meal_logged`)
 
 ---
-TODO: Aggiungere diagrammi runtime provider + sequence log pasto.
+### 18. Diagramma Runtime Riverpod Providers
+```mermaid
+graph TD
+  UI["Log Meal Screen"] --> SR[SearchResultList]
+  UI --> QP[QuantitySelector]
+  UI --> SUBMIT[ConfirmButton]
+
+  subgraph State
+    DSP[(dailySummaryProvider)] --> RING[DailyRingWidget]
+    MQL[(mealQueueLocalProvider)] --> DSP
+    SRP[(searchFoodsProvider)] --> SR
+    AIP[(aiInferenceProvider)] --> UI
+  end
+
+  subgraph UseCases
+    LogUC[LogMealUseCase]
+    SyncUC[SyncMealQueueUseCase]
+    SearchUC[SearchFoodsUseCase]
+  end
+
+  SUBMIT --> LogUC
+  LogUC --> MQL
+  MQL --> SyncUC
+  SearchUC --> SRP
+  AIP --> LogUC
+```
+
+### 19. Sequence Diagram: Log Pasto (Offline → Sync)
+```mermaid
+sequenceDiagram
+  participant U as User
+  participant UI as Flutter UI
+  participant MQL as MealQueue (Local)
+  participant API as GraphQL API
+  participant SUM as SummaryCache
+
+  U->>UI: Inserisce alimento + quantità
+  UI->>UI: Valida input
+  UI->>MQL: enqueue(LogMealRequest)
+  MQL-->>UI: id locale (UUID)
+  UI->>SUM: apply optimistic delta
+  Note over UI,SUM: Anello calorie aggiornato immediatamente
+  par Background Sync
+    MQL->>API: logMeal mutation (batch o singolo)
+    API-->>MQL: mealEntryId remoto
+    MQL->>SUM: conferma & sostituisce id locale
+  end
+  API-->>UI: Subscription dailyNutritionUpdated (delta)
+  UI->>SUM: merge delta server
+  SUM-->>UI: stato consistente (server aligned)
+```
+
+<!-- Fine sezione diagrammi -->

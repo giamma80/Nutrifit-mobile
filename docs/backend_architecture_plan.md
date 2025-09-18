@@ -181,4 +181,64 @@ Alerting (Prometheus rules):
 | notification_sent | Notifica emessa |
 
 ---
-TODO: Aggiungere diagramma deployment (federation) + sequence analyzeMealPhoto.
+### 22. Deployment Diagram (Federation)
+```mermaid
+graph LR
+	subgraph Client
+		APP[Flutter App]
+		DASH[Web Dashboard]
+	end
+
+	APP --> GATE[GraphQL Gateway]
+	DASH --> GATE
+
+	subgraph Federation
+		CORE[Core Nutrition Subgraph]\nFastAPI+Strawberry
+		AI[AI Service Subgraph]\nFastAPI+Strawberry
+		NOTIF[Notifications Subgraph]\n(Phase B5)
+	end
+
+	GATE --> CORE
+	GATE --> AI
+	GATE --> NOTIF
+
+	CORE --> PG[(Postgres/Supabase)]
+	AI --> OFF[(OpenFoodFacts)]
+	AI --> GPT[GPT-4V API]
+	NOTIF --> REDIS[(Redis)]
+	CORE --> RLS[(RLS Policies)]
+```
+
+### 23. Sequence: analyzeMealPhoto
+```mermaid
+sequenceDiagram
+	participant C as Client (Flutter)
+	participant G as Gateway
+	participant AI as AI Subgraph
+	participant OFF as OpenFoodFacts
+	participant GPT as GPT-4V
+	participant CORE as Core Nutrition
+
+	C->>G: analyzeMealPhoto(uploadId)
+	G->>AI: analyzeMealPhoto(uploadId)
+	AI->>GPT: Vision prompt (immagine + contesto utente)
+	GPT-->>AI: Candidates (label, portion guesses)
+	AI->>OFF: Fetch nutrients (per label/barcode) [parallel]
+	AI->>CORE: (opt) Lookup internal food items synonyms
+	OFF-->>AI: Nutrient data normalized
+	CORE-->>AI: FoodItem match (if found)
+	AI->>AI: Merge candidates + nutrient grounding + confidence scoring
+	AI-->>G: AIInferenceResult (status=PENDING, items[])
+	G-->>C: Result (client mostra lista)
+	Note over C: Utente conferma selezioni
+	C->>G: confirmInference(id,selections[])
+	G->>AI: confirmInference(...)
+	AI->>CORE: logMeal mutations (batch)
+	CORE-->>AI: MealEntry list
+	AI-->>G: MealEntry list
+	G-->>C: MealEntries + subscription delta
+	CORE-->>G: dailyNutritionUpdated (delta) (async)
+	G-->>C: Delta ring aggiornato
+```
+
+<!-- Diagrammi aggiunti: deployment federation + sequence analyzeMealPhoto -->
