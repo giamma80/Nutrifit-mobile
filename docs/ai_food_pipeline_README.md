@@ -28,6 +28,7 @@ Questa README descrive il flusso tecnico end-to-end del riconoscimento alimenti 
 6. Subscription `dailyNutritionUpdated` notifica delta nutrienti per aggiornare ring.
 
 ## Schema Esteso
+
 Vedi `lib/graphql/schema_nutrition.graphql` (tipi: `AIInferenceItem`, `UncertaintyBand`, `InferenceSource`, `DailyNutritionDelta`).
 
 ## Matching Details

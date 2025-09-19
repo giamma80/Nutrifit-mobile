@@ -31,7 +31,6 @@
 8. [Nerd Corner](#-nerd-corner)
 9. [Licenza](#-licenza)
 
----
 ## 📖 Documentazione Principale
 
 | Documento | Link | Descrizione |
@@ -43,24 +42,24 @@
 | Prompt AI Vision | [docs/ai_food_recognition_prompt.md](docs/ai_food_recognition_prompt.md) | Prompt primario e fallback GPT-4V |
 | Changelog Versioni | [CHANGELOG.md](CHANGELOG.md) | Cronologia modifiche & release semver |
 
----
 ## 🏗 Architettura High-Level
 
 ```mermaid
 graph TD
-	A[Flutter App] -->|GraphQL| G[Apollo Gateway]
-	G --> N[Core Nutrition Subgraph]
-	G --> AI[AI Service Subgraph]
-	G --> NT[Notifications Subgraph]
-	N --> PG[(Postgres/Supabase)]
-	AI --> GPT[GPT-4V]
-	AI --> OFF[(OpenFoodFacts)]
-	NT --> EV[(Event Log)]
-	A --> RT[Subscriptions / Delta]
-	A --> ST[Storage Offline]
+ A[Flutter App] -->|GraphQL| G[Apollo Gateway]
+ G --> N[Core Nutrition Subgraph]
+ G --> AI[AI Service Subgraph]
+ G --> NT[Notifications Subgraph]
+ N --> PG[(Postgres/Supabase)]
+ AI --> GPT[GPT-4V]
+ AI --> OFF[(OpenFoodFacts)]
+ NT --> EV[(Event Log)]
+ A --> RT[Subscriptions / Delta]
+ A --> ST[Storage Offline]
 ```
 
 ---
+
 ## ✅ Feature Matrix
 
 | Area | MVP | v1 | v1.2 | Futuro |
@@ -77,6 +76,7 @@ graph TD
 Legenda: ✔ disponibile · ✖ non ancora · (noti) evoluzioni.
 
 ---
+
 ## 📈 Roadmap & Progress
 
 ```text
@@ -84,9 +84,11 @@ Mobile   M0 ████░░░░ (20%)   → M1 → M2 → M3 ...
 Backend  B0 ████░░░░ (20%)   → B1 → B2 → B3 ...
 AI       POC ███░░░░ (15%)   → Baseline → Autofill
 ```
+
 Dettagli granulari nelle rispettive roadmap dei documenti.
 
 ---
+
 ## 🗂 Struttura Repository (Estratto)
 
 nutrifit_nutrition_guide.md  # Stub redirect
@@ -100,8 +102,11 @@ lib/
 ```
 
 ---
+
 ## 🔄 Workflow CI/CD
+
 Planned:
+
 - GitHub Actions: lint, analyze, schema diff, unit tests.
 - Codemagic: build store (iOS/Android) + distribuzione canali.
 - Backend: build Docker microservizi + deploy Render (rolling / canary AI service).
@@ -109,30 +114,39 @@ Planned:
 TODO: aggiungere workflow YAML (lint + schema snapshot) in `/ .github/workflows`.
 
 ### Backend (uv + Docker) Quick Start
+
 Opzione A (nativo):
+
 ```bash
 cd backend
 uv sync --all-extras --dev
 uv run uvicorn app:app --reload --port 8080
 ```
+
 Opzione B (script helper):
+
 ```bash
 cd backend
 ./make.sh setup
 ./make.sh run
 ```
+
 Opzione B2 (alias Makefile — equivalente):
+
 ```bash
 cd backend
 make setup
 make run
 make help   # mostra elenco target cockpit
 ```
+
 Opzione C (Docker):
+
 ```bash
 docker build -t nutrifit-backend:dev backend
 docker run -p 8080:8080 nutrifit-backend:dev
 ```
+
 Endpoints: `GET /health`, `GET /version`, `POST /graphql` (query demo `hello`, `server_time`).
 
 Differenza rapida ambiente:
@@ -145,6 +159,7 @@ Differenza rapida ambiente:
 Pipeline Deploy: push -> GitHub Action (`backend-ci`) valida (lint, type-check, test, docker build) -> Render ricostruisce immagine dal `backend/Dockerfile` e avvia `uvicorn`.
 
 #### Preflight & Quality Gates
+
 Il comando `./make.sh preflight` esegue in sequenza i gate e produce un riepilogo finale tabellare:
 
 Gates controllati:
@@ -167,6 +182,7 @@ Stati possibili:
 | SKIP | Gate non eseguito (dipendenze assenti / opzionale) |
 
 Esempio output:
+
 ```text
 === Preflight Summary ===
 GATE         | ESITO  | NOTE
@@ -180,13 +196,17 @@ commitlint   | SKIP   | deps mancanti
 Suggerito prima di ogni commit/push per feedback rapido locale.
 
 #### Flusso Commit & Push
+
 Passi consigliati (dalla cartella `backend/`):
+
 ```bash
 ./make.sh preflight             # verifica qualità
 ./make.sh commit MSG="feat(adapter): retry OFF"  # esegue preflight + commit
 ./make.sh push                  # preflight + push remoto
 ```
+
 Oppure manuale:
+
 ```bash
 ./make.sh preflight
 git add .
@@ -195,11 +215,15 @@ git push
 ```
 
 #### Bump Versione & Release
+
 Per creare una release semver (aggiorna `pyproject.toml`, tag e changelog):
+
 ```bash
 ./make.sh release LEVEL=patch   # o minor / major
 ```
+
 Flow interno:
+
 1. Preflight
 2. Calcolo nuova versione
 3. Finalizzazione CHANGELOG (sezione Unreleased -> nuova versione)
@@ -207,38 +231,48 @@ Flow interno:
 5. Push + push tag
 
 Per solo bump senza publish changelog finale:
+
 ```bash
 ./make.sh version-bump LEVEL=minor
 ```
 
 Verifica corrispondenza versione/tag:
+
 ```bash
 ./make.sh version-verify
 ```
 
 #### Log locale backend
+
 Lo script `backend/make.sh` scrive i log runtime in `backend/logs/server.log` (ignorato da git). Usa:
+
 ```bash
 cd backend
 ./make.sh run-bg   # avvio in background
 ./make.sh logs     # tail -f del file
 ./make.sh stop     # termina e annota STOP
 ```
+
 Ogni riavvio aggiunge marker temporalizzati per facilitare il debug.
 
 ### Commitlint
+
 Ogni PR esegue verifica convenzioni commit (`feat:`, `fix:`, `docs:`...). Per test locale:
+
 ```bash
 npx commitlint --from=origin/main --to=HEAD --verbose
 ```
 
 ### Offline Meal Queue (WIP)
+
 Struttura futura in `lib/offline/` con coda persistente (Hive) e replay verso mutation `logMeal`. Placeholder ancora non implementato.
 
 ### OpenFoodFacts Adapter
+
 Implementato adapter asincrono (`backend/openfoodfacts/adapter.py`) con normalizzazione nutrienti (fallback kJ→kcal, derivazione sodio da sale).
 
 #### Retry & Timeout Strategy
+
 Il client effettua richieste con timeout totale `TIMEOUT_S=8s` e semplice meccanismo di retry esponenziale:
 
 | Parametro | Valore | Note |
@@ -265,11 +299,12 @@ Futuri possibili miglioramenti:
 - Circuit breaker con finestra di errore
 - Metriche (counter tentativi / failure) esportate in endpoint interno
 
-
 ### Rule Engine DSL (Draft)
+
 Specifica iniziale e parser YAML per regole notifiche/adattamento (file: `docs/rule_engine_DSL.md`, parser: `backend/rules/parser.py`). Supporta trigger `schedule|event`, condizioni base (deviazione calorie, nessun pasto finestra) e azioni (`push_notification`, `adjust_plan_targets`).
 
 ---
+
 ## 🤝 Contributi
 
 1. Fork / branch naming: `feature/<slug>` o `fix/<slug>`
@@ -280,6 +315,7 @@ Specifica iniziale e parser YAML per regole notifiche/adattamento (file: `docs/r
 3. Event naming: snake_case, no payload ridondante.
 
 ---
+
 ## 🧪 Quality Gates (Target)
 
 | Gate | Strumento | Esito Richiesto |
@@ -290,10 +326,13 @@ Specifica iniziale e parser YAML per regole notifiche/adattamento (file: `docs/r
 | Performance | dashboard frame time | <16ms frame hot path |
 
 ---
+
 ## 🧠 Nerd Corner
+>
 > “All models are wrong, some are useful.” — G.E.P. Box
 
 Snippet pseudo-calcolo adattamento calorie:
+
 ```text
 delta_pct = clamp((trend_weight - expected)/expected, -0.15, 0.15)
 new_cal = round_to_50(old_cal * (1 - delta_pct))
@@ -302,20 +341,27 @@ new_cal = round_to_50(old_cal * (1 - delta_pct))
 Easter Egg Roadmap: quando AI autofill >70% adoption → attivare modalità "Hyper Logging" (UI minimalista).
 
 ---
+
 ## 🗒 Changelog
+
 Vedi [CHANGELOG.md](CHANGELOG.md). Release corrente backend: `v0.1.3` (cockpit script, logging, bump tooling aggiornati).
 
 Quick check versione backend da root (senza entrare in `backend/`):
+
 ```bash
 cd backend && ./make.sh version-show
 ```
+
 Altri comandi utili backend:
+
 ```bash
 ./make.sh version-verify   # controlla match tag HEAD vs pyproject
 ./make.sh schema-export    # genera/aggiorna SDL GraphQL
 ./make.sh schema-check     # verifica che lo schema versionato sia aggiornato
 ```
+
 Suggerimento: per utenti junior basta ricordare la sequenza:
+
 ```bash
 cd backend
 make setup   # o ./make.sh setup
@@ -327,9 +373,11 @@ Il badge `backend_version` sopra viene aggiornato automaticamente dal workflow
 `update-backend-version-badge.yml` quando cambia `backend/pyproject.toml`.
 
 ## 📝 Licenza
+
 Da definire. (Per ora nessuna licenza pubblicata; evitare uso in produzione esterna.)
 
 ---
+
 ## 🧭 Navigazione Rapida
 
 | Se vuoi... | Vai a |
@@ -339,4 +387,3 @@ Da definire. (Per ora nessuna licenza pubblicata; evitare uso in produzione este
 | Leggere roadmap mobile | [Arch Mobile](docs/mobile_architecture_plan.md) |
 | Leggere roadmap backend | [Arch Backend](docs/backend_architecture_plan.md) |
 | Modificare prompt GPT-4V | [Prompt AI](docs/ai_food_recognition_prompt.md) |
-

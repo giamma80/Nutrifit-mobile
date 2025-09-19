@@ -3,6 +3,7 @@
 Obiettivo: definire regole di notifica / adattamento piano nutrizionale in formato dichiarativo YAML.
 
 ## Concetti Chiave
+
 - `trigger`: evento o scheduler che avvia la valutazione.
 - `conditions`: insieme di condizioni tutte vere (AND implicito) per attivare l'azione.
 - `actions`: una o più azioni da eseguire (es. invio notifica, adattamento target).

@@ -64,9 +64,9 @@ uv run uvicorn app:app --reload --port 8080
 
 ### Cockpit (script `make.sh`)
 
-> Per comodità è presente anche un `Makefile`: puoi usare **sia** `./make.sh target` **sia** `make target` (dentro la cartella `backend/`). Se lanci solo `make` senza parametri ottieni lo stesso help.
+> C'è anche un `Makefile`: puoi usare sia `./make.sh <target>` sia `make <target>` da `backend/`.
 
-Tutte le operazioni comuni sono incapsulate in `make.sh` (funziona anche su macOS/Linux):
+Tabella principali target:
 
 | Target | Descrizione |
 |--------|-------------|
@@ -77,133 +77,84 @@ Tutte le operazioni comuni sono incapsulate in `make.sh` (funziona anche su macO
 | `format` | Esegue Black |
 | `lint` | Flake8 + mypy |
 | `test` | Pytest |
-| `preflight` | format + lint + test + commitlint (range main→HEAD) |
-| `commit MSG="..."` | Esegue preflight poi crea commit |
-```bash
-# Primo setup (crea venv e installa dipendenze)
-./make.sh setup
-
-# Avvio rapido server (locale hot reload)
-./make.sh run
-
-# In alternativa con Makefile
-make setup
-make run
-
-# Lint, test e controllo schema prima di un commit
-./make.sh preflight
-
-# Commit con messaggio conventional commit
-./make.sh commit MSG="feat(schema): add meal type"
-
-# Bump versione patch + tag
-./make.sh version-bump LEVEL=patch
-
-./make.sh setup
-./make.sh run-bg
-./make.sh status
-./make.sh preflight
-./make.sh commit MSG="feat(rules): add evaluator skeleton"
-./make.sh push
-```
+| `preflight` | format + lint + test + schema-check + commitlint (soft) |
+| `commit MSG="..."` | Preflight + commit |
 | `push` | Preflight + push ramo |
-| `docker-build` | Build immagine locale dev (accetta VERSION=1.2.3) |
-| `docker-run` | Run container mappando porta 8080 |
-| `docker-stop` | Stop container dev |
-| `docker-logs` | Segui log container |
-| `docker-restart` | Stop + run |
-| `docker-shell` | Shell interattiva dentro il container (bash/sh) |
-| `docker-test` | Test integrazione (health/version + GraphQL) |
-| `version-bump LEVEL=patch` | Bump versione (patch/minor/major) + commit + tag |
-| `version-verify` | Verifica corrispondenza pyproject vs tag HEAD |
-| `schema-export` | Esporta SDL GraphQL in `backend/graphql/schema.graphql` |
-| `schema-check` | Confronta schema generato vs file versionato (fail se differente) |
-| `release LEVEL=patch` | preflight + bump + tag + push + push tag |
-| `status` | Stato rapido (versione, server, container) |
-| `clean` | Rimuove .venv, __pycache__, pid |
-| `clean-dist` | Pulisce eventuale `dist/` residua |
-| `all` | setup + lint + test |
-| `logs` | Tail file di log server locale |
-```bash
-./make.sh run-bg      # avvia e scrive su logs/server.log
-./make.sh logs        # tail -f del file
-./make.sh stop        # ferma server e marca STOP
-./make.sh status      # mostra anche la dimensione del log
-```
+| `docker-build` | Build immagine locale dev (VERSION opzionale) |
+| `docker-run` | Run container (porta 8080) |
+| `docker-test` | Test integrazione container |
+| `schema-export` | Esporta SDL GraphQL |
+| `schema-check` | Verifica drift SDL |
+| `version-show` | Mostra versione corrente |
+| `version-bump LEVEL=patch` | Bump versione + tag |
+| `version-verify` | Confronta pyproject vs tag HEAD |
+| `release LEVEL=patch` | Preflight + finalize changelog + tag + push |
+| `status` | Info rapide (server/container/versione) |
+| `logs` | Tail file log locale |
+| `clean` | Rimuove artefatti (venv, cache, pid) |
+| `clean-dist` | Pulisce `dist/` |
 
-Esempi:
+Esempi rapidi:
 
 ```bash
-# Primo setup (crea venv e installa dipendenze)
+# Setup iniziale
 ./make.sh setup
 
-```bash
-./make.sh version-show
-```
-# Avvio rapido server (locale hot reload)
+# Avvio server (hot reload)
 ./make.sh run
 
-# In alternativa con Makefile
-make setup
-```bash
-./make.sh version-bump LEVEL=patch   # oppure minor / major
-```
-make run
-
-# Lint, test e controllo schema prima di un commit
+# Preflight completo prima di commit
 ./make.sh preflight
 
-# Commit con messaggio conventional commit
-```bash
-docker build -t nutrifit-backend:dev backend
-docker run -p 8080:8080 nutrifit-backend:dev
-```
+# Commit conventional + push
 ./make.sh commit MSG="feat(schema): add meal type"
-
-# Bump versione patch + tag
-./make.sh version-bump LEVEL=patch
-
-./make.sh setup
-./make.sh run-bg
-./make.sh status
-./make.sh preflight
-```bash
-./make.sh docker-build
-./make.sh docker-run
-./make.sh docker-logs
-./make.sh docker-test    # integrazione rapida
-./make.sh docker-shell   # entra nel container
-```
-./make.sh commit MSG="feat(rules): add evaluator skeleton"
 ./make.sh push
-```
 
-Release veloce (patch):
-
-```bash
-```bash
-curl -s -H 'Content-Type: application/json' \
-  -d '{"query":"{ health serverTime }"}' \
-  http://localhost:8080/graphql
-```
+# Bump versione patch + release
 ./make.sh release LEVEL=patch
+
+# Docker quick path
+./make.sh docker-build && ./make.sh docker-run
+./make.sh docker-test
 ```
 
 ### Logging locale
 
-Lo script crea (se non esiste) la cartella `backend/logs/` e scrive:
+La cartella `backend/logs/` contiene `server.log` se avvii in background:
+
 ```bash
-./make.sh run-bg      # avvia e scrive su logs/server.log
-./make.sh logs        # tail -f del file
-I log non sono versionati (ignorati in `.gitignore`). In futuro potremo introdurre structlog / formati JSON.
+./make.sh run-bg
+./make.sh logs
+./make.sh stop
+```
+
+I log sono ignorati da git. (Futuro: structlog JSON.)
 
 ### Versioning
+
 ```bash
 ./make.sh version-show
-```
-```bash
 ./make.sh version-bump LEVEL=patch   # oppure minor / major
+./make.sh version-verify
 ```
+
+#### Version Verify (Workflow Tag)
+
+Ogni push di un tag `vX.Y.Z` attiva il workflow GitHub Actions `Backend Version Verify` che:
+
+1. Esegue il checkout del repository.
+2. Estrae la versione dal tag (rimuovendo il prefisso `v`).
+3. Legge il campo `version` in `backend/pyproject.toml`.
+4. Fallisce se i due valori non coincidono.
+
+Uso pratico:
+
+```bash
+./make.sh release LEVEL=patch   # genera tag vX.Y.(Z+1)
+# push automatico esegue il workflow di verifica
+```
+
+Benefici: previene disallineamenti tra codice distribuito e metadati backend, riducendo sorprese in ambienti containerizzati / CI.
 
 ### Riferimento rapido target (categorie)
 
@@ -264,6 +215,7 @@ curl -s -H 'Content-Type: application/json' \
 Nessuna pubblicazione su registry esterno: pipeline repository → Render (repo sync).
 
 Note:
+
 - Packaging Python (wheel/sdist) non usato nel deploy → cartelle `egg-info` e `dist` ignorate.
 - Commit governance: conventional commits validati da commitlint (workflow `commitlint.yml`).
 - Le versioni sono mantenute in `pyproject.toml` e aggiornabili via `./make.sh version-bump`.
@@ -302,10 +254,12 @@ Il file `CHANGELOG.md` (root repo) viene aggiornato automaticamente da uno scrip
 ### Target `changelog`
 
 Genera/aggiorna la sezione `[Unreleased]` raggruppando i commit dalla **ultima tag**:
+
 ```bash
 ./make.sh changelog         # aggiorna CHANGELOG.md (se cambia non committa)
 DRY=1 ./make.sh changelog   # anteprima (stampa ma non scrive)
 ```
+
 Regole parse: `type(scope): subject` dove `type` ∈ `feat|fix|docs|chore|refactor|perf|test|build|ci`.
 Le categorie vengono mappate in sezioni: Added, Fixed, Changed, Performance, Docs, Tests, CI, Build, Chore, Other.
 
@@ -314,6 +268,7 @@ Idempotente: se una voce è già presente non viene duplicata.
 ### Integrazione con `release`
 
 Il target `release` ora effettua un ciclo completo con finalize automatico:
+
 1. `preflight` (qualità + schema-check + commitlint)
 2. Anteprima changelog (`DRY=1 ./make.sh changelog`) mostrata prima della conferma
 3. Conferma utente
@@ -323,11 +278,13 @@ Il target `release` ora effettua un ciclo completo con finalize automatico:
 7. Creazione tag `vX.Y.Z` e push (tag incluso)
 
 Esempio release minor:
+
 ```bash
 ./make.sh release LEVEL=minor
 ```
 
 Solo anteprima modifiche prima di rilasciare:
+
 ```bash
 DRY=1 ./make.sh changelog
 ```
@@ -373,5 +330,3 @@ Comandi rapidi:
 ./make.sh lint         # lint + typecheck
 ./make.sh preflight    # full quality gate
 ```
-
-

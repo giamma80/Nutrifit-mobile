@@ -1,0 +1,57 @@
+name: Backend Version Verify
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Verify pyproject version matches tag
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Extract tag version
+        id: tag
+        run: |
+          ref=${GITHUB_REF##*/}
+          echo "tag=$ref" >> $GITHUB_OUTPUT
+          echo "version=${ref#v}" >> $GITHUB_OUTPUT
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install uv
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+
+      - name: Compute backend version
+        id: backend
+        working-directory: backend
+        run: |
+          awk -F '"' '/^version[[:space:]]*=/{print "pyproject_version=" $2}' pyproject.toml >> $GITHUB_OUTPUT
+
+      - name: Show versions
+        run: |
+          echo "Tag: ${{ steps.tag.outputs.tag }}";
+          echo "Tag version: ${{ steps.tag.outputs.version }}";
+          echo "Backend pyproject: ${{ steps.backend.outputs.pyproject_version }}";
+
+      - name: Fail if mismatch
+        run: |
+          if [ "${{ steps.backend.outputs.pyproject_version }}" != "${{ steps.tag.outputs.version }}" ]; then
+            echo "Mismatch: pyproject=${{ steps.backend.outputs.pyproject_version }} tag=${{ steps.tag.outputs.version }}" >&2
+            exit 1
+          fi
+          echo "Version match OK"

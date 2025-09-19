@@ -5,9 +5,11 @@ Owner: Team Backend
 Ultimo aggiornamento: 2025-09-18
 
 ## 1. Visione
+
 Costruire una piattaforma modulare che evolve da zero backend → servizi federati scalabili, fornendo API GraphQL unificate (Apollo Federation) per mobile e futura web dashboard, con Supabase come backbone per autenticazione secondaria, storage dati (Postgres), real-time (replication listen), file storage e notifiche (edge functions) dove possibile.
 
 ## 2. Principi Architetturali
+
 -
 - Start Simple: prima milestone senza backend (mock client) → riduce time-to-first-value.
 - Leverage Managed: usare Supabase per accelerare auth secondaria, Postgres, storage, realtime channel.
@@ -64,6 +66,7 @@ Tabelle principali (Postgres):
 - `notification_log` (id, user_id, rule_id, channel, delivered_at, tapped_at)
 
 Indice raccomandati:
+
 - meal_entry: (user_id,date(created_at)) partial index, (user_id, meal_type)
 - daily_summary: (user_id,date) unique
 - ai_inference: (user_id, created_at desc)
@@ -99,7 +102,7 @@ Indice raccomandati:
 - Frequency cap enforced in `notification_log` + unique partial indexes (rule_id + timeframe) eventuali.
 
 ## 10. AI Service Dettaglio
- 
+
 - Endpoint `/analyze` (uploadId) → job asincrono (coda in memoria / Redis stream BETA, poi sostituire con più robusto).
 - GPT-4V call + parse → store ai_inference row.
 - Matching nutrienti: query su `food_item` + fallback fetch OFF (cache 24h).
@@ -109,12 +112,15 @@ Indice raccomandati:
 ## 11. Deployment & CI/CD
 
 ### GitHub Actions
+
 Workflows:
+
 - `lint-test` (PR): mypy, pytest, flake8, strawberry schema check.
 - `build-push-image` (main): build Docker, push registry (Render auto deploy).
 - `contract-check` (PR): estrazione schema federato → diff vs snapshot.
 
 ### Environments
+
 - Staging (feature validation + load light)
 - Production (scalare replica DB read se necessario)
 
@@ -129,11 +135,12 @@ Deployment Pattern: Rolling (Render) → canary 10% per ai-service prima del ful
 | subscription message latency p95 | <1s | diff produce/consume timestamp |
 
 Alerting (Prometheus rules):
+
 - Error rate logMeal >2% 5m
 - AI timeout ratio >10% 15m
 
 ## 13. Testing Strategy
- 
+
 | Livello | Strumenti | Focus |
 |---------|----------|-------|
 | Unit | pytest | matching, portion heuristics, rule engine funcs |
@@ -202,6 +209,7 @@ Alerting (Prometheus rules):
 | notification_sent | Notifica emessa |
 
 ---
+
 ### 22. Deployment Diagram (Federation)
 
 ```mermaid
