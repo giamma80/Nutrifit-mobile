@@ -109,7 +109,7 @@ Targets disponibili:
   version-show      Mostra versione corrente
   version-verify    Verifica pyproject vs tag HEAD
   version-bump      Bump versione (LEVEL=patch|minor|major)
-  release           preflight + bump + tag + push + push tag
+  release           preflight + changelog + bump + tag + push (auto include CHANGELOG)
 
   # Git helpers
   commit MSG="..."  Preflight + commit
@@ -268,12 +268,18 @@ EOF
     header "Release pipeline"
     LEVEL=${LEVEL:-patch}
     $0 preflight
-    assert_clean_worktree || true
+    # Genera changelog prima del bump (non committa ancora)
+    $0 changelog || true
     current="$(pyproject_version)"; newv="$(semver_bump "$LEVEL")"
     info "Release: $current → $newv"
   read -r -p "Procedere? [y/N] " ans; ans_lc=$(printf '%s' "$ans" | tr '[:upper:]' '[:lower:]'); { [ "$ans_lc" = "y" ] || [ "$ans_lc" = "yes" ]; } || { warn "Abort"; exit 1; }
     set_pyproject_version "$newv"
     git add "$VERSION_FILE"
+    # Se CHANGELOG è cambiato includilo
+    if ! git diff --quiet -- CHANGELOG.md 2>/dev/null; then
+      git add CHANGELOG.md
+      info "Incluso CHANGELOG aggiornato"
+    fi
     git commit -m "chore(release): bump version to $newv"
     git tag "v$newv"
     git push && git push --tags

@@ -197,3 +197,42 @@ Note:
 
 Legenda: ✅ completato base · 🟡 in progresso/parziale · ❌ non avviato.
 
+## Changelog & Release Automation
+
+Il file `CHANGELOG.md` (root repo) viene aggiornato automaticamente da uno script che raccoglie i commit in formato **Conventional Commits**.
+
+### Target `changelog`
+
+Genera/aggiorna la sezione `[Unreleased]` raggruppando i commit dalla **ultima tag**:
+```bash
+./make.sh changelog         # aggiorna CHANGELOG.md (se cambia non committa)
+DRY=1 ./make.sh changelog   # anteprima (stampa ma non scrive)
+```
+Regole parse: `type(scope): subject` dove `type` ∈ `feat|fix|docs|chore|refactor|perf|test|build|ci`.
+Le categorie vengono mappate in sezioni: Added, Fixed, Changed, Performance, Docs, Tests, CI, Build, Chore, Other.
+
+Idempotente: se una voce è già presente non viene duplicata.
+
+### Integrazione con `release`
+
+Il target `release` ora esegue automaticamente:
+1. `preflight` (qualità + schema-check + commitlint)
+2. `./make.sh changelog` (scrive eventuali nuove voci)
+3. `version bump` (commit + tag)
+4. Push + push tag
+
+Se il changelog è stato modificato, il file viene aggiunto allo stesso commit del bump versione.
+
+Esempio release minor:
+```bash
+./make.sh release LEVEL=minor
+```
+
+Se vuoi solo vedere cosa verrebbe aggiunto prima della release:
+```bash
+DRY=1 ./make.sh changelog
+```
+
+Il workflow GitHub `backend-changelog.yml` aggiorna inoltre il changelog su push a `main` se ci sono nuovi commit conventional (evita drift tra locale e remoto).
+
+
