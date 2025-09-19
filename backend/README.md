@@ -1,3 +1,54 @@
+# Backend
+
+![Build Backend](https://github.com/giamma80/Nutrifit-mobile/actions/workflows/backend-ci.yml/badge.svg)
+![Schema Status](https://img.shields.io/badge/schema-aligned-brightgreen?label=GraphQL%20SDL)
+
+## Endpoints
+
+- `GET /health`
+- `GET /version`
+- `POST /graphql`
+  - Query:
+    - `hello`
+    - `serverTime`
+    - `health`
+
+## Target principali
+
+| Categoria | Target | Descrizione |
+|-----------|--------|-------------|
+| Docker | docker-build | Build immagine locale (usa ARG VERSION) |
+| Docker | docker-run | Avvia container mappando :8080 |
+| Docker | docker-stop | Ferma container |
+| Docker | docker-logs | Log in streaming |
+| Docker | docker-restart | Restart rapido |
+| Docker | docker-shell | Shell interattiva nel container |
+| Docker | docker-test | Test integrazione (health/version + GraphQL) |
+| GraphQL | schema-export | Esporta SDL in `graphql/schema.graphql` |
+| GraphQL | schema-check | Confronta runtime vs SDL versionato |
+| Quality | test | Pytest suite |
+
+## Esempi Rapidi
+
+```bash
+./make.sh docker-build
+./make.sh docker-run
+./make.sh docker-test
+./make.sh docker-shell
+./make.sh schema-export
+./make.sh schema-check
+```
+
+## Health & GraphQL
+
+```bash
+curl localhost:8080/health
+curl -s -H 'Content-Type: application/json' -d '{"query":"{ health serverTime }"}' http://localhost:8080/graphql
+```
+
+## CI
+
+La pipeline `backend-ci` esegue: lint, type-check, test, export schema, build immagine (con ARG VERSION) e test di integrazione container.
 # Nutrifit Backend (FastAPI + Strawberry)
 
 Subgraph nutrizionale / AI minimale con gestione dipendenze tramite **uv** e deployment container-first.
@@ -11,6 +62,7 @@ Subgraph nutrizionale / AI minimale con gestione dipendenze tramite **uv** e dep
 - `POST /graphql` (via Strawberry) – Query disponibili:
   - `hello`: string di test
   - `server_time`: timestamp UTC
+  - `health`: stato (placeholder per future verifiche interne)
 
 ## Avvio locale
 
@@ -40,11 +92,13 @@ Tutte le operazioni comuni sono incapsulate in `make.sh` (funziona anche su macO
 | `preflight` | format + lint + test + commitlint (range main→HEAD) |
 | `commit MSG="..."` | Esegue preflight poi crea commit |
 | `push` | Preflight + push ramo |
-| `docker-build` | Build immagine locale dev |
+| `docker-build` | Build immagine locale dev (accetta VERSION=1.2.3) |
 | `docker-run` | Run container mappando porta 8080 |
 | `docker-stop` | Stop container dev |
 | `docker-logs` | Segui log container |
 | `docker-restart` | Stop + run |
+| `docker-shell` | Shell interattiva dentro il container (bash/sh) |
+| `docker-test` | Test integrazione (health/version + GraphQL) |
 | `version-bump LEVEL=patch` | Bump versione (patch/minor/major) + commit + tag |
 | `version-show` | Mostra versione corrente (solo stdout pulito) |
 | `version-verify` | Verifica corrispondenza pyproject vs tag HEAD |
@@ -124,7 +178,7 @@ Per bump semantico (aggiorna `pyproject.toml`, crea commit e tag):
 | Base | setup | Installa/aggiorna dipendenze |
 | Base | run / run-bg / stop / logs | Gestione server locale |
 | Qualità | format / lint / test | Code style + static analysis + tests |
-| GraphQL | schema-export / schema-check | Aggiorna e verifica SDL versionato |
+| GraphQL | schema-export / schema-check | Aggiorna e verifica SDL versionato (include campo health) |
 | Preflight | preflight | Tutte le verifiche (incluso schema) |
 | Versioning | version-show / version-verify / version-bump | Gestione versione semver |
 | Release | release | Pipeline bump + tag + push |
@@ -152,13 +206,20 @@ Oppure via cockpit:
 ./make.sh docker-build
 ./make.sh docker-run
 ./make.sh docker-logs
+./make.sh docker-test    # integrazione rapida
+./make.sh docker-shell   # entra nel container
 ```
 
-Health: `curl localhost:8080/health`
+Health: `curl localhost:8080/health`  |  GraphQL health:
+```bash
+curl -s -H 'Content-Type: application/json' \
+  -d '{"query":"{ health serverTime }"}' \
+  http://localhost:8080/graphql
+```
 
 ## Strategia Deployment (Render)
 
-1. Push su `main` → GitHub Actions (`backend-ci`) esegue lint, type-check, test e build Docker (validazione).
+1. Push su `main` → GitHub Actions (`backend-ci`) esegue lint, type-check, test, export schema e build Docker + integration test.
 2. Render rileva il cambio della directory `backend/` e ricostruisce l'immagine usando il `Dockerfile`.
 3. L'immagine avvia `uv run uvicorn app:app --host 0.0.0.0 --port 8080`.
 4. (Futuro) Aggiunta variabili d'ambiente per configurazioni (es. SUPABASE_URL, FEATURE_FLAGS, ecc.).
