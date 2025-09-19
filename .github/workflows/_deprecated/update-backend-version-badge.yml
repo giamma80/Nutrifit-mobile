@@ -1,0 +1,9 @@
+# Archived deprecated backend version badge workflow (handled in backend-ci.yml maintenance job)
+name: archived-deprecated-update-backend-version-badge
+on:
+  workflow_dispatch: {}
+jobs:
+  noop:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo 'Archived deprecated workflow. No action.'

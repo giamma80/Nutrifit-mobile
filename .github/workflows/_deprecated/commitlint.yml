@@ -1,0 +1,9 @@
+# Archived deprecated commitlint workflow (folded into backend-ci.yml commitlint job)
+name: archived-deprecated-commitlint
+on:
+  workflow_dispatch: {}
+jobs:
+  noop:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo 'Archived deprecated workflow. No action.'

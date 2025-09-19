@@ -1,0 +1,9 @@
+# Archived deprecated workflow (see backend-ci.yml preflight job)
+name: archived-deprecated-backend-preflight
+on:
+  workflow_dispatch: {}
+jobs:
+  noop:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo 'Archived deprecated workflow. No action.'
