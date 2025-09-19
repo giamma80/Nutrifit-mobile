@@ -7,13 +7,13 @@ Formato ispirato a [Keep a Changelog](https://keepachangelog.com/it-IT/1.1.0/) e
 ## [Unreleased]
 
 ### Chore
+ 
 - align backend-changelog workflow (python setup + uv install)
 - cleanup backend README and add markdownlint gate
 - fix schema badge push & pip cache; build(changelog): uniform version headers
 - normalize changelog headings + fix lint config
 
 ## [0.1.4] - 2025-09-19
-
 
 Nessuna voce ancora. Aggiungere cambiamenti sotto le categorie quando presenti:
 
