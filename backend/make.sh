@@ -106,6 +106,8 @@ Targets disponibili:
   version-bump      Bump versione (LEVEL=patch|minor|major)
   version-verify    Verifica che la versione in pyproject corrisponda al tag HEAD
   version-show      Mostra versione corrente
+  schema-export     Esporta SDL GraphQL (aggiorna file versionato)
+  schema-check      Verifica drift schema (fail se differente)
   release           preflight + version-bump + tag + push + push tag
   status            Stato (versione, git, server, docker)
   clean             Rimuovi .venv, __pycache__, pid
@@ -193,6 +195,7 @@ EOF
     $0 format
     $0 lint
     $0 test
+    $0 schema-check
     run_commitlint_range
     info "Preflight OK"
     ;;
@@ -269,6 +272,21 @@ EOF
     uv run python scripts/export_schema.py
     ;;
 
+  schema-check)
+    header "Schema drift check"
+    tmpfile="$(mktemp -t schema_tmp_XXXX).graphql"
+    uv run python scripts/export_schema.py --out "$tmpfile" >/dev/null 2>&1 || { err "Export schema fallito"; rm -f "$tmpfile"; exit 1; }
+    if ! diff -u backend/graphql/schema.graphql "$tmpfile" > /dev/null 2>&1; then
+      echo "---- SCHEMA DIFF ----"
+      diff -u backend/graphql/schema.graphql "$tmpfile" || true
+      rm -f "$tmpfile"
+      err "Schema drift rilevato: eseguire ./make.sh schema-export e committare"
+      exit 2
+    fi
+    rm -f "$tmpfile"
+    info "Schema allineato"
+    ;;
+
   status)
     header "Status"
     echo "Branch: $(git rev-parse --abbrev-ref HEAD)"
@@ -303,7 +321,7 @@ EOF
 
   *)
     # Default: mostra help
-    cat "$0" | sed -n '/Targets disponibili:/,$p' | head -n 40
+    cat "$0" | sed -n '/Targets disponibili:/,$p'
     exit 1
     ;;
 esac

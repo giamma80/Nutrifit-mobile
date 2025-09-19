@@ -45,6 +45,9 @@ Tutte le operazioni comuni sono incapsulate in `make.sh` (funziona anche su macO
 | `docker-restart` | Stop + run |
 | `version-bump LEVEL=patch` | Bump versione (patch/minor/major) + commit + tag |
 | `version-show` | Mostra versione corrente (solo stdout pulito) |
+| `version-verify` | Verifica corrispondenza pyproject vs tag HEAD |
+| `schema-export` | Esporta SDL GraphQL in `backend/graphql/schema.graphql` |
+| `schema-check` | Confronta schema generato vs file versionato (fail se differente) |
 | `release LEVEL=patch` | preflight + bump + tag + push + push tag |
 | `status` | Stato rapido (versione, server, container) |
 | `clean` | Rimuove .venv, __pycache__, pid |
@@ -95,6 +98,13 @@ Per bump semantico (aggiorna `pyproject.toml`, crea commit e tag):
 
 ## Avvio via Docker
 
+Differenza rapida:
+
+| Metodo | Comando | Caratteristiche |
+|--------|---------|-----------------|
+| Locale (uv) | `./make.sh run` / `uv run uvicorn ...` | Hot reload, dipendenze in `.venv` |
+| Docker | `./make.sh docker-run` | Ambiente isolato immagine, no auto-reload (usa rebuild) |
+
 Costruzione immagine (usa `uv` per risolvere dipendenze):
 ```bash
 docker build -t nutrifit-backend:dev backend
@@ -123,6 +133,7 @@ Note:
 - Packaging Python (wheel/sdist) non usato nel deploy → cartelle `egg-info` e `dist` ignorate.
 - Commit governance: conventional commits validati da commitlint (workflow `commitlint.yml`).
 - Le versioni sono mantenute in `pyproject.toml` e aggiornabili via `./make.sh version-bump`.
+- Il check schema drift è incluso in `preflight` (`schema-check`). Se fallisce: `./make.sh schema-export` e commit.
 
 ## Prossimi Step
 

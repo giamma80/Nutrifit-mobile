@@ -1,17 +1,29 @@
 #!/usr/bin/env python
-"""Export Strawberry GraphQL schema SDL to backend/graphql/schema.graphql.
+"""Export Strawberry GraphQL schema SDL.
 
-Assumes an `app.py` (FastAPI + Strawberry) with `schema` importable via
-`import app`. If the module has a top-level `schema` (strawberry.Schema)
-it is used; otherwise it tries `app.app.schema`.
+Default output: backend/graphql/schema.graphql
+Override path: --out <path>
+
+Assumes `app.py` exposes either `schema` (strawberry.Schema) or `app.schema`.
+Exit codes:
+ 0 success
+ 1 import failure
+ 2 schema attribute not found
+ 3 unexpected error
 """
 from __future__ import annotations
 import sys
 from pathlib import Path
+import argparse
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-OUT_PATH = BASE_DIR / "graphql" / "schema.graphql"
-print(f"[DEBUG] Export base dir: {BASE_DIR}")
+DEFAULT_OUT = BASE_DIR / "graphql" / "schema.graphql"
+
+parser = argparse.ArgumentParser(add_help=False)
+parser.add_argument("--out", dest="out", default=str(DEFAULT_OUT))
+parser.add_argument("-h", "--help", action="help")
+args = parser.parse_args()
+OUT_PATH = Path(args.out).resolve()
 OUT_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 try:
@@ -32,14 +44,13 @@ try:
     try:
         sdl = schema.as_str()
     except Exception:
-        from strawberry.printer import print_schema
+        try:
+            from strawberry.printer import print_schema  # type: ignore
+        except Exception:
+            raise
         sdl = print_schema(schema)
-    print(f"[DEBUG] SDL size: {len(sdl)} chars")
-    with open(OUT_PATH, 'w', encoding='utf-8') as f:
-        f.write(sdl)
-        f.flush()
-        os_path = str(OUT_PATH)
-    print(f"[INFO] Wrote SDL → {OUT_PATH} (exists={OUT_PATH.exists()})")
+    OUT_PATH.write_text(sdl, encoding="utf-8")
+    print(f"[INFO] schema SDL written to {OUT_PATH}")
 except ModuleNotFoundError as e:
     print(f"[ERROR] Cannot import app module: {e}", file=sys.stderr)
     sys.exit(1)

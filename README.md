@@ -12,6 +12,7 @@
 <img src="https://img.shields.io/badge/graphql-modular-purple" alt="GraphQL" />
 <img src="https://img.shields.io/badge/ai-food%20vision-orange" alt="AI" />
 <img src="https://img.shields.io/badge/license-TBD-lightgrey" alt="License" />
+ <img src="https://img.shields.io/badge/backend_version-loading-grey" alt="Backend Version" />
 <a href="https://github.com/giamma80/Nutrifit-mobile/actions/workflows/ci.yml"><img src="https://github.com/giamma80/Nutrifit-mobile/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
 </p>
 
@@ -126,6 +127,12 @@ docker run -p 8080:8080 nutrifit-backend:dev
 ```
 Endpoints: `GET /health`, `GET /version`, `POST /graphql` (query demo `hello`, `server_time`).
 
+Differenza rapida ambiente:
+| Ambiente | Comando principale | Reload automatico | Isolamento | Uso tipico |
+|----------|-------------------|-------------------|------------|-----------|
+| Locale (uv) | `./make.sh run` | Sì (`--reload`) | Virtual env | Dev iterativo |
+| Docker | `./make.sh docker-run` | No (ricostruire) | Immagine | Parità prod / test container |
+
 Pipeline Deploy: push -> GitHub Action (`backend-ci`) valida (lint, type-check, test, docker build) -> Render ricostruisce immagine dal `backend/Dockerfile` e avvia `uvicorn`.
 
 #### Log locale backend
@@ -193,6 +200,15 @@ Quick check versione backend da root (senza entrare in `backend/`):
 ```bash
 cd backend && ./make.sh version-show
 ```
+Altri comandi utili backend:
+```bash
+./make.sh version-verify   # controlla match tag HEAD vs pyproject
+./make.sh schema-export    # genera/aggiorna SDL GraphQL
+./make.sh schema-check     # verifica che lo schema versionato sia aggiornato
+```
+
+Il badge `backend_version` sopra viene aggiornato automaticamente dal workflow
+`update-backend-version-badge.yml` quando cambia `backend/pyproject.toml`.
 
 ## 📝 Licenza
 Da definire. (Per ora nessuna licenza pubblicata; evitare uso in produzione esterna.)
