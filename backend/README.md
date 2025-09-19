@@ -2,6 +2,7 @@
 
 ![Build Backend](https://github.com/giamma80/Nutrifit-mobile/actions/workflows/backend-ci.yml/badge.svg)
 ![Schema Status](https://img.shields.io/badge/schema-aligned-brightgreen?label=GraphQL%20SDL)
+![Release](https://github.com/giamma80/Nutrifit-mobile/actions/workflows/release.yml/badge.svg)
 
 ## Endpoints
 
@@ -155,6 +156,8 @@ Uso pratico:
 ```
 
 Benefici: previene disallineamenti tra codice distribuito e metadati backend, riducendo sorprese in ambienti containerizzati / CI.
+
+> Nota: il workflow GitHub Release richiede `permissions: contents: write`; è stato aggiunto per evitare l'errore 403 "Resource not accessible by integration".
 
 ### Riferimento rapido target (categorie)
 
