@@ -4,85 +4,42 @@ Tutte le modifiche rilevanti a questo progetto saranno documentate in questo fil
 
 Formato ispirato a [Keep a Changelog](https://keepachangelog.com/it-IT/1.1.0/) e SemVer (fase pre-1.0: API instabili).
 
-## [0.1.0] - 2025-09-18
-
-### Added
-
-- Documentazione architettura mobile (`docs/mobile_architecture_plan.md`).
-- Documentazione architettura backend (`docs/backend_architecture_plan.md`).
-- Guida nutrizione spostata in `docs/nutrifit_nutrition_guide.md` con pipeline AI, dashboard UX, notifiche.
-- Schema GraphQL nutrizione esteso (AIInferenceItem, delta subscription, range summary).
-- Servizio fake `food_recognition_service.dart`.
-- Prompt AI vision + README pipeline AI (`docs/ai_food_recognition_prompt.md`, `docs/ai_food_pipeline_README.md`).
-- README ristrutturato con diagramma, feature matrix e indice.
-- CHANGELOG iniziale.
-
-### Removed
-
-- Vecchio file root `nutrifit_nutrition_guide.md` (stub eliminato).
-
-### Internal / Docs
-
-- Roadmap mobile (M0–M9) e backend (B0–B9).
-- TODO operativi nelle sezioni AI e notifiche.
-
-## [0.1.2] - 2025-09-19
-
-### Added
-
-- Badge pipeline backend (`backend-ci`) nel README backend.
-- Badge stato schema GraphQL (placeholder aligned) nel README backend.
-- Target `docker-test` per test integrazione container.
-- Target `docker-shell` per debug interattivo container.
-- Campo GraphQL `health` + test unit dedicato.
-
-### Changed
-
-- README backend aggiornato con sezione cockpit estesa, esempi e differenze run locale vs Docker.
-- Dockerfile parametrizzato con `ARG VERSION` propagato a `/version`.
-
-### Chore
-
-- Consolidata toolchain schema (`schema-export`, `schema-check`) + integrazione in CI.
-- Script esportazione schema fix path `sys.path`.
-- Introduzione script integrazione `scripts/integration_test.sh` eseguito in CI.
-
-### Docs
-
-- Migliorata documentazione comandi versioning (`version-show`, `version-bump`).
-- Aggiunta descrizione flusso CI e sezione Health & GraphQL.
-
 ## [Unreleased]
 
-### Fixed
+Nessuna voce ancora. Aggiungere cambiamenti sotto le categorie quando presenti:
 
-- correct toml escaping for excludes
-
-### Docs
-
-- add Makefile proxy and junior-friendly usage examples
-- add build + schema badges and update changelog
-- add changelog section; chore(make): integrate changelog into release
-- add preflight summary
-- add preflight summary part 3
-- add version-show target + shell compat notes; chore(make): add version-show
-- finalize 0.1.2 section and markdownlint fixes
-
-### Chore
-
-- add changelog generator + workflow + schema status badge
-- add schema-check target and integrate into preflight; docs: clarify local vs docker run and schema drift
-- add schema-export target, align version, seed schema SDL
-- exclude .venv,dist,build from mypy/flake8/black
-- finalize support + auto GitHub release workflow
-- improved help output and add roadmap & progress section
+### Added / Changed / Fixed / Docs / Chore
 
 ## [0.1.3] - 2025-09-19
 
-### Planned
+### Changes 0.1.3
 
-- Workflow CI (lint, test, schema diff).
-- Implementazione meal queue offline.
-- Adapter OpenFoodFacts + caching.
-- Subscription real-time integration effettiva.
+Added: Changelog automation (script + workflow) e badge schema status; target `schema-export`, `schema-check`, integrazione in preflight; help esteso cockpit (version-show, roadmap & progress section); badge build + schema in README backend; campo GraphQL `health` + test.
 
+Docs: Esempi junior-friendly Makefile proxy; sezione changelog + integrazione release nel cockpit; note compatibilità shell macOS (bash 3.2) in `make.sh`; aggiornata descrizione sezione Health & GraphQL.
+
+Fixed: Escaping corretto `pyproject.toml` per excludes.
+
+Chore: Consolidata toolchain schema (export/check) + integrazione CI; script export schema path fix `sys.path`; script integrazione `scripts/integration_test.sh`; esclusi `.venv`, `dist`, `build` da mypy/flake8/black`; finalizzata sezione 0.1.2 e markdownlint fixes iterativi.
+
+## [0.1.2] - 2025-09-19
+
+### Changes 0.1.2
+
+Added: Badge pipeline backend (`backend-ci`) nel README backend; badge stato schema GraphQL (placeholder aligned) nel README backend; target `docker-test` per test integrazione container; target `docker-shell` per debug interattivo container; campo GraphQL `health` + test unit dedicato.
+
+Changed: README backend con cockpit esteso, esempi e differenze run locale vs Docker; Dockerfile parametrizzato con `ARG VERSION` propagato a `/version`.
+
+Chore: Consolidata toolchain schema (`schema-export`, `schema-check`) + integrazione in CI; script esportazione schema fix path `sys.path`; introduzione script integrazione `scripts/integration_test.sh` eseguito in CI.
+
+Docs: Migliorata documentazione comandi versioning (`version-show`, `version-bump`); aggiunta descrizione flusso CI e sezione Health & GraphQL.
+
+## [0.1.0] - 2025-09-18
+
+### Changes 0.1.0
+
+Added: Documentazione architettura mobile (`docs/mobile_architecture_plan.md`); documentazione architettura backend (`docs/backend_architecture_plan.md`); guida nutrizione spostata in `docs/nutrifit_nutrition_guide.md` con pipeline AI, dashboard UX, notifiche; schema GraphQL nutrizione esteso (AIInferenceItem, delta subscription, range summary); servizio fake `food_recognition_service.dart`; prompt AI vision + README pipeline AI (`docs/ai_food_recognition_prompt.md`, `docs/ai_food_pipeline_README.md`); README ristrutturato con diagramma, feature matrix e indice; CHANGELOG iniziale.
+
+Removed: Vecchio file root `nutrifit_nutrition_guide.md` (stub eliminato).
+
+Docs: Roadmap mobile (M0–M9) e backend (B0–B9); TODO operativi nelle sezioni AI e notifiche.

@@ -1,5 +1,7 @@
-# Markdownlint configuration
+# Markdownlint configuration (core rules). For extended rule disabling use .markdownlint-cli2.jsonc
 default: true
 MD013: false   # line length
 MD033: false   # inline HTML allowed (badge, centering)
 MD041: false   # first line heading not required (ASCII art allowed)
+
+# (Directory ignore gestite via .markdownlint-cli2.jsonc)

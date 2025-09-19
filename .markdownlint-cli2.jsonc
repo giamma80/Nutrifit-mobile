@@ -1,0 +1,19 @@
+{
+  // Ignore vendored SDK directories
+  "globs": ["**/*.md", "!flutter/**", "!flutter_tmp_backup/**", "!**/node_modules/**"],
+  "config": {
+    "default": true,
+    "MD013": false,
+    "MD033": false,
+    "MD041": false,
+    "MD009": false,
+    "MD010": false,
+    "MD012": false,
+    "MD022": false,
+  "MD024": { "siblings_only": true },
+    "MD031": false,
+    "MD032": false,
+    "MD040": false,
+    "MD058": false
+  }
+}

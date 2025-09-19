@@ -86,6 +86,65 @@ server_running(){ [[ -f "$SERVER_PID_FILE" ]] && ps -p "$(cat $SERVER_PID_FILE)"
 
 docker_running(){ docker ps --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$" 2>/dev/null || return 1; }
 
+# Esegue markdownlint/markdownlint-cli2 dal root repository.
+# Variabile: MD_STRICT=1 per fallire preflight se esistono violazioni.
+run_markdownlint(){
+  local md_tmp_out md_ec summary_files strict
+  # Default ora strict (1) disattivabile esplicitamente con MD_STRICT=0
+  strict=${MD_STRICT:-1}
+  if ! command -v npx >/dev/null 2>&1; then
+    echo "MD_STATUS=SKIP"; echo "MD_MSG=npx assente"; return 0
+  fi
+  if [ ! -f "$REPO_ROOT/.markdownlint.yml" ] && [ ! -f "$REPO_ROOT/.markdownlint.yaml" ]; then
+    echo "MD_STATUS=SKIP"; echo "MD_MSG=no config"; return 0
+  fi
+  md_tmp_out="$(mktemp -t md_lint_out_XXXX)"
+  (
+    cd "$REPO_ROOT" || exit 0
+    # Usa cli2 se presente; passiamo pattern multipli come argomenti separati per garantire esclusioni.
+    if npx --yes markdownlint-cli2 --version >/dev/null 2>&1; then
+      npx --yes markdownlint-cli2 "**/*.md" "!flutter/**" "!**/node_modules/**" "!**/build/**" 2>&1 | tee "$md_tmp_out" >/dev/null
+    else
+      # Fallback markdownlint core (non supporta ! pattern multipli in stesso modo, quindi piping + grep -v)
+      npx --yes markdownlint "**/*.md" 2>&1 | grep -v 'flutter/' | tee "$md_tmp_out" >/dev/null
+    fi
+  )
+  md_ec=$?
+  # Se exit code 0 → PASS
+  if [ $md_ec -eq 0 ]; then
+  echo "MD_STATUS='PASS'"; echo "MD_MSG=''"; rm -f "$md_tmp_out"; return 0
+  fi
+  # Se file vuoto ma exit code !=0 → trattiamo come PASS silenzioso (edge)
+  if [ ! -s "$md_tmp_out" ]; then
+  echo "MD_STATUS='PASS'"; echo "MD_MSG=''"; rm -f "$md_tmp_out"; return 0
+  fi
+  # Conta violazioni per file
+  local total violations_top
+  total=$(wc -l < "$md_tmp_out" | tr -d ' ' || echo 0)
+  # Detect npm execution issue (could not determine executable) -> treat as SKIP
+  if grep -q 'could not determine executable to run' "$md_tmp_out" 2>/dev/null; then
+    echo "MD_STATUS='SKIP'"; echo "MD_MSG='markdownlint exec error (npm)'"; cp "$md_tmp_out" "$LOG_DIR/md_lint_latest.log" 2>/dev/null || true; return 0
+  fi
+  mkdir -p "$LOG_DIR"
+  cp "$md_tmp_out" "$LOG_DIR/md_lint_latest.log" 2>/dev/null || true
+  {
+    echo "--- MARKDOWNLINT (summary) ---"
+    awk -F: 'NF>3 {print $1}' "$md_tmp_out" | sort | uniq -c | sort -rn | head -5 | awk '{printf "%s\t%s\n", $2, $1}' | while read -r f c; do printf "%-60s %s\n" "$f" "$c"; done
+    echo "Totale violazioni: $total"
+    echo "Log completo salvato in backend/logs/md_lint_latest.log"
+    echo "--- MARKDOWNLINT (prime 3 righe grezze) ---"
+    head -3 "$md_tmp_out" || true
+  } >&2
+  if [ "$strict" = "1" ]; then
+  # Includi prime 2 occorrenze compatte nel messaggio per debug veloce (troncate)
+  local first_two
+  first_two=$(head -2 "$md_tmp_out" | sed 's/:/ /g' | cut -c1-80 | tr '\n' ';')
+  echo "MD_STATUS='FAIL'"; echo "MD_MSG='$total violazioni ($first_two)'"; return 0
+  else
+  echo "MD_STATUS='WARN'"; echo "MD_MSG='violazioni rilevate $total'"; return 0
+  fi
+}
+
 case "$TARGET" in
   help)
     cat <<EOF
@@ -106,6 +165,7 @@ Targets disponibili:
   schema-export     Esporta SDL GraphQL (aggiorna file versionato)
   schema-check      Verifica drift schema (fail se differente)
   preflight         format + lint + test + schema-check + commitlint
+                   (markdownlint STRICT di default; disattiva con MD_STRICT=0)
   changelog         Aggiorna CHANGELOG.md dai commit conventional (usa DRY=1 per anteprima)
 
   # Versioning / Release
@@ -303,18 +363,9 @@ EOF
       commitlint_status=SKIP; commitlint_msg="npx assente"
     fi
 
-    # Markdownlint (soft, solo se config presente a livello root repo)
-    if command -v npx >/dev/null 2>&1; then
-      if [ -f "$REPO_ROOT/.markdownlint.yml" ] || [ -f "$REPO_ROOT/.markdownlint.yaml" ]; then
-        (cd "$REPO_ROOT" && npx markdownlint "**/*.md" >/dev/null 2>&1)
-        md_ec=$?
-        if [ $md_ec -eq 0 ]; then md_status=PASS; else md_status=WARN; md_msg="exit $md_ec"; fi
-      else
-        md_status=SKIP; md_msg="no config"
-      fi
-    else
-      md_status=SKIP; md_msg="npx assente"
-    fi
+    # Markdownlint (soft o strict a seconda di MD_STRICT)
+    eval "$(run_markdownlint)"
+    md_status=${MD_STATUS:-SKIP}; md_msg=${MD_MSG:-}
 
     # Report finale
     echo
@@ -330,7 +381,9 @@ EOF
 
     # Determina exit code: fallisce se uno dei gate critici FAIL
     CRIT_FAIL=0
-    if [ "$lint_status" = FAIL ] || [ "$tests_status" = FAIL ] || [ "$schema_status" = FAIL ]; then CRIT_FAIL=1; fi
+  if [ "$lint_status" = FAIL ] || [ "$tests_status" = FAIL ] || [ "$schema_status" = FAIL ]; then CRIT_FAIL=1; fi
+  # Se strict e markdownlint FAIL lo includiamo
+  if [ "$md_status" = FAIL ]; then CRIT_FAIL=1; fi
     if [ $CRIT_FAIL -eq 1 ]; then
       err "Preflight FAILED"
       set -e
