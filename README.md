@@ -18,7 +18,7 @@
 <a href="https://github.com/giamma80/Nutrifit-mobile/actions/workflows/mobile-ci.yml"><img src="https://img.shields.io/badge/mobile_ci-pending-lightgrey" alt="Mobile CI (stub)" /></a>
 </p>
 
-> Repository mobile Flutter + documentazione piattaforma (backend federato + AI pipeline) per l'ecosistema **Nutrifit**.
+> **Nutrifit** è una piattaforma end-to-end per nutrizione intelligente e fitness: app Flutter, backend GraphQL federato, pipeline AI per riconoscimento alimenti, telemetria e automazione del piano nutrizionale in un unico ecosistema coerente.
 
 ## 📚 Indice Rapido
 
@@ -386,5 +386,5 @@ Da definire. (Per ora nessuna licenza pubblicata; evitare uso in produzione este
 | Capire il dominio nutrizionale | [Guida Nutrizione](docs/nutrifit_nutrition_guide.md) |
 | Vedere pipeline AI cibo | [Pipeline AI](docs/ai_food_pipeline_README.md) |
 | Leggere roadmap mobile | [Arch Mobile](docs/mobile_architecture_plan.md) |
-| Leggere roadmap backend | [Arch Backend](docs/backend_architecture_plan.md) |
+| Leggere roadmap backend | [Arch Backend](docs/backend_architettura_plan.md) |
 | Modificare prompt GPT-4V | [Prompt AI](docs/ai_food_recognition_prompt.md) |
