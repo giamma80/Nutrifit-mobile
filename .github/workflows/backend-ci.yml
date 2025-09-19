@@ -118,7 +118,14 @@ jobs:
       - name: Version badge
         run: |
           version=$(grep -m1 '^version' backend/pyproject.toml | sed -E 's/^[^=]+= *"([0-9]+\.[0-9]+\.[0-9]+)".*/\1/')
-          sed -i "s|backend_version-[a-zA-Z0-9_.-]*-grey|backend_version-${version}-green|" README.md || true
+          sed -i "s|backend_version-[a-zA-Z0-9_.-]*-green|backend_version-${version}-green|" README.md || true
+          sed -i "s|backend_version-loading-grey|backend_version-${version}-green|" README.md || true
+      - name: Sync textual backend release line
+        run: |
+          version=$(grep -m1 '^version' backend/pyproject.toml | sed -E 's/^[^=]+= *"([0-9]+\.[0-9]+\.[0-9]+)".*/\1/')
+          if grep -q 'Release corrente backend:' README.md; then
+            sed -i "s/Release corrente backend: \`v[0-9]\+\.[0-9]\+\.[0-9]\+\`/Release corrente backend: \`v${version}\`/" README.md || true
+          fi
       - name: Commit aggregated maintenance changes
         run: |
           if git diff --quiet -- README.md CHANGELOG.md; then
@@ -128,7 +135,7 @@ jobs:
           git config user.name "github-actions"
           git config user.email "actions@users.noreply.github.com"
             
-          MSG="chore(maintenance): update changelog + badges"
+          MSG="chore(maintenance): update changelog + badges + version line"
           git add README.md CHANGELOG.md || true
           git commit -m "$MSG" || exit 0
           git push

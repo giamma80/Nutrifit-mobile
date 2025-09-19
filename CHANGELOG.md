@@ -7,21 +7,18 @@ Formato ispirato a [Keep a Changelog](https://keepachangelog.com/it-IT/1.1.0/) e
 ## [Unreleased]
 
 ### Chore
- 
 - align backend-changelog workflow (python setup + uv install)
 - cleanup backend README and add markdownlint gate
 - fix schema badge push & pip cache; build(changelog): uniform version headers
 - normalize changelog headings + fix lint config
-
-### Docs
-- explain permissions for schema status workflow
-
-### Chore
 - add backend version verify workflow
 - consolidate workflows into backend-ci + release
 - fix markdownlint issues in CHANGELOG
 - grant release workflow permissions
 - grant schema status workflow permissions
+
+### Docs
+- explain permissions for schema status workflow
 
 ## [0.1.4] - 2025-09-19
 
@@ -57,7 +54,7 @@ Docs: Migliorata documentazione comandi versioning (`version-show`, `version-bum
 
 ### Changes 0.1.0
 
-Added: Documentazione architettura mobile (`docs/mobile_architecture_plan.md`); documentazione architettura backend (`docs/backend_architecture_plan.md`); guida nutrizione spostata in `docs/nutrifit_nutrition_guide.md` con pipeline AI, dashboard UX, notifiche; schema GraphQL nutrizione esteso (AIInferenceItem, delta subscription, range summary); servizio fake `food_recognition_service.dart`; prompt AI vision + README pipeline AI (`docs/ai_food_recognition_prompt.md`, `docs/ai_food_pipeline_README.md`); README ristrutturato con diagramma, feature matrix e indice; CHANGELOG iniziale.
+Added: Documentazione architettura mobile (`docs/mobile_architecture_plan.md`); documentazione architettura backend (`docs/backend_architettura_plan.md`); guida nutrizione spostata in `docs/nutrifit_nutrition_guide.md` con pipeline AI, dashboard UX, notifiche; schema GraphQL nutrizione esteso (AIInferenceItem, delta subscription, range summary); servizio fake `food_recognition_service.dart`; prompt AI vision + README pipeline AI (`docs/ai_food_recognition_prompt.md`, `docs/ai_food_pipeline_README.md`); README ristrutturato con diagramma, feature matrix e indice; CHANGELOG iniziale.
 
 Removed: Vecchio file root `nutrifit_nutrition_guide.md` (stub eliminato).
 
