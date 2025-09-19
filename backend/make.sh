@@ -41,6 +41,12 @@ assert_clean_worktree(){
 
 pyproject_version(){ grep '^version\s*=\s*"' "$VERSION_FILE" | head -1 | sed -E 's/version\s*=\s*"([^"]+)"/\1/'; }
 
+debug_path(){
+  echo "[DEBUG] SCRIPT_DIR=$SCRIPT_DIR" >&2
+  echo "[DEBUG] VERSION_FILE=$VERSION_FILE" >&2
+  [ -f "$VERSION_FILE" ] || echo "[DEBUG] Version file non trovato" >&2
+}
+
 set_pyproject_version(){
   local newv="$1"
   local vf="$VERSION_FILE"
@@ -213,6 +219,7 @@ EOF
   version-bump)
     header "Version bump"
     LEVEL=${LEVEL:-patch}
+    debug_path
     assert_clean_worktree
     current="$(pyproject_version)"; newv="$(semver_bump "$LEVEL")"
     info "Versione corrente: $current → nuova: $newv"
