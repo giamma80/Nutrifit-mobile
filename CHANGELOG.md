@@ -20,6 +20,18 @@ Formato ispirato a [Keep a Changelog](https://keepachangelog.com/it-IT/1.1.0/) e
 ### Docs
 - explain permissions for schema status workflow
 
+### Docs
+- explain permissions for schema status workflow
+
+### Chore
+- add backend version verify workflow
+- consolidate workflows into backend-ci + release
+- fix markdownlint issues in CHANGELOG
+- grant release workflow permissions
+- grant schema status workflow permissions
+- restore consolidated workflows + mobile stub + maintenance sync steps
+- update changelog + badges
+
 ## [0.1.4] - 2025-09-19
 
 Nessuna voce ancora. Aggiungere cambiamenti sotto le categorie quando presenti:
