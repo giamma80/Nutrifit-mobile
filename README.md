@@ -120,6 +120,13 @@ cd backend
 ./make.sh setup
 ./make.sh run
 ```
+Opzione B2 (alias Makefile — equivalente):
+```bash
+cd backend
+make setup
+make run
+make help   # mostra elenco target cockpit
+```
 Opzione C (Docker):
 ```bash
 docker build -t nutrifit-backend:dev backend
@@ -205,6 +212,13 @@ Altri comandi utili backend:
 ./make.sh version-verify   # controlla match tag HEAD vs pyproject
 ./make.sh schema-export    # genera/aggiorna SDL GraphQL
 ./make.sh schema-check     # verifica che lo schema versionato sia aggiornato
+```
+Suggerimento: per utenti junior basta ricordare la sequenza:
+```bash
+cd backend
+make setup   # o ./make.sh setup
+make run     # avvia server
+make preflight   # prima di fare commit/push
 ```
 
 Il badge `backend_version` sopra viene aggiornato automaticamente dal workflow

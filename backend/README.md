@@ -24,6 +24,8 @@ uv run uvicorn app:app --reload --port 8080
 
 ### Cockpit (script `make.sh`)
 
+> Per comodità è presente anche un `Makefile`: puoi usare **sia** `./make.sh target` **sia** `make target` (dentro la cartella `backend/`). Se lanci solo `make` senza parametri ottieni lo stesso help.
+
 Tutte le operazioni comuni sono incapsulate in `make.sh` (funziona anche su macOS/Linux):
 
 | Target | Descrizione |
@@ -57,6 +59,25 @@ Tutte le operazioni comuni sono incapsulate in `make.sh` (funziona anche su macO
 
 Esempi:
 ```bash
+# Primo setup (crea venv e installa dipendenze)
+./make.sh setup
+
+# Avvio rapido server (locale hot reload)
+./make.sh run
+
+# In alternativa con Makefile
+make setup
+make run
+
+# Lint, test e controllo schema prima di un commit
+./make.sh preflight
+
+# Commit con messaggio conventional commit
+./make.sh commit MSG="feat(schema): add meal type"
+
+# Bump versione patch + tag
+./make.sh version-bump LEVEL=patch
+
 ./make.sh setup
 ./make.sh run-bg
 ./make.sh status
@@ -95,6 +116,21 @@ Per bump semantico (aggiorna `pyproject.toml`, crea commit e tag):
 ```bash
 ./make.sh version-bump LEVEL=patch   # oppure minor / major
 ```
+
+### Riferimento rapido target (categorie)
+
+| Categoria | Target | Scopo sintetico |
+|-----------|--------|-----------------|
+| Base | setup | Installa/aggiorna dipendenze |
+| Base | run / run-bg / stop / logs | Gestione server locale |
+| Qualità | format / lint / test | Code style + static analysis + tests |
+| GraphQL | schema-export / schema-check | Aggiorna e verifica SDL versionato |
+| Preflight | preflight | Tutte le verifiche (incluso schema) |
+| Versioning | version-show / version-verify / version-bump | Gestione versione semver |
+| Release | release | Pipeline bump + tag + push |
+| Git | commit / push | Helper con preflight automatico |
+| Docker | docker-build / docker-run / docker-logs / docker-stop | Container locale |
+| Utility | status / clean / clean-dist / all | Info e pulizia |
 
 ## Avvio via Docker
 
