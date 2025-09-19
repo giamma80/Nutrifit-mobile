@@ -11,6 +11,9 @@
 *.egg-info/
 **/*.egg-info/
 
+# Backend build artifacts (Python package dist) - non versionati
+backend/dist/
+
 
 
 # Flutter repo-specific
