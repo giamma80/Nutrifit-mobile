@@ -30,13 +30,16 @@ strict = true
 warn_unused_configs = true
 disallow_untyped_defs = true
 ignore_missing_imports = true
+exclude = ["^\.venv/", "^dist/", "^build/"]
 
 [tool.black]
 line-length = 100
+exclude = "(\\.venv/|dist/|build/)"
 
 [tool.flake8]
 max-line-length = 100
 extend-ignore = ["E203", "W503"]
+exclude = .venv,dist,build
 
 [tool.pytest.ini_options]
 addopts = "-q"
