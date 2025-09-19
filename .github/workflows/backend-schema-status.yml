@@ -1,57 +1,8 @@
-name: backend-schema-status
-
+name: deprecated-backend-schema-status
 on:
-  push:
-    paths:
-      - 'backend/**'
   workflow_dispatch: {}
-
 jobs:
-  schema-status:
+  noop:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write  # Necessario per poter eseguire git push (aggiornamento badge README)
-    # NOTE:
-    #  - Senza 'contents: write' il push fallisce con 403 (github-actions[bot] denied)
-    #  - In alternativa al push diretto si può usare un approccio "PR" con peter-evans/create-pull-request
-    #    utile se si vuole revisione umana dei cambi README.
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          persist-credentials: true  # Usa GITHUB_TOKEN per push
-      - name: Install uv
-        run: curl -LsSf https://astral.sh/uv/install.sh | sh
-      - name: Check schema drift
-        working-directory: backend
-        env:
-          NO_COLOR: "1"
-        run: |
-          ./make.sh setup
-          if ./make.sh schema-check; then
-            echo "SCHEMA_STATUS=synced" >> $GITHUB_ENV
-          else
-            echo "SCHEMA_STATUS=drift" >> $GITHUB_ENV
-          fi
-      - name: Update README badge (root)
-        if: always()
-        run: |
-          STATUS="$SCHEMA_STATUS"
-          COLOR=lightgrey
-          if [ "$STATUS" = "synced" ]; then COLOR=brightgreen; else COLOR=orange; fi
-          sed -i "s|schema_status-[a-zA-Z0-9_-]*-[a-zA-Z]*|schema_status-${STATUS}-${COLOR}|" README.md || true
-          if git diff --quiet -- README.md; then
-            echo "No README change"
-          else
-            git config user.name "github-actions"
-            git config user.email "actions@users.noreply.github.com"
-            git add README.md
-            git commit -m "chore(ci): update schema status badge -> $STATUS" || echo "Commit skipped"
-            # Gestione detached HEAD: push esplicito su ref originale
-            if git symbolic-ref -q HEAD >/dev/null; then
-              git push
-            else
-              echo "Detached HEAD: pushing to origin ${GITHUB_REF_NAME}"
-              git push origin HEAD:${GITHUB_REF_NAME}
-            fi
-          fi
+      - run: echo 'Deprecated workflow. Use backend-ci.yml maintenance job instead.'
