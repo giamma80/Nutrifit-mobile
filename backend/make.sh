@@ -16,12 +16,22 @@ VERSION_FILE="pyproject.toml"
 LOG_DIR="logs"
 SERVER_LOG_FILE="${LOG_DIR}/server.log"
 
-RED="\033[31m"; GREEN="\033[32m"; YELLOW="\033[33m"; BLUE="\033[34m"; NC="\033[0m"
+# Colori (disattivabili con NO_COLOR=1)
+if [ "${NO_COLOR:-0}" = "1" ] || [ -n "${CI:-}" ]; then
+  C_RESET=""; C_INFO=""; C_WARN=""; C_ERR=""; C_HEAD=""
+else
+  # Usare printf per evitare interpretazioni strane su bash 3.2
+  C_RESET='\033[0m'
+  C_INFO='\033[36m'    # Cyan
+  C_WARN='\033[33m'    # Giallo
+  C_ERR='\033[31m'     # Rosso
+  C_HEAD='\033[35;1m'  # Magenta bold
+fi
 
-header(){ echo -e "\n${BLUE}=== $1 ===${NC}"; }
-info(){ echo -e "${GREEN}[INFO]${NC} $1"; }
-warn(){ echo -e "${YELLOW}[WARN]${NC} $1"; }
-err(){ echo -e "${RED}[ERR ]${NC} $1" >&2; }
+header(){ printf "\n${C_HEAD}=== %s ===${C_RESET}\n" "$1"; }
+info(){ printf "${C_INFO}[INFO] %s${C_RESET}\n" "$1"; }
+warn(){ printf "${C_WARN}[WARN] %s${C_RESET}\n" "$1"; }
+err(){ printf "${C_ERR}[ERR ] %s${C_RESET}\n" "$1" >&2; }
 
 assert_clean_worktree(){
   if ! git diff --quiet --ignore-submodules --cached; then err "Index con modifiche staged"; exit 1; fi
@@ -30,20 +40,32 @@ assert_clean_worktree(){
 
 pyproject_version(){ grep '^version\s*=\s*"' "$VERSION_FILE" | head -1 | sed -E 's/version\s*=\s*"([^"]+)"/\1/'; }
 
-set_pyproject_version(){ local newv="$1"; 
-  # Sostituisce la prima occorrenza di version = "..."
-  sed -i.bak -E "0,/version\s*=\s*\"[^"]+\"/s//version = \"${newv}\"/" "$VERSION_FILE" && rm -f "${VERSION_FILE}.bak";
+set_pyproject_version(){
+  local newv="$1"
+  awk -v v="$newv" 'BEGIN{done=0} {
+    if(!done && $0 ~ /^version[[:space:]]*=/){
+      sub(/version[[:space:]]*=.*/,"version = \"" v "\""); done=1
+    }
+    print
+  }' "$VERSION_FILE" > "${VERSION_FILE}.tmp" && mv "${VERSION_FILE}.tmp" "$VERSION_FILE"
 }
 
 semver_bump(){
-  local current; current="$(pyproject_version)" || { err "Versione non trovata"; exit 1; }
-  IFS='.' read -r MA MI PA <<<"$current" || true
-  case "$1" in
-    major) ((MA++)); MI=0; PA=0;;
-    minor) ((MI++)); PA=0;;
-    patch) ((PA++)); ;;
-    *) err "Livello bump non valido (usa patch|minor|major)"; exit 1;;
-  esac
+  local current MA MI PA level
+  current="$(pyproject_version)" || { err "Versione non trovata"; exit 1; }
+  level="$1"
+  # Split manuale (compat bash 3.2)
+  local OIFS="$IFS"; IFS='.'; set -- $current; IFS="$OIFS"
+  MA="$1"; MI="$2"; PA="$3"
+  if [ "$level" = "major" ]; then
+    MA=`expr "$MA" + 1`; MI=0; PA=0
+  elif [ "$level" = "minor" ]; then
+    MI=`expr "$MI" + 1`; PA=0
+  elif [ "$level" = "patch" ]; then
+    PA=`expr "$PA" + 1`
+  else
+  err "Livello bump non valido: usa patch|minor|major"; exit 1
+  fi
   echo "${MA}.${MI}.${PA}"
 }
 
