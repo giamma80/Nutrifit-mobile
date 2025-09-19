@@ -60,3 +60,7 @@ jobs:
         with:
           name: backend-schema
           path: backend/schema_export.graphql
+
+      - name: Docker Build (validation)
+        run: |
+          docker build -t nutrifit-backend:ci backend

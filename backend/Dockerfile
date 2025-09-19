@@ -1,0 +1,46 @@
+###############################################
+# NutriFit Backend (FastAPI + Strawberry)
+# Build con uv (dipendenze + runtime)       
+###############################################
+
+FROM python:3.11-slim AS base
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    UV_LINK_MODE=copy \
+    PIP_NO_CACHE_DIR=1
+
+# Dipendenze di sistema minime (aggiungere solo se servono build wheels native)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    build-essential \
+  && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Install uv (script ufficiale)
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh \
+  && echo "PATH=$HOME/.local/bin:$PATH" >> /etc/profile
+ENV PATH="/root/.local/bin:${PATH}"
+
+# Copia manifest per caching layer dipendenze
+COPY pyproject.toml uv.lock ./
+
+# Sync dipendenze (solo prod per immagine runtime finale)
+RUN uv sync --no-dev --all-extras
+
+# Copia sorgenti
+COPY app.py ./
+COPY openfoodfacts ./openfoodfacts
+COPY rules ./rules
+
+# Utente non-root (semplice)
+RUN useradd -u 1000 appuser && chown -R appuser /app
+USER appuser
+
+EXPOSE 8080
+
+HEALTHCHECK --interval=30s --timeout=5s --retries=3 CMD curl -fsS http://localhost:8080/health || exit 1
+
+# Avvio
+CMD ["uv", "run", "uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8080"]

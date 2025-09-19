@@ -1,6 +1,6 @@
-# Nutrifit Backend Subgraph (Minimal)
+# Nutrifit Backend (FastAPI + Strawberry)
 
-Obiettivo: fornire un punto di partenza per il subgraph nutrizionale / AI.
+Subgraph nutrizionale / AI minimale con gestione dipendenze tramite **uv** e deployment container-first.
 
 ## Endpoints
 
@@ -12,27 +12,32 @@ Obiettivo: fornire un punto di partenza per il subgraph nutrizionale / AI.
 
 ## Avvio locale
 
-### Setup con uv (consigliato)
-
-Prerequisiti: Python 3.11 installato, [uv](https://github.com/astral-sh/uv) disponibile nel PATH.
+Prerequisiti: Python 3.11, [uv](https://github.com/astral-sh/uv) installato.
 
 ```bash
-# Creazione/uso ambiente virtuale isolato (uv lo gestisce automaticamente)
 cd backend
 uv sync --all-extras --dev
-
-# Avvio server (hot reload)
 uv run uvicorn app:app --reload --port 8080
 ```
 
-### Alternativa (pip)
-Se non puoi usare `uv`:
+## Avvio via Docker
+
+Costruzione immagine (usa `uv` per risolvere dipendenze):
 ```bash
-python3.11 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-uvicorn app:app --reload --port 8080
+docker build -t nutrifit-backend:dev backend
+docker run -p 8080:8080 nutrifit-backend:dev
 ```
+
+Health: `curl localhost:8080/health`
+
+## Strategia Deployment (Render)
+
+1. Push su `main` → GitHub Actions (`backend-ci`) esegue lint, type-check, test e build Docker (validazione).
+2. Render rileva il cambio della directory `backend/` e ricostruisce l'immagine usando il `Dockerfile`.
+3. L'immagine avvia `uv run uvicorn app:app --host 0.0.0.0 --port 8080`.
+4. (Futuro) Aggiunta variabili d'ambiente per configurazioni (es. SUPABASE_URL, FEATURE_FLAGS, ecc.).
+
+Nessuna pubblicazione su registry esterno: pipeline repository → Render (repo sync).
 
 ## Prossimi Step
 
@@ -40,4 +45,6 @@ uvicorn app:app --reload --port 8080
 - Implementare resolver `myNutritionPlan`
 - Aggiungere Auth (JWT / API Key dev)
 - Observability: logging strutturato + trace
-- Spostare gestione dipendenze completamente su uv lockfile (rimuovere requirements.txt dopo stabilizzazione)
+- Rule Engine runtime (valutazione condizioni + throttle)
+- Caching OpenFoodFacts (LRU + TTL)
+

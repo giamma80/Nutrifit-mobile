@@ -1,8 +1,8 @@
 import pytest
 
-from backend.rules.parser import (
-    load_rules_from_yaml_text,
-    Rule,
+from rules.parser import (
+  load_rules_from_yaml_text,
+  Rule,
 )
 
 

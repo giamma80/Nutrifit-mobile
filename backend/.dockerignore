@@ -1,0 +1,19 @@
+# Esclusioni standard
+.git
+.github
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+*.so
+*.dist-info
+build
+dist
+tests
+*.log
+*.sqlite3
+venv
+.venv
+node_modules
+Dockerfile*
+README.md
