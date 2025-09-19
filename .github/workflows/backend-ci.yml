@@ -4,6 +4,7 @@ on:
   push:
     paths:
       - 'backend/**'
+      - 'CHANGELOG.md'
       - '.github/workflows/backend-ci.yml'
   pull_request:
     paths:
@@ -11,75 +12,142 @@ on:
       - '.github/workflows/backend-ci.yml'
 
 jobs:
+  preflight:
+    name: Preflight (aggregate quick gate)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Install uv
+        run: curl -LsSf https://astral.sh/uv/install.sh | sh
+      - name: Run preflight script
+        working-directory: backend
+        env:
+          NO_COLOR: "1"
+        run: |
+          ./make.sh setup
+          ./make.sh preflight
+
   build-test:
+    name: Backend build & tests
+    needs: preflight
     runs-on: ubuntu-latest
     permissions:
       contents: read
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
       - name: Ensure pip cache dir exists (avoid warning)
-        run: |
-          mkdir -p /home/runner/.cache/pip
-
+        run: mkdir -p /home/runner/.cache/pip
       - name: Setup Python 3.11
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
           cache: 'pip'
-
       - name: Install uv
         run: |
           curl -LsSf https://astral.sh/uv/install.sh | sh
           echo "${HOME}/.local/bin" >> $GITHUB_PATH
-
       - name: Sync deps (prod + dev)
         working-directory: backend
-        run: |
-          uv sync --all-extras --dev
-
+        run: uv sync --all-extras --dev
       - name: Lint (flake8)
         working-directory: backend
-        run: |
-          uv run flake8 .
-
+        run: uv run flake8 .
       - name: Type check (mypy)
         working-directory: backend
-        run: |
-          uv run mypy .
-
+        run: uv run mypy .
       - name: Tests (pytest)
         working-directory: backend
-        run: |
-          uv run pytest
-
+        run: uv run pytest
       - name: Strawberry Schema Export
         working-directory: backend
-        run: |
-          uv run python scripts/export_schema.py --out schema_export.graphql
-
+        run: uv run python scripts/export_schema.py --out schema_export.graphql
       - name: Upload schema artifact
         uses: actions/upload-artifact@v4
         with:
           name: backend-schema
           path: backend/schema_export.graphql
-
       - name: Docker Build (validation)
-        run: |
-          docker build --build-arg VERSION=$(grep -m1 '^version' backend/pyproject.toml | sed -E 's/^[^0-9]*([0-9]+\.[0-9]+\.[0-9]+).*/\1/') -t nutrifit-backend:ci backend
-
+        run: docker build --build-arg VERSION=$(grep -m1 '^version' backend/pyproject.toml | sed -E 's/^[^0-9]*([0-9]+\.[0-9]+\.[0-9]+).*/\1/') -t nutrifit-backend:ci backend
       - name: Run container
         run: |
           docker run -d --rm -p 8080:8080 --name nutrifit-backend-ci nutrifit-backend:ci
           sleep 3
-
       - name: Integration test (health/version/graphql)
         working-directory: backend
-        run: |
-          bash scripts/integration_test.sh
-
+        run: bash scripts/integration_test.sh
       - name: Stop container
         if: always()
+        run: docker stop nutrifit-backend-ci || true
+
+  maintenance:
+    name: Maintenance (changelog + badges)
+    needs: build-test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install uv
         run: |
-          docker stop nutrifit-backend-ci || true
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          echo "${HOME}/.local/bin" >> $GITHUB_PATH
+      - name: Sync deps
+        working-directory: backend
+        run: uv sync --all-extras --dev
+      - name: Generate changelog (auto)
+        working-directory: backend
+        run: |
+          ./make.sh changelog || echo "Changelog generation failed (non-blocking)"
+      - name: Schema drift & badge
+        working-directory: backend
+        run: |
+          if ./make.sh schema-check; then STATUS=synced; else STATUS=drift; fi
+          cd ..
+          COLOR=lightgrey; if [ "$STATUS" = "synced" ]; then COLOR=brightgreen; else COLOR=orange; fi
+          sed -i "s|schema_status-[a-zA-Z0-9_-]*-[a-zA-Z]*|schema_status-${STATUS}-${COLOR}|" README.md || true
+      - name: Version badge
+        run: |
+          version=$(grep -m1 '^version' backend/pyproject.toml | sed -E 's/^[^=]+= *"([0-9]+\.[0-9]+\.[0-9]+)".*/\1/')
+          sed -i "s|backend_version-[a-zA-Z0-9_.-]*-grey|backend_version-${version}-green|" README.md || true
+      - name: Commit aggregated maintenance changes
+        run: |
+          if git diff --quiet -- README.md CHANGELOG.md; then
+            echo "No maintenance changes"
+            exit 0
+          fi
+          git config user.name "github-actions"
+          git config user.email "actions@users.noreply.github.com"
+            
+          MSG="chore(maintenance): update changelog + badges"
+          git add README.md CHANGELOG.md || true
+          git commit -m "$MSG" || exit 0
+          git push
+
+  commitlint:
+    name: Commitlint (PR only)
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - name: Install deps
+        run: npm ci || echo "No package.json present, skipping"
+      - name: Commitlint
+        run: |
+          if [ -f package.json ]; then npx commitlint --from=origin/main --to=HEAD --verbose; else echo "Skipped"; fi
