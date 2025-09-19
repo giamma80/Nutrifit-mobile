@@ -43,12 +43,13 @@ pyproject_version(){ grep '^version\s*=\s*"' "$VERSION_FILE" | head -1 | sed -E 
 
 set_pyproject_version(){
   local newv="$1"
+  local vf="$VERSION_FILE"
   awk -v v="$newv" 'BEGIN{done=0} {
     if(!done && $0 ~ /^version[[:space:]]*=/){
       sub(/version[[:space:]]*=.*/,"version = \"" v "\""); done=1
     }
     print
-  }' "$VERSION_FILE" > "${VERSION_FILE}.tmp" && mv "${VERSION_FILE}.tmp" "$VERSION_FILE"
+  }' "$vf" > "${vf}.tmp" && mv "${vf}.tmp" "$vf"
 }
 
 semver_bump(){
