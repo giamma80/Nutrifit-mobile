@@ -15,6 +15,7 @@ Validazioni principali implementate (vedi docs/rule_engine_DSL.md):
 
 Nota: condition e action sono dataclass generiche; la logica runtime è altrove.
 """
+
 from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import List, Dict, Any, Optional
@@ -60,9 +61,7 @@ class Condition:
         if self.type == "no_meal_logged_in_window":
             for k in ("meal_type", "window_hours"):
                 if k not in self.params:
-                    raise ValueError(
-                        f"Condition {self.type} missing param '{k}'"
-                    )
+                    raise ValueError(f"Condition {self.type} missing param '{k}'")
         elif self.type == "deviation_over_threshold":
             for k in (
                 "metric",
@@ -71,9 +70,7 @@ class Condition:
                 "direction",
             ):
                 if k not in self.params:
-                    raise ValueError(
-                        f"Condition {self.type} missing param '{k}'"
-                    )
+                    raise ValueError(f"Condition {self.type} missing param '{k}'")
 
 
 @dataclass
@@ -86,9 +83,7 @@ class Action:
             raise ValueError(f"Unknown action type: {self.type}")
         if self.type == "push_notification":
             if "template_id" not in self.params:
-                raise ValueError(
-                    "push_notification action requires 'template_id'"
-                )
+                raise ValueError("push_notification action requires 'template_id'")
         elif self.type == "adjust_plan_targets":
             # optional params; ulteriori vincoli possibili in futuro
             return
@@ -126,10 +121,7 @@ class Rule:
         for c in self.conditions:
             key = (c.type, tuple(sorted(c.params.items())))
             if key in seen_conditions:
-                msg = (
-                    f"Duplicate identical condition in rule {self.id}: "
-                    f"{c.type}"
-                )
+                msg = f"Duplicate identical condition in rule {self.id}: " f"{c.type}"
                 raise ValueError(msg)
             seen_conditions.add(key)
             c.validate()

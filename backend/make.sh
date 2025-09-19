@@ -99,6 +99,7 @@ Targets disponibili:
   # Qualità
   format            Black format
   lint              Flake8 + mypy
+  typecheck         Solo mypy (type checking completo)
   test              Pytest
   schema-export     Esporta SDL GraphQL (aggiorna file versionato)
   schema-check      Verifica drift schema (fail se differente)
@@ -116,11 +117,14 @@ Targets disponibili:
   push              Preflight + push ramo
 
   # Docker
+  check-docker      Verifica disponibilità demone Docker
   docker-build      Build immagine locale (${IMAGE_NAME})
   docker-run        Esegui container (porta 8080)
   docker-stop       Stop & remove container
   docker-logs       Segui log container
   docker-restart    Restart container
+  docker-shell      Entra nel container con shell interattiva
+  docker-test       Esegue test integrazione (curl health/version + GraphQL)
 
   # Utility
   clean             Rimuovi .venv, __pycache__, pid
@@ -177,11 +181,13 @@ EOF
     ;;
 
   docker-build)
+    $0 check-docker
     header "Docker build ${IMAGE_NAME}"
     docker build -t "${IMAGE_NAME}" .
     ;;
 
   docker-run)
+    $0 check-docker
     header "Docker run ${CONTAINER_NAME}"
     if docker_running; then warn "Container già attivo"; exit 0; fi
     docker run -d --rm -p 8080:8080 --name "${CONTAINER_NAME}" "${IMAGE_NAME}" uv run uvicorn app:app --host 0.0.0.0 --port 8080
@@ -189,11 +195,13 @@ EOF
     ;;
 
   docker-stop)
+    $0 check-docker || true
     header "Docker stop ${CONTAINER_NAME}"
     if docker_running; then docker stop "${CONTAINER_NAME}" >/dev/null && info "Container stoppato"; else warn "Container non in esecuzione"; fi
     ;;
 
   docker-logs)
+    $0 check-docker
     header "Docker logs ${CONTAINER_NAME} (Ctrl+C per uscire)"
     if docker_running; then docker logs -f "${CONTAINER_NAME}"; else err "Container non attivo"; exit 1; fi
     ;;
@@ -203,14 +211,114 @@ EOF
     $0 docker-run
     ;;
 
+  docker-shell)
+    $0 check-docker
+    header "Docker shell ${CONTAINER_NAME}"
+    if docker_running; then
+      # Preferisci bash se presente, altrimenti sh
+      docker exec -it "${CONTAINER_NAME}" bash >/dev/null 2>&1 && docker exec -it "${CONTAINER_NAME}" bash || docker exec -it "${CONTAINER_NAME}" sh
+    else
+      err "Container non attivo"; exit 1
+    fi
+    ;;
+
+  docker-test)
+    $0 check-docker
+    header "Docker integration test"
+    if ! docker_running; then err "Container non attivo: avvia prima docker-run"; exit 2; fi
+    bash scripts/integration_test.sh
+    info "Integration test OK (script)"
+    ;;
+
+  check-docker)
+    header "Docker daemon check"
+    if docker info >/dev/null 2>&1; then
+      info "Docker disponibile"
+      exit 0
+    else
+      err "Docker non disponibile (avvia Docker Desktop o 'colima start')"
+      exit 1
+    fi
+    ;;
+
   preflight)
     header "Preflight"
-    $0 format
-    $0 lint
-    $0 test
-    $0 schema-check
-    run_commitlint_range
+  # Raccogli esiti singoli gates senza abort immediato (compat bash 3.2: niente associative arrays)
+  set +e
+  fmt_status="SKIP"; fmt_msg=""
+  lint_status="SKIP"; lint_msg=""
+  tests_status="SKIP"; tests_msg=""
+  schema_status="SKIP"; schema_msg=""
+  commitlint_status="SKIP"; commitlint_msg=""
+
+    # Format (non blocking): se format modifica file, consideriamo PASS comunque
+    header "Format (black)"
+    uv run black . >/dev/null 2>&1
+    blk_ec=$?
+  if [ $blk_ec -eq 0 ]; then fmt_status=PASS; else fmt_status=FAIL; fmt_msg="black exit $blk_ec"; fi
+
+    # Lint: flake8 + mypy (se uno dei due fallisce -> FAIL)
+    header "Flake8"
+    uv run flake8 . >/dev/null 2>&1; flake_ec=$?
+    header "Mypy"
+    uv run mypy . >/dev/null 2>&1; mypy_ec=$?
+    if [ $flake_ec -eq 0 ] && [ $mypy_ec -eq 0 ]; then lint_status=PASS; else lint_status=FAIL; lint_msg="flake8=$flake_ec mypy=$mypy_ec"; fi
+
+    # Tests
+    header "Tests"
+    uv run pytest -q >/dev/null 2>&1; test_ec=$?
+  if [ $test_ec -eq 0 ]; then tests_status=PASS; else tests_status=FAIL; tests_msg="pytest exit $test_ec"; fi
+
+    # Schema drift
+    header "Schema drift check"
+    tmpfile="$(mktemp -t schema_tmp_XXXX).graphql"
+    uv run python scripts/export_schema.py --out "$tmpfile" >/dev/null 2>&1
+    export_ec=$?
+    if [ $export_ec -ne 0 ]; then
+      schema_status=FAIL; schema_msg="export failed ($export_ec)"; rm -f "$tmpfile"
+    else
+      if diff -q graphql/schema.graphql "$tmpfile" >/dev/null 2>&1; then schema_status=PASS; else schema_status=FAIL; schema_msg="drift detected"; echo "---- SCHEMA DIFF ----"; diff -u graphql/schema.graphql "$tmpfile" || true; fi
+      rm -f "$tmpfile"
+    fi
+
+    # Commitlint (soft)
+    if command -v npx >/dev/null 2>&1; then
+      if [ -f "package.json" ] || [ -f "../package.json" ]; then
+        if [ -d "node_modules/@commitlint/config-conventional" ] || [ -d "../node_modules/@commitlint/config-conventional" ]; then
+          npx commitlint --from=origin/main --to=HEAD --quiet >/dev/null 2>&1
+          cl_ec=$?
+          if [ $cl_ec -eq 0 ]; then commitlint_status=PASS; else commitlint_status=WARN; commitlint_msg="exit $cl_ec"; fi
+        else
+          commitlint_status=SKIP; commitlint_msg="deps mancanti"
+        fi
+      else
+        commitlint_status=SKIP; commitlint_msg="no package.json"
+      fi
+    else
+      commitlint_status=SKIP; commitlint_msg="npx assente"
+    fi
+
+    # Report finale
+    echo
+    header "Preflight Summary"
+    printf "%-12s | %-6s | %s\n" "GATE" "ESITO" "NOTE"
+    printf "%-12s-+-%-6s-+-%s\n" "------------" "------" "----------------------------"
+    printf "%-12s | %-6s | %s\n" "format" "$fmt_status" "$fmt_msg"
+    printf "%-12s | %-6s | %s\n" "lint" "$lint_status" "$lint_msg"
+    printf "%-12s | %-6s | %s\n" "tests" "$tests_status" "$tests_msg"
+    printf "%-12s | %-6s | %s\n" "schema" "$schema_status" "$schema_msg"
+    printf "%-12s | %-6s | %s\n" "commitlint" "$commitlint_status" "$commitlint_msg"
+
+    # Determina exit code: fallisce se uno dei gate critici FAIL
+    CRIT_FAIL=0
+    if [ "$lint_status" = FAIL ] || [ "$tests_status" = FAIL ] || [ "$schema_status" = FAIL ]; then CRIT_FAIL=1; fi
+    if [ $CRIT_FAIL -eq 1 ]; then
+      err "Preflight FAILED"
+      set -e
+      exit 1
+    fi
     info "Preflight OK"
+    set -e
     ;;
 
   commit)
@@ -308,9 +416,9 @@ EOF
     header "Schema drift check"
     tmpfile="$(mktemp -t schema_tmp_XXXX).graphql"
     uv run python scripts/export_schema.py --out "$tmpfile" >/dev/null 2>&1 || { err "Export schema fallito"; rm -f "$tmpfile"; exit 1; }
-    if ! diff -u backend/graphql/schema.graphql "$tmpfile" > /dev/null 2>&1; then
+    if ! diff -u graphql/schema.graphql "$tmpfile" > /dev/null 2>&1; then
       echo "---- SCHEMA DIFF ----"
-      diff -u backend/graphql/schema.graphql "$tmpfile" || true
+      diff -u graphql/schema.graphql "$tmpfile" || true
       rm -f "$tmpfile"
       err "Schema drift rilevato: eseguire ./make.sh schema-export e committare"
       exit 2
@@ -349,6 +457,11 @@ EOF
     $0 setup
     $0 lint
     $0 test
+    ;;
+
+  typecheck)
+    header "Type check (mypy)"
+    uv run mypy .
     ;;
 
   *)

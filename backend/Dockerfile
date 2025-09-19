@@ -5,6 +5,10 @@
 
 FROM python:3.11-slim AS base
 
+# Passare versione applicazione a build time (es: --build-arg VERSION=0.2.0)
+ARG VERSION="0.1.2"
+ENV APP_VERSION=${VERSION}
+
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     UV_LINK_MODE=copy \
@@ -20,8 +24,10 @@ WORKDIR /app
 
 # Install uv (script ufficiale)
 RUN curl -LsSf https://astral.sh/uv/install.sh | sh \
-  && echo "PATH=$HOME/.local/bin:$PATH" >> /etc/profile
-ENV PATH="/root/.local/bin:${PATH}"
+  && mv /root/.local/bin/uv /usr/local/bin/uv \
+  && mv /root/.local/bin/uvx /usr/local/bin/uvx
+
+# uv ora è globale in /usr/local/bin (nessuna dipendenza su /root)
 
 # Copia manifest per caching layer dipendenze
 COPY pyproject.toml uv.lock ./
@@ -34,8 +40,11 @@ COPY app.py ./
 COPY openfoodfacts ./openfoodfacts
 COPY rules ./rules
 
-# Utente non-root (semplice)
-RUN useradd -u 1000 appuser && chown -R appuser /app
+# Utente non-root con home (necessario per cache uv)
+RUN useradd -u 1000 -m appuser \
+  && mkdir -p /home/appuser/.cache/uv \
+  && chown -R appuser /home/appuser/.cache /app
+ENV UV_CACHE_DIR=/home/appuser/.cache/uv
 USER appuser
 
 EXPOSE 8080

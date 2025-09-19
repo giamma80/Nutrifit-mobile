@@ -18,3 +18,10 @@ help:
 
 %:
 	@$(SCRIPT) $@ $(MAKEFLAGS)
+
+# Target espliciti per discoverability
+schema-export:
+	@$(SCRIPT) schema-export
+
+schema-check:
+	@$(SCRIPT) schema-check

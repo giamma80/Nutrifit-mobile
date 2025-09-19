@@ -31,6 +31,9 @@ warn_unused_configs = true
 disallow_untyped_defs = true
 ignore_missing_imports = true
 exclude = ["^\\.venv/", "^dist/", "^build/"]
+explicit_package_bases = true
+plugins = ["strawberry.ext.mypy_plugin"]
+# Nota: plugin Strawberry abilita validazioni base su resolver e schema.
 
 [tool.black]
 line-length = 100

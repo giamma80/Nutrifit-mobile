@@ -311,4 +311,42 @@ Sezione `[Unreleased]` rimane vuota (o pronta per i futuri commit) dopo il final
 
 Il workflow GitHub `backend-changelog.yml` continua ad aggiornare la parte `[Unreleased]` su push a `main` (evita drift locale → remoto).
 
+## Typing & Static Analysis Strategy
+
+Adottiamo una strategia di typing incrementale ma portata a stato fully‑typed (0 errori mypy) con configurazione strict.
+
+Principi:
+
+- Tutte le nuove funzioni devono avere annotazioni (parametri + return). Nei test sempre `-> None` esplicito.
+- Nessun uso di `type: ignore` salvo casi documentati; ignore rimossi appena non necessari.
+- Preferenza per `dict[str, Any]` solo ai confini (I/O, parsing YAML/JSON); all'interno normalizzare in strutture tipizzate (dataclass / TypedDict) quando la stabilità del formato è consolidata.
+- Evitare over-engineering: se un wrapper ha due key dinamiche non creare dataclass troppo rigide finché il dominio non si stabilizza.
+- Uso di `GraphQLRouter[Any, Any]` come fallback generico per evitare warning di tipo finché non introduciamo un context tipizzato per i resolver.
+
+Tooling:
+
+- `./make.sh lint` esegue Flake8 + mypy (full project)
+- `./make.sh typecheck` disponibile per solo static type pass (utile in CI o durante refactor massivi)
+- Preflight (`./make.sh preflight`) include già mypy, quindi prima di ogni commit si garantisce lo zero-error.
+
+Pattern adottati:
+
+- Adapter esterni (es. OpenFoodFacts) trasformano input non tipizzato → `ProductDTO` (dataclass `slots=True`) con `NutrientsDict` (TypedDict opzionale) per i campi normalizzati; calcoli su numerici avvengono solo dopo guard non-null.
+- Parser DSL (`rules/parser.py`) produce dataclass validate() con responsabilità chiara e insiemi per deduplicazione.
+- Script di tooling (`scripts/generate_changelog.py`) tipizzato con ritorni espliciti e parsing commit robusto.
+
+Futuro:
+
+- Estendere uso TypedDict per porzioni di schema GraphQL se iniziamo a generare parte del codice dai resolver.
+- Aggiungere plugin mypy (es. strawberry) se utile a validare schema vs resolver signatures.
+- Integrare un badge di stato type-check (workflow dedicato) se la pipeline cresce.
+
+Comandi rapidi:
+
+```bash
+./make.sh typecheck    # solo mypy
+./make.sh lint         # lint + typecheck
+./make.sh preflight    # full quality gate
+```
+
 

@@ -1,12 +1,12 @@
 import pytest
 
 from rules.parser import (
-  load_rules_from_yaml_text,
-  Rule,
+    load_rules_from_yaml_text,
+    Rule,
 )
 
 
-def test_parse_single_rule_minimal():
+def test_parse_single_rule_minimal() -> None:
     yaml_text = """
 id: test_rule
 version: 1
@@ -26,7 +26,7 @@ actions:
     assert r.actions[0].type == "push_notification"
 
 
-def test_parse_multi_rules_and_uniqueness():
+def test_parse_multi_rules_and_uniqueness() -> None:
     yaml_text = """
 rules:
   - id: a
@@ -45,7 +45,7 @@ rules:
     assert {r.id for r in rules} == {"a", "b"}
 
 
-def test_duplicate_ids_error():
+def test_duplicate_ids_error() -> None:
     yaml_text = """
 rules:
   - id: dup
@@ -65,7 +65,7 @@ rules:
         load_rules_from_yaml_text(yaml_text)
 
 
-def test_missing_trigger_field():
+def test_missing_trigger_field() -> None:
     yaml_text = """
 id: missing_trigger
 version: 1
@@ -79,7 +79,7 @@ trigger:
         load_rules_from_yaml_text(yaml_text)
 
 
-def test_unknown_condition_type():
+def test_unknown_condition_type() -> None:
     yaml_text = """
 id: cond_unknown
 version: 1

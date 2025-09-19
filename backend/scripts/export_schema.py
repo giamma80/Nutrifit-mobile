@@ -17,6 +17,9 @@ from pathlib import Path
 import argparse
 
 BASE_DIR = Path(__file__).resolve().parent.parent
+# Ensure backend root (BASE_DIR) is on sys.path for 'import app'
+if str(BASE_DIR) not in sys.path:
+    sys.path.insert(0, str(BASE_DIR))
 DEFAULT_OUT = BASE_DIR / "graphql" / "schema.graphql"
 
 parser = argparse.ArgumentParser(add_help=False)
@@ -28,6 +31,7 @@ OUT_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 try:
     import importlib
+
     # expects module app with: app: FastAPI and/or schema: strawberry.Schema
     mod = importlib.import_module("app")
     schema = getattr(mod, "schema", None)
@@ -44,10 +48,8 @@ try:
     try:
         sdl = schema.as_str()
     except Exception:
-        try:
-            from strawberry.printer import print_schema  # type: ignore
-        except Exception:
-            raise
+        from strawberry.printer import print_schema
+
         sdl = print_schema(schema)
     OUT_PATH.write_text(sdl, encoding="utf-8")
     print(f"[INFO] schema SDL written to {OUT_PATH}")

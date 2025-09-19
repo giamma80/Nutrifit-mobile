@@ -21,6 +21,7 @@ import re
 import subprocess
 import sys
 from collections import defaultdict
+from typing import Tuple, Optional
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 CHANGELOG = ROOT / "CHANGELOG.md"
@@ -72,7 +73,7 @@ def collect_commits(since: str | None) -> list[str]:
     return [line for line in out.splitlines() if line]
 
 
-def parse_commit(line: str):
+def parse_commit(line: str) -> Optional[Tuple[str, str]]:
     """Parse a conventional commit line into (type, subject) or None."""
     match = COMMIT_RE.match(line)
     if not match:
@@ -96,7 +97,7 @@ def ensure_unreleased(lines: list[str]) -> int:
     return len(lines) - 2
 
 
-def insert_entries(lines: list[str], grouped: dict[str, set[str]]):
+def insert_entries(lines: list[str], grouped: dict[str, set[str]]) -> list[str]:
     """Insert grouped commit messages under the Unreleased section."""
     idx = ensure_unreleased(lines)
     # Find next section boundary
@@ -148,17 +149,13 @@ def finalize_version(lines: list[str], version: str) -> list[str]:
         print("[INFO] Unreleased vuoto: nessuna finalize")
         return lines
     from datetime import date
+
     header = f"## [{version}] - {date.today().isoformat()}"
-    new_lines = (
-        lines[:idx]
-        + [lines[idx], "", header, ""]
-        + block
-        + lines[end:]
-    )
+    new_lines = lines[:idx] + [lines[idx], "", header, ""] + block + lines[end:]
     return new_lines
 
 
-def main():
+def main() -> None:
     """Entry point for changelog generation (update or finalize)."""
     lines = load_changelog()
     if FINALIZE_VERSION:
