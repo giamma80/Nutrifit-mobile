@@ -20,11 +20,64 @@ uv sync --all-extras --dev
 uv run uvicorn app:app --reload --port 8080
 ```
 
-Oppure usando lo script helper:
+### Cockpit (script `make.sh`)
+
+Tutte le operazioni comuni sono incapsulate in `make.sh` (funziona anche su macOS/Linux):
+
+| Target | Descrizione |
+|--------|-------------|
+| `setup` | Sync dipendenze (uv) |
+| `run` | Avvia server in foreground |
+| `run-bg` | Avvia server in background (PID salvato) |
+| `stop` | Ferma server background |
+| `format` | Esegue Black |
+| `lint` | Flake8 + mypy |
+| `test` | Pytest |
+| `preflight` | format + lint + test + commitlint (range main→HEAD) |
+| `commit MSG="..."` | Esegue preflight poi crea commit |
+| `push` | Preflight + push ramo |
+| `docker-build` | Build immagine locale dev |
+| `docker-run` | Run container mappando porta 8080 |
+| `docker-stop` | Stop container dev |
+| `docker-logs` | Segui log container |
+| `docker-restart` | Stop + run |
+| `version-bump LEVEL=patch` | Bump versione (patch/minor/major) + commit + tag |
+| `release LEVEL=patch` | preflight + bump + tag + push + push tag |
+| `status` | Stato rapido (versione, server, container) |
+| `clean` | Rimuove .venv, __pycache__, pid |
+| `clean-dist` | Pulisce eventuale `dist/` residua |
+| `all` | setup + lint + test |
+| `logs` | Tail file di log server locale |
+
+Esempi:
 ```bash
 ./make.sh setup
-./make.sh run
+./make.sh run-bg
+./make.sh status
+./make.sh preflight
+./make.sh commit MSG="feat(rules): add evaluator skeleton"
+./make.sh push
 ```
+
+Release veloce (patch):
+```bash
+./make.sh release LEVEL=patch
+```
+
+### Logging locale
+
+Lo script crea (se non esiste) la cartella `backend/logs/` e scrive:
+
+- `logs/server.log` → output cumulativo uvicorn (foreground con tee, background rediretto). Ogni avvio è preceduto da una riga `# <ISO8601> START (fg|bg)` e ogni stop da `# <ISO8601> STOP`.
+
+Comandi utili:
+```bash
+./make.sh run-bg      # avvia e scrive su logs/server.log
+./make.sh logs        # tail -f del file
+./make.sh stop        # ferma server e marca STOP
+./make.sh status      # mostra anche la dimensione del log
+```
+I log non sono versionati (ignorati in `.gitignore`). In futuro potremo introdurre structlog / formati JSON.
 
 ## Avvio via Docker
 
@@ -34,9 +87,11 @@ docker build -t nutrifit-backend:dev backend
 docker run -p 8080:8080 nutrifit-backend:dev
 ```
 
-Oppure:
+Oppure via cockpit:
 ```bash
-./make.sh docker
+./make.sh docker-build
+./make.sh docker-run
+./make.sh docker-logs
 ```
 
 Health: `curl localhost:8080/health`
@@ -50,7 +105,10 @@ Health: `curl localhost:8080/health`
 
 Nessuna pubblicazione su registry esterno: pipeline repository → Render (repo sync).
 
-Nota packaging: la cartella `nutrifit_backend.egg-info/` può essere rigenerata localmente da uv/setuptools ma è ignorata (`.gitignore`). Non è necessaria nel VCS.
+Note:
+- Packaging Python (wheel/sdist) non usato nel deploy → cartelle `egg-info` e `dist` ignorate.
+- Commit governance: conventional commits validati da commitlint (workflow `commitlint.yml`).
+- Le versioni sono mantenute in `pyproject.toml` e aggiornabili via `./make.sh version-bump`.
 
 ## Prossimi Step
 

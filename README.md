@@ -128,6 +128,16 @@ Endpoints: `GET /health`, `GET /version`, `POST /graphql` (query demo `hello`, `
 
 Pipeline Deploy: push -> GitHub Action (`backend-ci`) valida (lint, type-check, test, docker build) -> Render ricostruisce immagine dal `backend/Dockerfile` e avvia `uvicorn`.
 
+#### Log locale backend
+Lo script `backend/make.sh` scrive i log runtime in `backend/logs/server.log` (ignorato da git). Usa:
+```bash
+cd backend
+./make.sh run-bg   # avvio in background
+./make.sh logs     # tail -f del file
+./make.sh stop     # termina e annota STOP
+```
+Ogni riavvio aggiunge marker temporalizzati per facilitare il debug.
+
 ### Commitlint
 Ogni PR esegue verifica convenzioni commit (`feat:`, `fix:`, `docs:`...). Per test locale:
 ```bash
