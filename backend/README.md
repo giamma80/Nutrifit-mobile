@@ -49,13 +49,16 @@ curl -s -H 'Content-Type: application/json' -d '{"query":"{ health serverTime }"
 ## CI
 
 La pipeline `backend-ci` esegue: lint, type-check, test, export schema, build immagine (con ARG VERSION) e test di integrazione container.
-# Nutrifit Backend (FastAPI + Strawberry)
+
+---
+
+## Panoramica
 
 Subgraph nutrizionale / AI minimale con gestione dipendenze tramite **uv** e deployment container-first.
 
 > Shell compatibility: lo script `make.sh` è scritto per funzionare anche con la bash 3.2 di macOS (niente `${var,,}` ecc.). Colori disattivabili con `NO_COLOR=1`.
 
-## Endpoints
+### Endpoints (dettaglio)
 
 - `GET /health` → `{status: ok}`
 - `GET /version` → `{version: 0.1.2}`
@@ -112,6 +115,7 @@ Tutte le operazioni comuni sono incapsulate in `make.sh` (funziona anche su macO
 | `logs` | Tail file di log server locale |
 
 Esempi:
+
 ```bash
 # Primo setup (crea venv e installa dipendenze)
 ./make.sh setup
@@ -141,6 +145,7 @@ make run
 ```
 
 Release veloce (patch):
+
 ```bash
 ./make.sh release LEVEL=patch
 ```
@@ -152,6 +157,7 @@ Lo script crea (se non esiste) la cartella `backend/logs/` e scrive:
 - `logs/server.log` → output cumulativo uvicorn (foreground con tee, background rediretto). Ogni avvio è preceduto da una riga `# <ISO8601> START (fg|bg)` e ogni stop da `# <ISO8601> STOP`.
 
 Comandi utili:
+
 ```bash
 ./make.sh run-bg      # avvia e scrive su logs/server.log
 ./make.sh logs        # tail -f del file
@@ -163,10 +169,13 @@ I log non sono versionati (ignorati in `.gitignore`). In futuro potremo introdur
 ### Versioning
 
 Per vedere rapidamente la versione senza rumore (utile in script esterni):
+
 ```bash
 ./make.sh version-show
 ```
+
 Per bump semantico (aggiorna `pyproject.toml`, crea commit e tag):
+
 ```bash
 ./make.sh version-bump LEVEL=patch   # oppure minor / major
 ```
@@ -196,12 +205,14 @@ Differenza rapida:
 | Docker | `./make.sh docker-run` | Ambiente isolato immagine, no auto-reload (usa rebuild) |
 
 Costruzione immagine (usa `uv` per risolvere dipendenze):
+
 ```bash
 docker build -t nutrifit-backend:dev backend
 docker run -p 8080:8080 nutrifit-backend:dev
 ```
 
 Oppure via cockpit:
+
 ```bash
 ./make.sh docker-build
 ./make.sh docker-run
@@ -211,6 +222,7 @@ Oppure via cockpit:
 ```
 
 Health: `curl localhost:8080/health`  |  GraphQL health:
+
 ```bash
 curl -s -H 'Content-Type: application/json' \
   -d '{"query":"{ health serverTime }"}' \
