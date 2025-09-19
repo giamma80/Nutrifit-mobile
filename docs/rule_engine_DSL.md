@@ -11,6 +11,7 @@ Obiettivo: definire regole di notifica / adattamento piano nutrizionale in forma
 - `enabled`: feature flag rapida.
 
 ## Esempio Base (Notifica Pasti Mancanti)
+
 ```yaml
 id: meal_reminder_breakfast
 version: 1
@@ -39,6 +40,7 @@ metadata:
 ```
 
 ## Esempio Adattamento Piano
+
 ```yaml
 id: adaptive_calorie_adjustment_weekly
 version: 1
@@ -67,6 +69,7 @@ metadata:
 ```
 
 ## Schema Logico
+
 ```yaml
 id: string (snake_case unico)
 version: integer >=1
@@ -91,6 +94,7 @@ metadata: map<string, scalar>
 ```
 
 ### Condition Types (MVP)
+
 | type | Parametri | Descrizione |
 |------|-----------|-------------|
 | no_meal_logged_in_window | meal_type, window_hours | Nessun pasto di quel tipo nelle ultime X ore |
@@ -99,12 +103,14 @@ metadata: map<string, scalar>
 | adherence_samples_min | window_days, min_days | Numero giorni con dati validi >= min |
 
 ### Action Types (MVP)
+
 | type | Parametri | Effetto |
 |------|-----------|---------|
 | push_notification | template_id, variables(map) | Invia push con template e variabili |
 | adjust_plan_targets | max_step_pct, clamp_min_kcal, clamp_max_kcal | Modifica target calorico/macro |
 
 ## Validazioni Principali
+
 1. `id` unico nel set caricato.
 2. `actions` non vuoto.
 3. Se trigger.type = schedule → campo `cron` richiesto.
@@ -115,15 +121,18 @@ metadata: map<string, scalar>
 8. Se presente `throttle.window_hours` deve essere >=1.
 
 ## Estensioni Future (Ideas)
+
 - Operatore OR / gruppi condizionali (per ora solo AND implicito).
 - Azione `schedule_followup` per creare reminder secondario.
 - Condition `streak_days` (giorni consecutivi logging minimo X).
 - Embedded mini-expression DSL per condizioni numeriche generiche.
 
 ## File Multipli
+
 Le regole possono essere salvate singolarmente (`rules/*.yml`) oppure in un file aggregato (`rules.yaml` con elenco). Il parser accetterà entrambi.
 
 ## Esempio File Multi-Regola
+
 ```yaml
 rules:
   - id: meal_reminder_lunch
@@ -153,4 +162,5 @@ rules:
 ```
 
 ---
+
 _Draft v0.1 – soggetto a cambi._

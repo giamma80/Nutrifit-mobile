@@ -19,13 +19,13 @@
 
 > Repository mobile Flutter + documentazione piattaforma (backend federato + AI pipeline) per l'ecosistema **Nutrifit**.
 
----
 ## 📚 Indice Rapido
+
 1. [Documentazione Principale](#-documentazione-principale)
 2. [Architettura High-Level](#-architettura-high-level)
 3. [Feature Matrix](#-feature-matrix)
 4. [Roadmap & Progress](#-roadmap--progress)
-5. [Struttura Repository](#-struttura-repository)
+5. [Struttura Repository](#-struttura-repository-estratto)
 6. [Workflow CI/CD](#-workflow-cicd)
 7. [Contributi](#-contributi)
 8. [Nerd Corner](#-nerd-corner)
@@ -94,9 +94,9 @@ nutrifit_nutrition_guide.md  # Stub redirect
 ```text
 docs/                # Documentazione architettura & guide
 lib/
-	graphql/           # Schema, fragments, queries
-	services/          # Servizi (es. food_recognition_service.dart)
-	... (future features)
+  graphql/           # Schema, fragments, queries
+  services/          # Servizi (es. food_recognition_service.dart)
+  ... (future features)
 ```
 
 ---
@@ -136,6 +136,7 @@ docker run -p 8080:8080 nutrifit-backend:dev
 Endpoints: `GET /health`, `GET /version`, `POST /graphql` (query demo `hello`, `server_time`).
 
 Differenza rapida ambiente:
+
 | Ambiente | Comando principale | Reload automatico | Isolamento | Uso tipico |
 |----------|-------------------|-------------------|------------|-----------|
 | Locale (uv) | `./make.sh run` | Sì (`--reload`) | Virtual env | Dev iterativo |
@@ -147,6 +148,7 @@ Pipeline Deploy: push -> GitHub Action (`backend-ci`) valida (lint, type-check, 
 Il comando `./make.sh preflight` esegue in sequenza i gate e produce un riepilogo finale tabellare:
 
 Gates controllati:
+
 | Gate | Contenuto | Critico per exit code |
 |------|-----------|-----------------------|
 | format | Black (non blocca) | No |
@@ -156,6 +158,7 @@ Gates controllati:
 | commitlint | Convenzioni commit | No (WARN/SKIP) |
 
 Stati possibili:
+
 | Stato | Significato |
 |-------|------------|
 | PASS | Tutto ok |
@@ -247,6 +250,7 @@ Il client effettua richieste con timeout totale `TIMEOUT_S=8s` e semplice meccan
 | Eccezioni rete | ReadTimeout, ConnectError, RemoteProtocolError, NetworkError | Stesso flusso dei 5xx retryable |
 
 Condizioni di uscita:
+
 1. 404 → `ProductNotFound` (no retry)
 2. `status != 1` nel payload → `ProductNotFound`
 3. 5xx retryable → retry fino a cap, poi `OpenFoodFactsError`
@@ -255,6 +259,7 @@ Condizioni di uscita:
 I test includono casi: successo base, fallback kJ, conversione sale→sodio, nutrienti invalidi, 404, 500 singolo, 500 transiente risolto, timeout transiente, esaurimento retry 500, esaurimento retry timeout.
 
 Futuri possibili miglioramenti:
+
 - Jitter random sul backoff per ridurre sincronizzazione a storm
 - Cache LRU locale per barcode già risolti
 - Circuit breaker con finestra di errore
@@ -298,7 +303,7 @@ Easter Egg Roadmap: quando AI autofill >70% adoption → attivare modalità "Hyp
 
 ---
 ## 🗒 Changelog
-Vedi [CHANGELOG.md](CHANGELOG.md). Release corrente backend: `v0.1.2` (script cockpit + logging + bump tooling).
+Vedi [CHANGELOG.md](CHANGELOG.md). Release corrente backend: `v0.1.3` (cockpit script, logging, bump tooling aggiornati).
 
 Quick check versione backend da root (senza entrare in `backend/`):
 ```bash

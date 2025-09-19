@@ -254,6 +254,7 @@ EOF
   tests_status="SKIP"; tests_msg=""
   schema_status="SKIP"; schema_msg=""
   commitlint_status="SKIP"; commitlint_msg=""
+  md_status="SKIP"; md_msg=""
 
     # Format (non blocking): se format modifica file, consideriamo PASS comunque
     header "Format (black)"
@@ -302,6 +303,19 @@ EOF
       commitlint_status=SKIP; commitlint_msg="npx assente"
     fi
 
+    # Markdownlint (soft, solo se config presente a livello root repo)
+    if command -v npx >/dev/null 2>&1; then
+      if [ -f "$REPO_ROOT/.markdownlint.yml" ] || [ -f "$REPO_ROOT/.markdownlint.yaml" ]; then
+        (cd "$REPO_ROOT" && npx markdownlint "**/*.md" >/dev/null 2>&1)
+        md_ec=$?
+        if [ $md_ec -eq 0 ]; then md_status=PASS; else md_status=WARN; md_msg="exit $md_ec"; fi
+      else
+        md_status=SKIP; md_msg="no config"
+      fi
+    else
+      md_status=SKIP; md_msg="npx assente"
+    fi
+
     # Report finale
     echo
     header "Preflight Summary"
@@ -312,6 +326,7 @@ EOF
     printf "%-12s | %-6s | %s\n" "tests" "$tests_status" "$tests_msg"
     printf "%-12s | %-6s | %s\n" "schema" "$schema_status" "$schema_msg"
     printf "%-12s | %-6s | %s\n" "commitlint" "$commitlint_status" "$commitlint_msg"
+  printf "%-12s | %-6s | %s\n" "markdown" "$md_status" "$md_msg"
 
     # Determina exit code: fallisce se uno dei gate critici FAIL
     CRIT_FAIL=0

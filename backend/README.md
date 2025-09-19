@@ -13,21 +13,6 @@
     - `serverTime`
     - `health`
 
-## Target principali
-
-| Categoria | Target | Descrizione |
-|-----------|--------|-------------|
-| Docker | docker-build | Build immagine locale (usa ARG VERSION) |
-| Docker | docker-run | Avvia container mappando :8080 |
-| Docker | docker-stop | Ferma container |
-| Docker | docker-logs | Log in streaming |
-| Docker | docker-restart | Restart rapido |
-| Docker | docker-shell | Shell interattiva nel container |
-| Docker | docker-test | Test integrazione (health/version + GraphQL) |
-| GraphQL | schema-export | Esporta SDL in `graphql/schema.graphql` |
-| GraphQL | schema-check | Confronta runtime vs SDL versionato |
-| Quality | test | Pytest suite |
-
 ## Esempi Rapidi
 
 ```bash
@@ -61,7 +46,7 @@ Subgraph nutrizionale / AI minimale con gestione dipendenze tramite **uv** e dep
 ### Endpoints (dettaglio)
 
 - `GET /health` → `{status: ok}`
-- `GET /version` → `{version: 0.1.2}`
+- `GET /version` → `{"version": "0.1.x"}`  (il valore reale è sincronizzato con `pyproject.toml` e il tag `v0.1.x`; evitare hardcode per ridurre aggiornamenti manuali)
 - `POST /graphql` (via Strawberry) – Query disponibili:
   - `hello`: string di test
   - `server_time`: timestamp UTC
@@ -94,28 +79,6 @@ Tutte le operazioni comuni sono incapsulate in `make.sh` (funziona anche su macO
 | `test` | Pytest |
 | `preflight` | format + lint + test + commitlint (range main→HEAD) |
 | `commit MSG="..."` | Esegue preflight poi crea commit |
-| `push` | Preflight + push ramo |
-| `docker-build` | Build immagine locale dev (accetta VERSION=1.2.3) |
-| `docker-run` | Run container mappando porta 8080 |
-| `docker-stop` | Stop container dev |
-| `docker-logs` | Segui log container |
-| `docker-restart` | Stop + run |
-| `docker-shell` | Shell interattiva dentro il container (bash/sh) |
-| `docker-test` | Test integrazione (health/version + GraphQL) |
-| `version-bump LEVEL=patch` | Bump versione (patch/minor/major) + commit + tag |
-| `version-show` | Mostra versione corrente (solo stdout pulito) |
-| `version-verify` | Verifica corrispondenza pyproject vs tag HEAD |
-| `schema-export` | Esporta SDL GraphQL in `backend/graphql/schema.graphql` |
-| `schema-check` | Confronta schema generato vs file versionato (fail se differente) |
-| `release LEVEL=patch` | preflight + bump + tag + push + push tag |
-| `status` | Stato rapido (versione, server, container) |
-| `clean` | Rimuove .venv, __pycache__, pid |
-| `clean-dist` | Pulisce eventuale `dist/` residua |
-| `all` | setup + lint + test |
-| `logs` | Tail file di log server locale |
-
-Esempi:
-
 ```bash
 # Primo setup (crea venv e installa dipendenze)
 ./make.sh setup
@@ -143,39 +106,101 @@ make run
 ./make.sh commit MSG="feat(rules): add evaluator skeleton"
 ./make.sh push
 ```
-
-Release veloce (patch):
-
-```bash
-./make.sh release LEVEL=patch
-```
-
-### Logging locale
-
-Lo script crea (se non esiste) la cartella `backend/logs/` e scrive:
-
-- `logs/server.log` → output cumulativo uvicorn (foreground con tee, background rediretto). Ogni avvio è preceduto da una riga `# <ISO8601> START (fg|bg)` e ogni stop da `# <ISO8601> STOP`.
-
-Comandi utili:
-
+| `push` | Preflight + push ramo |
+| `docker-build` | Build immagine locale dev (accetta VERSION=1.2.3) |
+| `docker-run` | Run container mappando porta 8080 |
+| `docker-stop` | Stop container dev |
+| `docker-logs` | Segui log container |
+| `docker-restart` | Stop + run |
+| `docker-shell` | Shell interattiva dentro il container (bash/sh) |
+| `docker-test` | Test integrazione (health/version + GraphQL) |
+| `version-bump LEVEL=patch` | Bump versione (patch/minor/major) + commit + tag |
+| `version-verify` | Verifica corrispondenza pyproject vs tag HEAD |
+| `schema-export` | Esporta SDL GraphQL in `backend/graphql/schema.graphql` |
+| `schema-check` | Confronta schema generato vs file versionato (fail se differente) |
+| `release LEVEL=patch` | preflight + bump + tag + push + push tag |
+| `status` | Stato rapido (versione, server, container) |
+| `clean` | Rimuove .venv, __pycache__, pid |
+| `clean-dist` | Pulisce eventuale `dist/` residua |
+| `all` | setup + lint + test |
+| `logs` | Tail file di log server locale |
 ```bash
 ./make.sh run-bg      # avvia e scrive su logs/server.log
 ./make.sh logs        # tail -f del file
 ./make.sh stop        # ferma server e marca STOP
 ./make.sh status      # mostra anche la dimensione del log
 ```
-I log non sono versionati (ignorati in `.gitignore`). In futuro potremo introdurre structlog / formati JSON.
 
-### Versioning
+Esempi:
 
-Per vedere rapidamente la versione senza rumore (utile in script esterni):
+```bash
+# Primo setup (crea venv e installa dipendenze)
+./make.sh setup
 
 ```bash
 ./make.sh version-show
 ```
+# Avvio rapido server (locale hot reload)
+./make.sh run
 
-Per bump semantico (aggiorna `pyproject.toml`, crea commit e tag):
+# In alternativa con Makefile
+make setup
+```bash
+./make.sh version-bump LEVEL=patch   # oppure minor / major
+```
+make run
 
+# Lint, test e controllo schema prima di un commit
+./make.sh preflight
+
+# Commit con messaggio conventional commit
+```bash
+docker build -t nutrifit-backend:dev backend
+docker run -p 8080:8080 nutrifit-backend:dev
+```
+./make.sh commit MSG="feat(schema): add meal type"
+
+# Bump versione patch + tag
+./make.sh version-bump LEVEL=patch
+
+./make.sh setup
+./make.sh run-bg
+./make.sh status
+./make.sh preflight
+```bash
+./make.sh docker-build
+./make.sh docker-run
+./make.sh docker-logs
+./make.sh docker-test    # integrazione rapida
+./make.sh docker-shell   # entra nel container
+```
+./make.sh commit MSG="feat(rules): add evaluator skeleton"
+./make.sh push
+```
+
+Release veloce (patch):
+
+```bash
+```bash
+curl -s -H 'Content-Type: application/json' \
+  -d '{"query":"{ health serverTime }"}' \
+  http://localhost:8080/graphql
+```
+./make.sh release LEVEL=patch
+```
+
+### Logging locale
+
+Lo script crea (se non esiste) la cartella `backend/logs/` e scrive:
+```bash
+./make.sh run-bg      # avvia e scrive su logs/server.log
+./make.sh logs        # tail -f del file
+I log non sono versionati (ignorati in `.gitignore`). In futuro potremo introdurre structlog / formati JSON.
+
+### Versioning
+```bash
+./make.sh version-show
+```
 ```bash
 ./make.sh version-bump LEVEL=patch   # oppure minor / major
 ```
