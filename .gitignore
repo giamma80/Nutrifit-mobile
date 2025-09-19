@@ -17,6 +17,9 @@ backend/dist/
 # Backend runtime logs (non versionati)
 backend/logs/
 
+# Backend example files: non versionare file .env reali (solo template)
+backend/example-files/.env
+
 
 
 # Flutter repo-specific

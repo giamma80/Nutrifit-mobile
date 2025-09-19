@@ -1,0 +1,263 @@
+# ===============================================
+# NutriFit Platform - Render.com Configuration  
+# ===============================================
+# Blueprint sync con la configurazione esistente
+
+services:
+  # ====================================
+  # User Management Service
+  # ====================================
+  - type: web
+    name: nutrifit-user-management
+    runtime: docker
+    repo: https://github.com/giamma80/gymbro-platform.git
+    rootDir: services/user-management
+    dockerfilePath: Dockerfile
+    
+    # Runtime Configuration
+    plan: starter
+    region: oregon  
+    branch: main
+    
+    # Auto Deploy
+    autoDeploy: true
+    
+    # Health Check
+    healthCheckPath: /health
+    
+    # Deploy solo quando cambia questo servizio
+    buildFilter:
+      paths:
+        - services/user-management/**
+        - render.yaml
+    
+    # Environment Variables - Caricato come Secret File
+    envVars:
+      # Solo variabili non sensibili in chiaro
+      - key: ENVIRONMENT
+        value: production
+      - key: PORT
+        value: "8000"
+      - key: PYTHONDONTWRITEBYTECODE
+        value: "1"
+      - key: PYTHONUNBUFFERED
+        value: "1"
+
+  # ====================================
+  # Calorie Balance Service
+  # ====================================
+  - type: web
+    name: nutrifit-calorie-balance
+    runtime: docker
+    repo: https://github.com/giamma80/gymbro-platform.git
+    rootDir: services/calorie-balance
+    dockerfilePath: Dockerfile
+    
+    # Runtime Configuration
+    plan: starter
+    region: oregon  
+    branch: main
+    
+    # Auto Deploy
+    autoDeploy: true
+    
+    # Health Check
+    healthCheckPath: /health
+    
+    # Deploy solo quando cambia questo servizio
+    buildFilter:
+      paths:
+        - services/calorie-balance/**
+        - render.yaml
+    
+    # Environment Variables - Caricato come Secret File
+    envVars:
+      # Solo variabili non sensibili in chiaro
+      - key: ENVIRONMENT
+        value: production
+      - key: PORT
+        value: "8000"
+      - key: PYTHONDONTWRITEBYTECODE
+        value: "1"
+      - key: PYTHONUNBUFFERED
+        value: "1"
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_ANON_KEY
+        sync: false
+      - key: SUPABASE_SERVICE_KEY
+        sync: false
+      
+      # Security
+      - key: SECRET_KEY
+        generateValue: true
+      - key: JWT_SECRET_KEY
+        generateValue: true
+      - key: JWT_ALGORITHM
+        value: HS256
+      - key: JWT_ACCESS_TOKEN_EXPIRE_MINUTES
+        value: "60"
+      - key: JWT_REFRESH_TOKEN_EXPIRE_DAYS
+        value: "30"
+      
+      # CORS
+      - key: ALLOWED_ORIGINS
+        value: https://nutrifit.app,https://app.nutrifit.app
+      
+      # Features
+      - key: ENABLE_REAL_TIME
+        value: "true"
+      - key: ENABLE_AUTH
+        value: "true"
+      - key: ENABLE_STORAGE
+        value: "false"
+      
+      # Performance
+      - key: RATE_LIMIT_REQUESTS_PER_MINUTE
+        value: "100"
+      - key: REQUEST_TIMEOUT_SECONDS
+        value: "30"
+      - key: MAX_CONNECTIONS
+        value: "200"
+      - key: WORKERS
+        value: "2"
+
+  # ====================================
+  # Apollo Gateway Service
+  # ====================================
+  - type: web
+    name: apollo-gateway
+    runtime: node
+    repo: https://github.com/giamma80/gymbro-platform.git
+    rootDir: services/apollo-gateway
+    
+    # Build and Start Commands
+    buildCommand: npm ci
+    startCommand: npm start
+    
+    # Runtime Configuration
+    plan: starter
+    region: oregon
+    branch: main
+    
+    # Auto Deploy
+    autoDeploy: true
+    
+    # Health Check
+    healthCheckPath: /health
+    
+    # Deploy solo quando cambia questo servizio
+    buildFilter:
+      paths:
+        - services/apollo-gateway/**
+        - render.yaml
+    
+    # Environment Variables
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: GATEWAY_PORT
+        value: "4000"
+      - key: GATEWAY_HOST
+        value: "0.0.0.0"
+      - key: GRAPHQL_PATH
+        value: /graphql
+      - key: POLL_INTERVAL
+        value: "30000"
+      - key: LOG_LEVEL
+        value: info
+      
+      # GraphQL Development Features (Enabled for testing)
+      - key: ENABLE_INTROSPECTION
+        value: "true"
+      - key: ENABLE_PLAYGROUND
+        value: "true"
+      
+      # CORS Configuration
+      - key: CORS_ORIGINS
+        value: https://nutrifit.app,https://app.nutrifit.app
+      
+      # Subgraph URLs - Point to Render services
+      - key: USER_MANAGEMENT_URL
+        value: https://nutrifit-user-management.onrender.com/graphql
+      - key: CALORIE_BALANCE_URL
+        value: https://nutrifit-calorie-balance.onrender.com/graphql
+
+  # ====================================
+  # Future Services
+  # ====================================
+  # Add new services here following the same pattern:
+  # - meal-tracking
+  # - health-monitor  
+  # - ai-coach
+  # - notifications
+
+  # ====================================
+  # Shared Infrastructure (Future)
+  # ====================================
+  
+  # Redis Cache - DISABLED: Not used by current services
+  # Will be enabled when implementing response caching in Apollo Gateway
+  # - type: redis
+  #   name: nutrifit-redis
+  #   plan: starter
+  #   region: oregon
+  #   ipAllowList: []
+  #   maxmemoryPolicy: allkeys-lru
+
+# ====================================
+# API Gateway Configuration
+# ====================================
+# Note: Consider using a reverse proxy service for:
+# - Centralized routing (/api/users/* → user-management)
+# - Rate limiting across services
+# - Authentication middleware
+# - Request/response logging
+
+# Potential Gateway Service:
+# - type: web
+#   name: nutrifit-gateway
+#   runtime: docker
+#   rootDir: services/api-gateway
+#   envVars:
+#     - key: USER_MANAGEMENT_URL
+#       value: https://nutrifit-user-management.onrender.com
+#     - key: CALORIE_BALANCE_URL  
+#       value: https://nutrifit-calorie-balance.onrender.com
+
+# ====================================
+# Database Configuration
+# ====================================
+# Using Supabase Cloud PostgreSQL
+# - Single database with multiple schemas
+# - user_management schema for user service
+# - calorie_balance schema for calorie service
+# - Shared via environment variables
+
+# ====================================
+# Monitoring & Observability
+# ====================================
+# Consider adding:
+# - Centralized logging service
+# - Metrics collection (Prometheus/Grafana)
+# - Error tracking (Sentry)
+# - Uptime monitoring
+
+# ====================================
+# Deployment Strategy
+# ====================================
+# 1. Platform-level deployment triggered by changes
+# 2. Build matrix detects which services changed
+# 3. Only modified services are rebuilt and deployed
+# 4. Health checks ensure rolling deployment
+# 5. Rollback capability per service
+
+# ====================================
+# Scaling Strategy
+# ====================================
+# Start: All services on Starter plan
+# Scale: Monitor individual service metrics
+# Optimize: 
+# - High-traffic services → Standard/Pro plans
+# - CPU-intensive services → More instances
+# - I/O-heavy services → Better database connection pooling
