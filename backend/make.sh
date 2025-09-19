@@ -41,12 +41,6 @@ assert_clean_worktree(){
 
 pyproject_version(){ grep '^version\s*=\s*"' "$VERSION_FILE" | head -1 | sed -E 's/version\s*=\s*"([^"]+)"/\1/'; }
 
-debug_path(){
-  echo "[DEBUG] SCRIPT_DIR=$SCRIPT_DIR" >&2
-  echo "[DEBUG] VERSION_FILE=$VERSION_FILE" >&2
-  [ -f "$VERSION_FILE" ] || echo "[DEBUG] Version file non trovato" >&2
-}
-
 set_pyproject_version(){
   local newv="$1"
   local vf="$VERSION_FILE"
@@ -219,11 +213,10 @@ EOF
   version-bump)
     header "Version bump"
     LEVEL=${LEVEL:-patch}
-    debug_path
     assert_clean_worktree
     current="$(pyproject_version)"; newv="$(semver_bump "$LEVEL")"
     info "Versione corrente: $current → nuova: $newv"
-    read -r -p "Confermi bump ($LEVEL)? [y/N] " ans; [[ "${ans,,}" == y || "${ans,,}" == yes ]] || { warn "Abort"; exit 1; }
+  read -r -p "Confermi bump ($LEVEL)? [y/N] " ans; ans_lc=$(printf '%s' "$ans" | tr '[:upper:]' '[:lower:]'); { [ "$ans_lc" = "y" ] || [ "$ans_lc" = "yes" ]; } || { warn "Abort"; exit 1; }
     set_pyproject_version "$newv"
     git add "$VERSION_FILE"
     git commit -m "chore(release): bump version to $newv"
@@ -238,7 +231,7 @@ EOF
     assert_clean_worktree || true
     current="$(pyproject_version)"; newv="$(semver_bump "$LEVEL")"
     info "Release: $current → $newv"
-    read -r -p "Procedere? [y/N] " ans; [[ "${ans,,}" == y || "${ans,,}" == yes ]] || { warn "Abort"; exit 1; }
+  read -r -p "Procedere? [y/N] " ans; ans_lc=$(printf '%s' "$ans" | tr '[:upper:]' '[:lower:]'); { [ "$ans_lc" = "y" ] || [ "$ans_lc" = "yes" ]; } || { warn "Abort"; exit 1; }
     set_pyproject_version "$newv"
     git add "$VERSION_FILE"
     git commit -m "chore(release): bump version to $newv"
