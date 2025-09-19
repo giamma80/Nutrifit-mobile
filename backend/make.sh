@@ -88,28 +88,40 @@ case "$TARGET" in
   help)
     cat <<EOF
 Targets disponibili:
+  # Base / Dev
   setup             Sync dipendenze (uv)
+  run               Avvia server (foreground, hot reload)
+  run-bg            Avvia server in background
+  stop              Stop server background
+  logs              Tail log server locale
+  status            Stato (versione, server, docker)
+
+  # Qualità
   format            Black format
   lint              Flake8 + mypy
   test              Pytest
-  run               Avvia server (foreground)
-  run-bg            Avvia server in background
-  stop              Stop server background
+  schema-export     Esporta SDL GraphQL (aggiorna file versionato)
+  schema-check      Verifica drift schema (fail se differente)
+  preflight         format + lint + test + schema-check + commitlint
+
+  # Versioning / Release
+  version-show      Mostra versione corrente
+  version-verify    Verifica pyproject vs tag HEAD
+  version-bump      Bump versione (LEVEL=patch|minor|major)
+  release           preflight + bump + tag + push + push tag
+
+  # Git helpers
+  commit MSG="..."  Preflight + commit
+  push              Preflight + push ramo
+
+  # Docker
   docker-build      Build immagine locale (${IMAGE_NAME})
   docker-run        Esegui container (porta 8080)
   docker-stop       Stop & remove container
   docker-logs       Segui log container
   docker-restart    Restart container
-  preflight         Format (dry) + lint + test + commitlint
-  commit MSG="..."  Crea commit dopo preflight (usa var MSG)
-  push              Push ramo corrente (richiede preflight verde)
-  version-bump      Bump versione (LEVEL=patch|minor|major)
-  version-verify    Verifica che la versione in pyproject corrisponda al tag HEAD
-  version-show      Mostra versione corrente
-  schema-export     Esporta SDL GraphQL (aggiorna file versionato)
-  schema-check      Verifica drift schema (fail se differente)
-  release           preflight + version-bump + tag + push + push tag
-  status            Stato (versione, git, server, docker)
+
+  # Utility
   clean             Rimuovi .venv, __pycache__, pid
   clean-dist        Rimuovi eventuale dist residua
   all               setup + lint + test

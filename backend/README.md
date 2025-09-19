@@ -144,3 +144,20 @@ Note:
 - Rule Engine runtime (valutazione condizioni + throttle)
 - Caching OpenFoodFacts (LRU + TTL)
 
+## Roadmap & Progress (Backend)
+
+| Area | Stato Attuale | Prossimo Obiettivo | Note |
+|------|---------------|--------------------|------|
+| Core API (health/version) | ✅ | Estendere endpoints nutrizione | Base stabile |
+| GraphQL Schema | 🟡 Minimal demo | Porting schema nutrition reale | Drift guard attivo (`schema-check`) |
+| OpenFoodFacts Adapter | ✅ Prototype | Cache + normalizzazione avanzata | Integrazione futura in resolver |
+| Rule Engine DSL | 🟡 Draft parser | Eseguire engine runtime | Dipende da eventi & notifiche |
+| Logging | ✅ File semplice | Logging strutturato JSON | Collegare tracing successivamente |
+| Versioning Tooling | ✅ bump/verify | Automazione changelog | Badge dinamico già attivo |
+| Release Pipeline | 🟡 Manuale script | CI release gating | Agganciare workflow semver |
+| Auth | ❌ | Token dev / API key | Necessario prima di features sensibili |
+| Caching | ❌ | OFF basic caching | Riduce latenza / rate-limit risk |
+| Observability | ❌ | Strutturare log | Aggiungere tracing & metrics |
+
+Legenda: ✅ completato base · 🟡 in progresso/parziale · ❌ non avviato.
+
