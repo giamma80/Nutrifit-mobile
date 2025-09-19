@@ -103,6 +103,7 @@ Targets disponibili:
   schema-export     Esporta SDL GraphQL (aggiorna file versionato)
   schema-check      Verifica drift schema (fail se differente)
   preflight         format + lint + test + schema-check + commitlint
+  changelog         Aggiorna CHANGELOG.md dai commit conventional (usa DRY=1 per anteprima)
 
   # Versioning / Release
   version-show      Mostra versione corrente
@@ -277,6 +278,20 @@ EOF
     git tag "v$newv"
     git push && git push --tags
     info "Release completata"
+    ;;
+
+  changelog)
+    header "Generate changelog"
+    if [ "${DRY:-0}" = "1" ]; then
+      uv run python scripts/generate_changelog.py --dry
+    else
+      uv run python scripts/generate_changelog.py
+      if git diff --quiet -- CHANGELOG.md; then
+        info "Nessun aggiornamento changelog"
+      else
+        info "CHANGELOG aggiornato (non ancora committato)"
+      fi
+    fi
     ;;
 
   schema-export)

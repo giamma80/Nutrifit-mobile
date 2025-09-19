@@ -1,0 +1,42 @@
+name: backend-changelog
+
+on:
+  push:
+    paths:
+      - 'backend/**'
+      - 'CHANGELOG.md'
+    branches:
+      - main
+  workflow_dispatch: {}
+
+jobs:
+  generate-changelog:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # need full history for conventional commits range
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          version: '3.11'
+      - name: Sync deps
+        run: uv sync --all-extras --dev
+      - name: Generate changelog
+        run: |
+          ./make.sh changelog
+      - name: Commit changelog if changed
+        run: |
+          if git diff --quiet --exit-code CHANGELOG.md; then
+            echo "No changelog changes"
+            exit 0
+          fi
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+          git add CHANGELOG.md
+          git commit -m "docs(changelog): update changelog (auto)"
+          git push
