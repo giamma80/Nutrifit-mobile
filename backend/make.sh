@@ -39,7 +39,7 @@ assert_clean_worktree(){
   if ! git diff --quiet --ignore-submodules; then err "Working tree con modifiche non committate"; exit 1; fi
 }
 
-pyproject_version(){ grep '^version\s*=\s*"' "$VERSION_FILE" | head -1 | sed -E 's/version\s*=\s*"([^"]+)"/\1/'; }
+pyproject_version(){ grep -m1 '^version[[:space:]]*=' "$VERSION_FILE" | sed -E 's/^[^=]+= *"([0-9]+\.[0-9]+\.[0-9]+)".*/\1/'; }
 
 set_pyproject_version(){
   local newv="$1"
@@ -55,6 +55,7 @@ set_pyproject_version(){
 semver_bump(){
   local current MA MI PA level
   current="$(pyproject_version)" || { err "Versione non trovata"; exit 1; }
+  echo "$current" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$' || { err "Formato versione non valido: $current"; exit 1; }
   level="$1"
   # Split manuale (compat bash 3.2)
   local OIFS="$IFS"; IFS='.'; set -- $current; IFS="$OIFS"
