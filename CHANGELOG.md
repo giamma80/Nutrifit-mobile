@@ -54,6 +54,29 @@ Formato ispirato a [Keep a Changelog](https://keepachangelog.com/it-IT/1.1.0/) e
 
 ## [Unreleased]
 
+### Fixed
+- correct toml escaping for excludes
+
+### Docs
+- add Makefile proxy and junior-friendly usage examples
+- add build + schema badges and update changelog
+- add changelog section; chore(make): integrate changelog into release
+- add preflight summary
+- add preflight summary part 3
+- add version-show target + shell compat notes; chore(make): add version-show
+- finalize 0.1.2 section and markdownlint fixes
+
+### Chore
+- add changelog generator + workflow + schema status badge
+- add schema-check target and integrate into preflight; docs: clarify local vs docker run and schema drift
+- add schema-export target, align version, seed schema SDL
+- exclude .venv,dist,build from mypy/flake8/black
+- finalize support + auto GitHub release workflow
+- improved help output and add roadmap & progress section
+
+## [v0.1.3] - 2025-09-19
+
+
 ### Planned
 
 - Workflow CI (lint, test, schema diff).
