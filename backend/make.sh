@@ -17,6 +17,7 @@ VERSION_FILE="${SCRIPT_DIR}/pyproject.toml"
 LOG_DIR="logs"
 SERVER_LOG_FILE="${LOG_DIR}/server.log"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && git rev-parse --show-toplevel 2>/dev/null || echo "$SCRIPT_DIR/..")"
+CHANGELOG_FILE="$REPO_ROOT/CHANGELOG.md"
 
 # Colori (disattivabili con NO_COLOR=1)
 if [ "${NO_COLOR:-0}" = "1" ] || [ -n "${CI:-}" ]; then
@@ -112,6 +113,7 @@ Targets disponibili:
   version-verify    Verifica pyproject vs tag HEAD
   version-bump      Bump versione (LEVEL=patch|minor|major)
   release           preflight + changelog + bump + tag + push (auto include CHANGELOG)
+  release-continue  Se release interrotta dopo finalize/bump: commit/tag/push senza ri-finalizzare
 
   # Git helpers
   commit MSG="..."  Preflight + commit
@@ -398,11 +400,11 @@ EOF
     DRY=1 $0 changelog || true
   read -r -p "Procedere (finalize + bump)? [y/N] " ans; ans_lc=$(printf '%s' "$ans" | tr '[:upper:]' '[:lower:]'); { [ "$ans_lc" = "y" ] || [ "$ans_lc" = "yes" ]; } || { warn "Abort"; exit 1; }
     # Finalizza sezione Unreleased come nuova versione
-    uv run python scripts/generate_changelog.py --finalize "v$newv"
+  uv run python scripts/generate_changelog.py --finalize "$newv"
     # Rigenera eventuali commit non ancora raccolti (in caso di finalize vuoto)
     $0 changelog || true
     set_pyproject_version "$newv"
-    git add "$VERSION_FILE" CHANGELOG.md || true
+  git add "$VERSION_FILE" "$CHANGELOG_FILE" || true
     git commit -m "chore(release): bump version to $newv"
     git tag "v$newv"
     git push && git push --tags
@@ -415,12 +417,37 @@ EOF
       uv run python scripts/generate_changelog.py --dry
     else
       uv run python scripts/generate_changelog.py
-      if git diff --quiet -- CHANGELOG.md; then
+      if git diff --quiet -- "$CHANGELOG_FILE"; then
         info "Nessun aggiornamento changelog"
       else
         info "CHANGELOG aggiornato (non ancora committato)"
       fi
     fi
+    ;;
+
+  release-continue)
+    header "Release continue"
+    # Caso: pyproject già aggiornato (versione nuova) e changelog finalizzato, ma commit/tag falliti
+    current="$(pyproject_version)"
+    # Verifica se esiste già un tag per questa versione
+    if git rev-parse -q --verify "refs/tags/v$current" >/dev/null; then
+      warn "Tag v$current già esistente: nulla da fare"
+      exit 0
+    fi
+    # Assicura che CHANGELOG abbia la sezione della versione corrente (grepping semplice)
+  if ! grep -q "^## \[$current\]" "$CHANGELOG_FILE"; then
+      warn "Sezione v$current non trovata in CHANGELOG: potenziale incompletezza"
+    fi
+    git add "$VERSION_FILE" "$CHANGELOG_FILE" || true
+    if git diff --cached --quiet; then
+      warn "Nessuna differenza da committare (forse commit già creato)"
+    else
+      git commit -m "chore(release): bump version to $current" || true
+    fi
+    git tag "v$current" || true
+    git push || true
+    git push --tags || true
+    info "Release completata/recuperata per v$current"
     ;;
 
   schema-export)

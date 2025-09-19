@@ -31,4 +31,18 @@ jobs:
           COLOR=lightgrey
           if [ "$STATUS" = "synced" ]; then COLOR=brightgreen; else COLOR=orange; fi
           sed -i "s|schema_status-[a-zA-Z0-9_-]*-[a-zA-Z]*|schema_status-${STATUS}-${COLOR}|" README.md || true
-          if git diff --quiet -- README.md; then echo "No README change"; else git config user.name "github-actions"; git config user.email "actions@users.noreply.github.com"; git add README.md; git commit -m "chore(ci): update schema status badge -> $STATUS"; git push; fi
+          if git diff --quiet -- README.md; then
+            echo "No README change"
+          else
+            git config user.name "github-actions"
+            git config user.email "actions@users.noreply.github.com"
+            git add README.md
+            git commit -m "chore(ci): update schema status badge -> $STATUS" || echo "Commit skipped"
+            # Gestione detached HEAD: push esplicito su ref originale
+            if git symbolic-ref -q HEAD >/dev/null; then
+              git push
+            else
+              echo "Detached HEAD: pushing to origin ${GITHUB_REF_NAME}"
+              git push origin HEAD:${GITHUB_REF_NAME}
+            fi
+          fi

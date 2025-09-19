@@ -97,7 +97,10 @@ def ensure_unreleased(lines: list[str]) -> int:
     return len(lines) - 2
 
 
-def insert_entries(lines: list[str], grouped: dict[str, set[str]]) -> list[str]:
+def insert_entries(
+    lines: list[str],
+    grouped: dict[str, set[str]],
+) -> list[str]:
     """Insert grouped commit messages under the Unreleased section."""
     idx = ensure_unreleased(lines)
     # Find next section boundary
@@ -132,13 +135,17 @@ def insert_entries(lines: list[str], grouped: dict[str, set[str]]) -> list[str]:
     return new_lines
 
 
-def finalize_version(lines: list[str], version: str) -> list[str]:
-    """Move Unreleased section content under a new version heading with date.
+def finalize_version(
+    lines: list[str],
+    version: str,
+) -> list[str]:
+    """Finalize Unreleased -> new version heading.
 
-    If Unreleased is empty -> no change.
+    Normalizza il nome versione rimuovendo un prefisso 'v' (se presente) per
+    coerenza con intestazioni esistenti (es: '0.1.2').
     """
+    norm_version = version.lstrip("v")
     idx = ensure_unreleased(lines)
-    # Determine block range
     start = idx + 1
     end = start
     while end < len(lines) and not lines[end].startswith("## ["):
@@ -150,8 +157,9 @@ def finalize_version(lines: list[str], version: str) -> list[str]:
         return lines
     from datetime import date
 
-    header = f"## [{version}] - {date.today().isoformat()}"
-    new_lines = lines[:idx] + [lines[idx], "", header, ""] + block + lines[end:]
+    header = f"## [{norm_version}] - {date.today().isoformat()}"
+    new_header_block = [lines[idx], "", header, ""]
+    new_lines = lines[:idx] + new_header_block + block + lines[end:]
     return new_lines
 
 

@@ -74,7 +74,7 @@ Formato ispirato a [Keep a Changelog](https://keepachangelog.com/it-IT/1.1.0/) e
 - finalize support + auto GitHub release workflow
 - improved help output and add roadmap & progress section
 
-## [v0.1.3] - 2025-09-19
+## [0.1.3] - 2025-09-19
 
 
 ### Planned
