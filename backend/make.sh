@@ -104,6 +104,7 @@ Targets disponibili:
   commit MSG="..."  Crea commit dopo preflight (usa var MSG)
   push              Push ramo corrente (richiede preflight verde)
   version-bump      Bump versione (LEVEL=patch|minor|major)
+  version-show      Mostra versione corrente
   release           preflight + version-bump + tag + push + push tag
   status            Stato (versione, git, server, docker)
   clean             Rimuovi .venv, __pycache__, pid
@@ -223,6 +224,11 @@ EOF
     git commit -m "chore(release): bump version to $newv"
     git tag "v$newv"
     info "Bump completato (commit + tag)"
+    ;;
+
+  version-show)
+    header "Version corrente"
+    echo "$(pyproject_version)"
     ;;
 
   release)

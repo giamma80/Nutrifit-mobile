@@ -2,10 +2,12 @@
 
 Subgraph nutrizionale / AI minimale con gestione dipendenze tramite **uv** e deployment container-first.
 
+> Shell compatibility: lo script `make.sh` è scritto per funzionare anche con la bash 3.2 di macOS (niente `${var,,}` ecc.). Colori disattivabili con `NO_COLOR=1`.
+
 ## Endpoints
 
 - `GET /health` → `{status: ok}`
-- `GET /version` → `{version: 0.1.0}`
+- `GET /version` → `{version: 0.1.2}`
 - `POST /graphql` (via Strawberry) – Query disponibili:
   - `hello`: string di test
   - `server_time`: timestamp UTC
@@ -42,6 +44,7 @@ Tutte le operazioni comuni sono incapsulate in `make.sh` (funziona anche su macO
 | `docker-logs` | Segui log container |
 | `docker-restart` | Stop + run |
 | `version-bump LEVEL=patch` | Bump versione (patch/minor/major) + commit + tag |
+| `version-show` | Mostra versione corrente (solo stdout pulito) |
 | `release LEVEL=patch` | preflight + bump + tag + push + push tag |
 | `status` | Stato rapido (versione, server, container) |
 | `clean` | Rimuove .venv, __pycache__, pid |
@@ -78,6 +81,17 @@ Comandi utili:
 ./make.sh status      # mostra anche la dimensione del log
 ```
 I log non sono versionati (ignorati in `.gitignore`). In futuro potremo introdurre structlog / formati JSON.
+
+### Versioning
+
+Per vedere rapidamente la versione senza rumore (utile in script esterni):
+```bash
+./make.sh version-show
+```
+Per bump semantico (aggiorna `pyproject.toml`, crea commit e tag):
+```bash
+./make.sh version-bump LEVEL=patch   # oppure minor / major
+```
 
 ## Avvio via Docker
 

@@ -187,7 +187,12 @@ Easter Egg Roadmap: quando AI autofill >70% adoption → attivare modalità "Hyp
 
 ---
 ## 🗒 Changelog
-Vedi [CHANGELOG.md](CHANGELOG.md). Release corrente: `v0.1.0` (baseline documentazione & schema nutrizione).
+Vedi [CHANGELOG.md](CHANGELOG.md). Release corrente backend: `v0.1.2` (script cockpit + logging + bump tooling).
+
+Quick check versione backend da root (senza entrare in `backend/`):
+```bash
+cd backend && ./make.sh version-show
+```
 
 ## 📝 Licenza
 Da definire. (Per ora nessuna licenza pubblicata; evitare uso in produzione esterna.)
