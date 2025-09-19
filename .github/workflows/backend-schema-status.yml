@@ -9,8 +9,13 @@ on:
 jobs:
   schema-status:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write  # Necessario per poter eseguire git push (aggiornamento badge README)
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: true  # Usa GITHUB_TOKEN per push
       - name: Install uv
         run: curl -LsSf https://astral.sh/uv/install.sh | sh
       - name: Check schema drift
