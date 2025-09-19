@@ -143,6 +143,76 @@ Differenza rapida ambiente:
 
 Pipeline Deploy: push -> GitHub Action (`backend-ci`) valida (lint, type-check, test, docker build) -> Render ricostruisce immagine dal `backend/Dockerfile` e avvia `uvicorn`.
 
+#### Preflight & Quality Gates
+Il comando `./make.sh preflight` esegue in sequenza i gate e produce un riepilogo finale tabellare:
+
+Gates controllati:
+| Gate | Contenuto | Critico per exit code |
+|------|-----------|-----------------------|
+| format | Black (non blocca) | No |
+| lint | Flake8 + Mypy | Sì |
+| tests | Pytest suite | Sì |
+| schema | Diff SDL GraphQL | Sì |
+| commitlint | Convenzioni commit | No (WARN/SKIP) |
+
+Stati possibili:
+| Stato | Significato |
+|-------|------------|
+| PASS | Tutto ok |
+| FAIL | Gate critico fallito (preflight termina 1) |
+| WARN | Commitlint non conforme ma non blocca |
+| SKIP | Gate non eseguito (dipendenze assenti / opzionale) |
+
+Esempio output:
+```text
+=== Preflight Summary ===
+GATE         | ESITO  | NOTE
+format       | PASS   |
+lint         | PASS   |
+tests        | PASS   |
+schema       | PASS   |
+commitlint   | SKIP   | deps mancanti
+```
+
+Suggerito prima di ogni commit/push per feedback rapido locale.
+
+#### Flusso Commit & Push
+Passi consigliati (dalla cartella `backend/`):
+```bash
+./make.sh preflight             # verifica qualità
+./make.sh commit MSG="feat(adapter): retry OFF"  # esegue preflight + commit
+./make.sh push                  # preflight + push remoto
+```
+Oppure manuale:
+```bash
+./make.sh preflight
+git add .
+git commit -m "feat(adapter): retry OFF"
+git push
+```
+
+#### Bump Versione & Release
+Per creare una release semver (aggiorna `pyproject.toml`, tag e changelog):
+```bash
+./make.sh release LEVEL=patch   # o minor / major
+```
+Flow interno:
+1. Preflight
+2. Calcolo nuova versione
+3. Finalizzazione CHANGELOG (sezione Unreleased -> nuova versione)
+4. Commit + tag `vX.Y.Z`
+5. Push + push tag
+
+Per solo bump senza publish changelog finale:
+```bash
+./make.sh version-bump LEVEL=minor
+```
+
+Verifica corrispondenza versione/tag:
+```bash
+./make.sh version-verify
+```
+
 #### Log locale backend
 Lo script `backend/make.sh` scrive i log runtime in `backend/logs/server.log` (ignorato da git). Usa:
 ```bash
@@ -164,6 +234,32 @@ Struttura futura in `lib/offline/` con coda persistente (Hive) e replay verso mu
 
 ### OpenFoodFacts Adapter
 Implementato adapter asincrono (`backend/openfoodfacts/adapter.py`) con normalizzazione nutrienti (fallback kJ→kcal, derivazione sodio da sale).
+
+#### Retry & Timeout Strategy
+Il client effettua richieste con timeout totale `TIMEOUT_S=8s` e semplice meccanismo di retry esponenziale:
+
+| Parametro | Valore | Note |
+|-----------|--------|------|
+| MAX_RETRIES | 3 | Inclusa la prima richiesta (quindi 1 + 2 retry) |
+| INITIAL_BACKOFF_S | 0.2s | Cresce in modo esponenziale (x2) ad ogni retry |
+| BACKOFF_FACTOR | 2.0 | 0.2 → 0.4 → 0.8 |
+| RETRY_STATUS_CODES | 500, 502, 503, 504 | Altri 5xx vengono trattati come errore diretto |
+| Eccezioni rete | ReadTimeout, ConnectError, RemoteProtocolError, NetworkError | Stesso flusso dei 5xx retryable |
+
+Condizioni di uscita:
+1. 404 → `ProductNotFound` (no retry)
+2. `status != 1` nel payload → `ProductNotFound`
+3. 5xx retryable → retry fino a cap, poi `OpenFoodFactsError`
+4. Timeout / errori rete consecutivi → `OpenFoodFactsError` dopo esaurimento tentativi
+
+I test includono casi: successo base, fallback kJ, conversione sale→sodio, nutrienti invalidi, 404, 500 singolo, 500 transiente risolto, timeout transiente, esaurimento retry 500, esaurimento retry timeout.
+
+Futuri possibili miglioramenti:
+- Jitter random sul backoff per ridurre sincronizzazione a storm
+- Cache LRU locale per barcode già risolti
+- Circuit breaker con finestra di errore
+- Metriche (counter tentativi / failure) esportate in endpoint interno
+
 
 ### Rule Engine DSL (Draft)
 Specifica iniziale e parser YAML per regole notifiche/adattamento (file: `docs/rule_engine_DSL.md`, parser: `backend/rules/parser.py`). Supporta trigger `schedule|event`, condizioni base (deviazione calorie, nessun pasto finestra) e azioni (`push_notification`, `adjust_plan_targets`).

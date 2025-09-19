@@ -1,0 +1,34 @@
+name: backend-schema-status
+
+on:
+  push:
+    paths:
+      - 'backend/**'
+  workflow_dispatch: {}
+
+jobs:
+  schema-status:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install uv
+        run: curl -LsSf https://astral.sh/uv/install.sh | sh
+      - name: Check schema drift
+        working-directory: backend
+        env:
+          NO_COLOR: "1"
+        run: |
+          ./make.sh setup
+          if ./make.sh schema-check; then
+            echo "SCHEMA_STATUS=synced" >> $GITHUB_ENV
+          else
+            echo "SCHEMA_STATUS=drift" >> $GITHUB_ENV
+          fi
+      - name: Update README badge (root)
+        if: always()
+        run: |
+          STATUS="$SCHEMA_STATUS"
+          COLOR=lightgrey
+          if [ "$STATUS" = "synced" ]; then COLOR=brightgreen; else COLOR=orange; fi
+          sed -i "s|schema_status-[a-zA-Z0-9_-]*-[a-zA-Z]*|schema_status-${STATUS}-${COLOR}|" README.md || true
+          if git diff --quiet -- README.md; then echo "No README change"; else git config user.name "github-actions"; git config user.email "actions@users.noreply.github.com"; git add README.md; git commit -m "chore(ci): update schema status badge -> $STATUS"; git push; fi

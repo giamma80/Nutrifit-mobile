@@ -1,0 +1,37 @@
+name: Update Backend Version Badge
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'backend/pyproject.toml'
+      - '.github/workflows/update-backend-version-badge.yml'
+  workflow_dispatch: {}
+
+jobs:
+  badge:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Extract backend version
+        id: ver
+        run: |
+          v=$(grep -m1 '^version' backend/pyproject.toml | sed -E 's/^[^=]+= *"([0-9]+\.[0-9]+\.[0-9]+)".*/\1/')
+          echo "version=$v" >> $GITHUB_OUTPUT
+
+      - name: Update README badge
+        run: |
+          version="${{ steps.ver.outputs.version }}"
+          badge="https://img.shields.io/badge/backend_version-${version}-green"
+          sed -i "s|backend_version-[a-zA-Z0-9_.-]*-grey|backend_version-${version}-green|" README.md
+          if git diff --quiet README.md; then
+            echo "No README update needed"
+          else
+            git config user.name "github-actions"
+            git config user.email "github-actions@users.noreply.github.com"
+            git add README.md
+            git commit -m "docs(badge): update backend version badge to ${version}"
+            git push
+          fi

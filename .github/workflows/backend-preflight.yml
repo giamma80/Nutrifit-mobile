@@ -1,0 +1,25 @@
+name: backend-preflight
+
+on:
+  push:
+    paths:
+      - 'backend/**'
+  pull_request:
+    paths:
+      - 'backend/**'
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Install uv
+        run: curl -LsSf https://astral.sh/uv/install.sh | sh
+      - name: Backend preflight
+        working-directory: backend
+        env:
+          NO_COLOR: "1"
+        run: |
+          ./make.sh setup
+          ./make.sh preflight

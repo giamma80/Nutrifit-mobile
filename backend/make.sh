@@ -16,6 +16,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 VERSION_FILE="${SCRIPT_DIR}/pyproject.toml"
 LOG_DIR="logs"
 SERVER_LOG_FILE="${LOG_DIR}/server.log"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && git rev-parse --show-toplevel 2>/dev/null || echo "$SCRIPT_DIR/..")"
 
 # Colori (disattivabili con NO_COLOR=1)
 if [ "${NO_COLOR:-0}" = "1" ] || [ -n "${CI:-}" ]; then
@@ -114,6 +115,7 @@ Targets disponibili:
 
   # Git helpers
   commit MSG="..."  Preflight + commit
+                    (usa COMMIT_SCOPE=all per includere modifiche fuori da backend/)
   push              Preflight + push ramo
 
   # Docker
@@ -325,7 +327,21 @@ EOF
     header "Commit helper"
     : "${MSG:?Devi passare il messaggio: MSG=\"type(scope): subject\"}" || true
     $0 preflight
-    git add .
+    COMMIT_SCOPE=${COMMIT_SCOPE:-backend}
+    if [ "$COMMIT_SCOPE" = "all" ]; then
+      info "Commit scope: intero repository ($REPO_ROOT)"
+      git add "$REPO_ROOT"
+    else
+      # Avvisa se esistono modifiche fuori da backend/ non incluse
+      if git status --porcelain | awk '{print $2}' | grep -qv '^backend/'; then
+        warn "Rilevate modifiche fuori da backend/ NON incluse (esegui COMMIT_SCOPE=all ./make.sh commit MSG=...)"
+      fi
+      git add .
+    fi
+    if git diff --cached --quiet; then
+      err "Nessun cambiamento staged (probabilmente solo file fuori da backend/)."
+      exit 1
+    fi
     git commit -m "$MSG"
     info "Commit creato"
     ;;

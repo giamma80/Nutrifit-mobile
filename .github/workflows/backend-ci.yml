@@ -53,7 +53,7 @@ jobs:
       - name: Strawberry Schema Export
         working-directory: backend
         run: |
-          echo "# TODO: add schema export once implemented" > schema_export.graphql
+          uv run python scripts/export_schema.py --out schema_export.graphql
 
       - name: Upload schema artifact
         uses: actions/upload-artifact@v4
@@ -63,4 +63,19 @@ jobs:
 
       - name: Docker Build (validation)
         run: |
-          docker build -t nutrifit-backend:ci backend
+          docker build --build-arg VERSION=$(grep -m1 '^version' backend/pyproject.toml | sed -E 's/^[^0-9]*([0-9]+\.[0-9]+\.[0-9]+).*/\1/') -t nutrifit-backend:ci backend
+
+      - name: Run container
+        run: |
+          docker run -d --rm -p 8080:8080 --name nutrifit-backend-ci nutrifit-backend:ci
+          sleep 3
+
+      - name: Integration test (health/version/graphql)
+        working-directory: backend
+        run: |
+          bash scripts/integration_test.sh
+
+      - name: Stop container
+        if: always()
+        run: |
+          docker stop nutrifit-backend-ci || true
