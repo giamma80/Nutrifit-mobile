@@ -1,9 +1,0 @@
-# DEPRECATED: Version verification integrated into release.yml
-name: deprecated-backend-version-verify
-on:
-  workflow_dispatch: {}
-jobs:
-  noop:
-    runs-on: ubuntu-latest
-    steps:
-      - run: echo 'Deprecated workflow. Use release.yml (version check step) instead.'

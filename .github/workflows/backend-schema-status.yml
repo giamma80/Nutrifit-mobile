@@ -1,8 +1,0 @@
-name: deprecated-backend-schema-status
-on:
-  workflow_dispatch: {}
-jobs:
-  noop:
-    runs-on: ubuntu-latest
-    steps:
-      - run: echo 'Deprecated workflow. Use backend-ci.yml maintenance job instead.'

@@ -1,9 +1,0 @@
-# DEPRECATED: Replaced by backend-ci.yml and mobile-ci.yml
-name: deprecated-ci
-on:
-  workflow_dispatch: {}
-jobs:
-  noop:
-    runs-on: ubuntu-latest
-    steps:
-      - run: echo 'Deprecated workflow. Use backend-ci.yml or mobile-ci.yml instead.'

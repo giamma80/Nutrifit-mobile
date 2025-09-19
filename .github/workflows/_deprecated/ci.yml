@@ -1,9 +1,0 @@
-# Archived deprecated generic CI workflow (replaced by backend-ci.yml & mobile-ci.yml)
-name: archived-deprecated-ci
-on:
-  workflow_dispatch: {}
-jobs:
-  noop:
-    runs-on: ubuntu-latest
-    steps:
-      - run: echo 'Archived deprecated workflow. No action.'

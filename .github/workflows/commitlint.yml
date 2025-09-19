@@ -1,8 +1,0 @@
-name: deprecated-commitlint
-on:
-  workflow_dispatch: {}
-jobs:
-  noop:
-    runs-on: ubuntu-latest
-    steps:
-      - run: echo 'Deprecated workflow. Use backend-ci.yml commitlint job instead.'

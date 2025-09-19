@@ -1,8 +1,0 @@
-name: deprecated-update-backend-version-badge
-on:
-  workflow_dispatch: {}
-jobs:
-  noop:
-    runs-on: ubuntu-latest
-    steps:
-      - run: echo 'Deprecated workflow. Use backend-ci.yml maintenance job instead.'
