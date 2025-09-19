@@ -11,6 +11,10 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write  # Necessario per poter eseguire git push (aggiornamento badge README)
+    # NOTE:
+    #  - Senza 'contents: write' il push fallisce con 403 (github-actions[bot] denied)
+    #  - In alternativa al push diretto si può usare un approccio "PR" con peter-evans/create-pull-request
+    #    utile se si vuole revisione umana dei cambi README.
     steps:
       - name: Checkout
         uses: actions/checkout@v4
