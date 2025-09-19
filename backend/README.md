@@ -20,12 +20,23 @@ uv sync --all-extras --dev
 uv run uvicorn app:app --reload --port 8080
 ```
 
+Oppure usando lo script helper:
+```bash
+./make.sh setup
+./make.sh run
+```
+
 ## Avvio via Docker
 
 Costruzione immagine (usa `uv` per risolvere dipendenze):
 ```bash
 docker build -t nutrifit-backend:dev backend
 docker run -p 8080:8080 nutrifit-backend:dev
+```
+
+Oppure:
+```bash
+./make.sh docker
 ```
 
 Health: `curl localhost:8080/health`
@@ -38,6 +49,8 @@ Health: `curl localhost:8080/health`
 4. (Futuro) Aggiunta variabili d'ambiente per configurazioni (es. SUPABASE_URL, FEATURE_FLAGS, ecc.).
 
 Nessuna pubblicazione su registry esterno: pipeline repository → Render (repo sync).
+
+Nota packaging: la cartella `nutrifit_backend.egg-info/` può essere rigenerata localmente da uv/setuptools ma è ignorata (`.gitignore`). Non è necessaria nel VCS.
 
 ## Prossimi Step
 

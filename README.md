@@ -106,13 +106,27 @@ Planned:
 
 TODO: aggiungere workflow YAML (lint + schema snapshot) in `/ .github/workflows`.
 
-### Backend (uv) Quick Start
+### Backend (uv + Docker) Quick Start
+Opzione A (nativo):
 ```bash
 cd backend
 uv sync --all-extras --dev
 uv run uvicorn app:app --reload --port 8080
 ```
-API disponibili ora: `GET /health`, `GET /version`, `POST /graphql` (query demo `hello`, `server_time`).
+Opzione B (script helper):
+```bash
+cd backend
+./make.sh setup
+./make.sh run
+```
+Opzione C (Docker):
+```bash
+docker build -t nutrifit-backend:dev backend
+docker run -p 8080:8080 nutrifit-backend:dev
+```
+Endpoints: `GET /health`, `GET /version`, `POST /graphql` (query demo `hello`, `server_time`).
+
+Pipeline Deploy: push -> GitHub Action (`backend-ci`) valida (lint, type-check, test, docker build) -> Render ricostruisce immagine dal `backend/Dockerfile` e avvia `uvicorn`.
 
 ### Commitlint
 Ogni PR esegue verifica convenzioni commit (`feat:`, `fix:`, `docs:`...). Per test locale:
@@ -125,6 +139,9 @@ Struttura futura in `lib/offline/` con coda persistente (Hive) e replay verso mu
 
 ### OpenFoodFacts Adapter
 Implementato adapter asincrono (`backend/openfoodfacts/adapter.py`) con normalizzazione nutrienti (fallback kJ→kcal, derivazione sodio da sale).
+
+### Rule Engine DSL (Draft)
+Specifica iniziale e parser YAML per regole notifiche/adattamento (file: `docs/rule_engine_DSL.md`, parser: `backend/rules/parser.py`). Supporta trigger `schedule|event`, condizioni base (deviazione calorie, nessun pasto finestra) e azioni (`push_notification`, `adjust_plan_targets`).
 
 ---
 ## 🤝 Contributi
