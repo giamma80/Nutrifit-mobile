@@ -4,7 +4,7 @@ import strawberry
 from strawberry.fastapi import GraphQLRouter
 import datetime
 
-APP_VERSION = "0.1.0"
+APP_VERSION = "0.1.2"
 
 @strawberry.type
 class Query:

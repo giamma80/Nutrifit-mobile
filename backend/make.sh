@@ -104,6 +104,7 @@ Targets disponibili:
   commit MSG="..."  Crea commit dopo preflight (usa var MSG)
   push              Push ramo corrente (richiede preflight verde)
   version-bump      Bump versione (LEVEL=patch|minor|major)
+  version-verify    Verifica che la versione in pyproject corrisponda al tag HEAD
   version-show      Mostra versione corrente
   release           preflight + version-bump + tag + push + push tag
   status            Stato (versione, git, server, docker)
@@ -231,6 +232,22 @@ EOF
     echo "$(pyproject_version)"
     ;;
 
+  version-verify)
+    header "Verifica versione"
+    current="$(pyproject_version)"
+    tag=$(git describe --tags --exact-match 2>/dev/null || true)
+    if [ -z "$tag" ]; then
+      warn "Nessun tag HEAD: versione pyproject=$current (OK se non ancora rilasciato)"
+      exit 0
+    fi
+    if [ "v$current" = "$tag" ]; then
+      info "MATCH: pyproject $current == tag $tag"
+      exit 0
+    else
+      err "MISMATCH: pyproject $current != tag $tag"; exit 2
+    fi
+    ;;
+
   release)
     header "Release pipeline"
     LEVEL=${LEVEL:-patch}
@@ -245,6 +262,11 @@ EOF
     git tag "v$newv"
     git push && git push --tags
     info "Release completata"
+    ;;
+
+  schema-export)
+    header "Export GraphQL SDL"
+    uv run python scripts/export_schema.py
     ;;
 
   status)
@@ -280,7 +302,8 @@ EOF
     ;;
 
   *)
-    err "Target sconosciuto. Usa: $0 help"
+    # Default: mostra help
+    cat "$0" | sed -n '/Targets disponibili:/,$p' | head -n 40
     exit 1
     ;;
 esac
