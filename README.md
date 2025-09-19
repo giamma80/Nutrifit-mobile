@@ -12,8 +12,8 @@
 <img src="https://img.shields.io/badge/graphql-modular-purple" alt="GraphQL" />
 <img src="https://img.shields.io/badge/ai-food%20vision-orange" alt="AI" />
 <img src="https://img.shields.io/badge/license-TBD-lightgrey" alt="License" />
- <img src="https://img.shields.io/badge/backend_version-loading-grey" alt="Backend Version" />
- <img src="https://img.shields.io/badge/schema_status-loading-lightgrey" alt="Schema Status" />
+ <img src="https://img.shields.io/badge/backend_version-0.1.4-green" alt="Backend Version" />
+ <img src="https://img.shields.io/badge/schema_status-synced-brightgreen" alt="Schema Status" />
 <a href="https://github.com/giamma80/Nutrifit-mobile/actions/workflows/ci.yml"><img src="https://github.com/giamma80/Nutrifit-mobile/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
 </p>
 

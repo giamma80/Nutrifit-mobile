@@ -13,6 +13,16 @@ Formato ispirato a [Keep a Changelog](https://keepachangelog.com/it-IT/1.1.0/) e
 - fix schema badge push & pip cache; build(changelog): uniform version headers
 - normalize changelog headings + fix lint config
 
+### Docs
+- explain permissions for schema status workflow
+
+### Chore
+- add backend version verify workflow
+- consolidate workflows into backend-ci + release
+- fix markdownlint issues in CHANGELOG
+- grant release workflow permissions
+- grant schema status workflow permissions
+
 ## [0.1.4] - 2025-09-19
 
 Nessuna voce ancora. Aggiungere cambiamenti sotto le categorie quando presenti:
