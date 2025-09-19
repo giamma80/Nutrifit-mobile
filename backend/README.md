@@ -215,24 +215,27 @@ Idempotente: se una voce è già presente non viene duplicata.
 
 ### Integrazione con `release`
 
-Il target `release` ora esegue automaticamente:
+Il target `release` ora effettua un ciclo completo con finalize automatico:
 1. `preflight` (qualità + schema-check + commitlint)
-2. `./make.sh changelog` (scrive eventuali nuove voci)
-3. `version bump` (commit + tag)
-4. Push + push tag
-
-Se il changelog è stato modificato, il file viene aggiunto allo stesso commit del bump versione.
+2. Anteprima changelog (`DRY=1 ./make.sh changelog`) mostrata prima della conferma
+3. Conferma utente
+4. Finalizzazione: sposta il contenuto di `[Unreleased]` in una nuova sezione `## [vX.Y.Z] - YYYY-MM-DD`
+5. Rigenerazione (se servisse) e bump versione (`pyproject.toml`)
+6. Commit unico contenente `pyproject.toml` + `CHANGELOG.md`
+7. Creazione tag `vX.Y.Z` e push (tag incluso)
 
 Esempio release minor:
 ```bash
 ./make.sh release LEVEL=minor
 ```
 
-Se vuoi solo vedere cosa verrebbe aggiunto prima della release:
+Solo anteprima modifiche prima di rilasciare:
 ```bash
 DRY=1 ./make.sh changelog
 ```
 
-Il workflow GitHub `backend-changelog.yml` aggiorna inoltre il changelog su push a `main` se ci sono nuovi commit conventional (evita drift tra locale e remoto).
+Sezione `[Unreleased]` rimane vuota (o pronta per i futuri commit) dopo il finalize.
+
+Il workflow GitHub `backend-changelog.yml` continua ad aggiornare la parte `[Unreleased]` su push a `main` (evita drift locale → remoto).
 
 

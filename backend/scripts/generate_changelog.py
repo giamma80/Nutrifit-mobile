@@ -3,6 +3,7 @@
 
 Usage:
     uv run python scripts/generate_changelog.py [--dry]
+    uv run python scripts/generate_changelog.py --finalize <version>
 
 Logic:
  1. Find last tag (fallback: none -> use initial range).
@@ -24,6 +25,14 @@ from collections import defaultdict
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 CHANGELOG = ROOT / "CHANGELOG.md"
 DRY = "--dry" in sys.argv
+FINALIZE_VERSION: str | None = None
+if "--finalize" in sys.argv:
+    try:
+        idx = sys.argv.index("--finalize")
+        FINALIZE_VERSION = sys.argv[idx + 1]
+    except (ValueError, IndexError):
+        print("[ERR] --finalize richiede una versione", file=sys.stderr)
+        sys.exit(2)
 
 TYPES_MAP = {
     "feat": "Added",
@@ -122,8 +131,48 @@ def insert_entries(lines: list[str], grouped: dict[str, set[str]]):
     return new_lines
 
 
+def finalize_version(lines: list[str], version: str) -> list[str]:
+    """Move Unreleased section content under a new version heading with date.
+
+    If Unreleased is empty -> no change.
+    """
+    idx = ensure_unreleased(lines)
+    # Determine block range
+    start = idx + 1
+    end = start
+    while end < len(lines) and not lines[end].startswith("## ["):
+        end += 1
+    block = lines[start:end]
+    content = [line for line in block if line.strip()]
+    if not content:
+        print("[INFO] Unreleased vuoto: nessuna finalize")
+        return lines
+    from datetime import date
+    header = f"## [{version}] - {date.today().isoformat()}"
+    new_lines = (
+        lines[:idx]
+        + [lines[idx], "", header, ""]
+        + block
+        + lines[end:]
+    )
+    return new_lines
+
+
 def main():
-    """Entry point for changelog generation."""
+    """Entry point for changelog generation (update or finalize)."""
+    lines = load_changelog()
+    if FINALIZE_VERSION:
+        new_lines = finalize_version(lines, FINALIZE_VERSION)
+        if new_lines == lines:
+            print("[INFO] Nessun cambiamento (finalize)")
+            return
+        if DRY:
+            print("\n".join(new_lines))
+        else:
+            CHANGELOG.write_text("\n".join(new_lines) + "\n", encoding="utf-8")
+            print(f"[INFO] Finalized {FINALIZE_VERSION}")
+        return
+
     since = last_tag()
     commits = collect_commits(since)
     grouped: dict[str, set[str]] = defaultdict(set)
@@ -137,7 +186,6 @@ def main():
     if not any(grouped.values()):
         print("[INFO] No conventional commits to add.")
         return
-    lines = load_changelog()
     new_lines = insert_entries(lines, grouped)
     if lines == new_lines:
         print("[INFO] Changelog already up to date.")

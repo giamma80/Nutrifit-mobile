@@ -268,18 +268,17 @@ EOF
     header "Release pipeline"
     LEVEL=${LEVEL:-patch}
     $0 preflight
-    # Genera changelog prima del bump (non committa ancora)
-    $0 changelog || true
     current="$(pyproject_version)"; newv="$(semver_bump "$LEVEL")"
     info "Release: $current → $newv"
-  read -r -p "Procedere? [y/N] " ans; ans_lc=$(printf '%s' "$ans" | tr '[:upper:]' '[:lower:]'); { [ "$ans_lc" = "y" ] || [ "$ans_lc" = "yes" ]; } || { warn "Abort"; exit 1; }
+    # Prima di chiedere conferma mostra eventuale changelog che verrà finalizzato
+    DRY=1 $0 changelog || true
+  read -r -p "Procedere (finalize + bump)? [y/N] " ans; ans_lc=$(printf '%s' "$ans" | tr '[:upper:]' '[:lower:]'); { [ "$ans_lc" = "y" ] || [ "$ans_lc" = "yes" ]; } || { warn "Abort"; exit 1; }
+    # Finalizza sezione Unreleased come nuova versione
+    uv run python scripts/generate_changelog.py --finalize "v$newv"
+    # Rigenera eventuali commit non ancora raccolti (in caso di finalize vuoto)
+    $0 changelog || true
     set_pyproject_version "$newv"
-    git add "$VERSION_FILE"
-    # Se CHANGELOG è cambiato includilo
-    if ! git diff --quiet -- CHANGELOG.md 2>/dev/null; then
-      git add CHANGELOG.md
-      info "Incluso CHANGELOG aggiornato"
-    fi
+    git add "$VERSION_FILE" CHANGELOG.md || true
     git commit -m "chore(release): bump version to $newv"
     git tag "v$newv"
     git push && git push --tags
