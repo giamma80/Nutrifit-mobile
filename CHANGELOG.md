@@ -6,6 +6,27 @@ Formato ispirato a [Keep a Changelog](https://keepachangelog.com/it-IT/1.1.0/) e
 
 ## [Unreleased]
 
+### Docs
+- aggiorna tagline piattaforma end-to-end
+- explain permissions for schema status workflow
+
+### Chore
+- add backend version verify workflow
+- archive deprecated workflows under _deprecated/
+- consolidate workflows into backend-ci + release
+- deprecate legacy workflows (neutralized triggers)
+- fix markdownlint issues in CHANGELOG
+- grant release workflow permissions
+- grant schema status workflow permissions
+- purge deprecated workflows (git rm fallback)
+- remove duplicated legacy workflows and centralize logs directory
+- restore consolidated workflows + mobile stub + maintenance sync steps
+- update changelog + badges
+- update changelog + badges + version line
+
+## [0.2.0] - 2025-09-21
+
+
 ### Chore
 - align backend-changelog workflow (python setup + uv install)
 - cleanup backend README and add markdownlint gate
