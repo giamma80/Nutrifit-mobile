@@ -18,12 +18,13 @@
 <a href="https://github.com/giamma80/Nutrifit-mobile/actions/workflows/mobile-ci.yml"><img src="https://img.shields.io/badge/mobile_ci-pending-lightgrey" alt="Mobile CI (stub)" /></a>
 </p>
 
-> **Nutrifit** è una piattaforma end-to-end per nutrizione intelligente e fitness: app Flutter, backend GraphQL federato, pipeline AI per riconoscimento alimenti, telemetria e automazione del piano nutrizionale in un unico ecosistema coerente.
+> **Nutrifit** è una piattaforma end-to-end per nutrizione intelligente e fitness: un backend GraphQL centralizzato (backend‑centric) che astrae sorgenti esterne (OpenFoodFacts oggi, Robotoff/AI domani) servendo app Mobile Flutter e un Web Sandbox di validazione, con pipeline AI e automazione nutrizionale coerenti.
 
 ## 📚 Indice Rapido
 
 1. [Documentazione Principale](#-documentazione-principale)
 2. [Architettura High-Level](#-architettura-high-level)
+3. [Dynamic Recommendations](#-dynamic-recommendations)
 3. [Feature Matrix](#-feature-matrix)
 4. [Roadmap & Progress](#-roadmap--progress)
 5. [Struttura Repository](#-struttura-repository-estratto)
@@ -36,28 +37,59 @@
 
 | Documento | Link | Descrizione |
 |-----------|------|-------------|
-| Guida Nutrizione Estesa | [docs/nutrifit_nutrition_guide.md](docs/nutrifit_nutrition_guide.md) | Dominio, formule, UX dashboard, AI pipeline |
+| Guida Nutrizione Estesa | [docs/nutrifit_nutrition_guide.md](docs/nutrifit_nutrition_guide.md) | Dominio, formule, UX dashboard, snapshot nutrienti |
 | Architettura Mobile | [docs/mobile_architecture_plan.md](docs/mobile_architecture_plan.md) | Roadmap M0–M9, BOM, testing, performance |
-| Architettura Backend | [docs/backend_architecture_plan.md](docs/backend_architecture_plan.md) | Roadmap B0–B9, federation, SLO, data model |
-| Pipeline AI Food Recognition | [docs/ai_food_pipeline_README.md](docs/ai_food_pipeline_README.md) | Flusso end-to-end inference + matching |
+| Architettura Backend | [docs/backend_architecture_plan.md](docs/backend_architecture_plan.md) | Roadmap B0–B9 (backend‑centric), SLO, data model |
+| Contratto Ingestion Dati | (coming soon) [docs/data_ingestion_contract.md](docs/data_ingestion_contract.md) | Evento `logMeal`, idempotenza, validazioni |
+| Sprint Plan | (coming soon) [docs/sprint_plan.md](docs/sprint_plan.md) | Sequenza milestone tecniche & deliverables |
+| Pipeline AI Food Recognition | [docs/ai_food_pipeline_README.md](docs/ai_food_pipeline_README.md) | Flusso inference + enrichment futuro |
 | Prompt AI Vision | [docs/ai_food_recognition_prompt.md](docs/ai_food_recognition_prompt.md) | Prompt primario e fallback GPT-4V |
 | Changelog Versioni | [CHANGELOG.md](CHANGELOG.md) | Cronologia modifiche & release semver |
 
-## 🏗 Architettura High-Level
+## 🏗 Architettura High-Level (Backend‑Centric)
 
 ```mermaid
 graph TD
- A[Flutter App] -->|GraphQL| G[Apollo Gateway]
- G --> N[Core Nutrition Subgraph]
- G --> AI[AI Service Subgraph]
- G --> NT[Notifications Subgraph]
- N --> PG[(Postgres/Supabase)]
- AI --> GPT[GPT-4V]
- AI --> OFF[(OpenFoodFacts)]
- NT --> EV[(Event Log)]
- A --> RT[Subscriptions / Delta]
- A --> ST[Storage Offline]
+  subgraph Client
+    A[Flutter Mobile App]
+    W[Web Sandbox (React)]
+  end
+  A -->|HTTPS GraphQL| B[Backend API (FastAPI + Strawberry)]
+  W -->|HTTPS GraphQL| B
+  B --> OFF[(OpenFoodFacts API)]
+  B --> R[Robotoff (future enrichment)]
+  B --> VAI[Vision AI Pipeline (future)]
+  B --> DB[(Persistence / Nutrient Snapshots)]
+  A --> Local[Offline Queue / Local Cache]
 ```
+
+Caratteristiche chiave del modello backend‑centric:
+
+1. ASTRAZIONE DATI: tutte le sorgenti esterne (OFF oggi, Robotoff, AI proprietaria domani) vengono normalizzate lato server → contratto GraphQL stabile per i client.
+2. CONSISTENZA NUTRIENTI: il backend produce uno snapshot immutabile dei nutrienti al momento del log per evitare drift se l'origine cambia.
+3. EVOLUZIONE SICURA: nuove capability (es. enrichment AI, ranking prodotti) si aggiungono dietro lo stesso endpoint senza aggiornare simultaneamente tutti i client.
+4. PERFORMANCE: caching & TTL barcode lato server → riduzione latenza e consumo batteria.
+5. OSSERVABILITÀ: metriche di hit/miss cache, errori OFF e tempi medio risposta centralizzati.
+
+La precedente ipotesi di federazione multi‑subgraph è rimandata; verrà rivalutata quando il dominio crescerà (es. micro‑team dedicati o carichi eterogenei).
+
+---
+
+## ⚡ Dynamic Recommendations
+
+Il motore di raccomandazioni elabora in tempo quasi reale i trend nutrizionali e di attività per suggerire micro-azioni contestuali (es: spike zuccheri → cardio leggero, proteine basse → snack proteico, budget cena disponibile). Basato su:
+
+| Input | Fonte | Frequenza |
+|-------|-------|-----------|
+| Meal log | `meal_entry` snapshot | Evento (mutation) |
+| Activity minute | `activity_event_minute` | Batch 1–5 min |
+| Rolling baselines | `rolling_intake_window` | Job giornaliero |
+
+Trigger iniziali (MVP evolutivo): `SUGAR_SPIKE`, `LOW_PROTEIN_PROGRESS`, `HIGH_CARB_LOW_ACTIVITY`, `EVENING_CALORIE_BUDGET`, `POST_ACTIVITY_LOW_PROTEIN`, `DEFICIT_ADHERENCE`.
+
+Ogni raccomandazione è persistita (`recommendations`) con payload diagnostico e pubblicabile via subscription (`recommendationIssued`). Dettagli completi in `docs/recommendation_engine.md`.
+
+---
 
 ---
 
@@ -268,9 +300,24 @@ npx commitlint --from=origin/main --to=HEAD --verbose
 
 Struttura futura in `lib/offline/` con coda persistente (Hive) e replay verso mutation `logMeal`. Placeholder ancora non implementato.
 
-### OpenFoodFacts Adapter
+### OpenFoodFacts Adapter (Server-Side Only)
 
-Implementato adapter asincrono (`backend/openfoodfacts/adapter.py`) con normalizzazione nutrienti (fallback kJ→kcal, derivazione sodio da sale).
+Adapter asincrono (`backend/openfoodfacts/adapter.py`) che *non* viene mai chiamato direttamente dal client: la Mobile App interagisce solo con il resolver GraphQL `product(barcode)`. Ciò consente:
+
+| Beneficio | Dettaglio |
+|-----------|----------|
+| Riduzione coupling | Cambi endpoint OFF o aggiunta Robotoff non propagano ai client |
+| Normalizzazione coerente | Conversioni kJ→kcal e sale→sodio centralizzate |
+| Caching efficiente | Un unico layer (prossimo `service.py`) evita duplicazioni per utente |
+| Politiche retry uniformi | Gestite una sola volta con metriche |
+| Security | Chiavi/API future non esposte in app |
+
+Roadmap immediata adapter:
+
+1. `service.py` con cache in‑memory (TTL + stale‑while‑revalidate leggero)
+2. Metriche (hit, miss, errori per codice)
+3. Hook enrichment (Robotoff) opzionale
+4. Possibile estensione Redis se QPS o evictions diventano critici
 
 #### Retry & Timeout Strategy
 
@@ -386,5 +433,29 @@ Da definire. (Per ora nessuna licenza pubblicata; evitare uso in produzione este
 | Capire il dominio nutrizionale | [Guida Nutrizione](docs/nutrifit_nutrition_guide.md) |
 | Vedere pipeline AI cibo | [Pipeline AI](docs/ai_food_pipeline_README.md) |
 | Leggere roadmap mobile | [Arch Mobile](docs/mobile_architecture_plan.md) |
-| Leggere roadmap backend | [Arch Backend](docs/backend_architettura_plan.md) |
+| Leggere roadmap backend | [Arch Backend](docs/backend_architecture_plan.md) |
 | Modificare prompt GPT-4V | [Prompt AI](docs/ai_food_recognition_prompt.md) |
+
+---
+
+## 🔬 Web Sandbox (Coming Soon)
+
+Obiettivo: ambiente React/Vite minimale per validare e osservare rapidamente il contratto GraphQL (query `product`, future mutation `logMeal`).
+
+Caratteristiche pianificate:
+
+- Build isolata (`web-sandbox/`) con deploy GitHub Pages filtrato su path changes
+- Query explorer leggero (no Apollo Studio, uso fetch + codegen opzionale)
+- Panel debug: raw JSON, latenza, header tracing (se abilitato)
+- Fixture barcode comuni per test manuale
+
+Workflow CI dedicato: lint JS/TS + build + deploy su branch `gh-pages` solo se cambia `web-sandbox/**` o il file schema.
+
+## 📱 Mobile Directory (Placeholder)
+
+Creeremo una directory `mobile/` per separare asset specifici (config build, store metadata, QA scripts) dal codice Flutter generico. Questo favorisce:
+
+- Maggiore chiarezza tra codice condiviso e artefatti di distribuzione
+- Possibile introduzione futura di un altro client (es. Wearable) senza conflitto naming
+
+Per ora la struttura rimane invariata; la migrazione sarà descritta nello Sprint Plan.

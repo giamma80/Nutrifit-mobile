@@ -55,3 +55,47 @@ Motivazioni & Triggers Retention (Sintesi):
 ...existing content from original guide continues (omitted here for brevity, identical al file root al momento dello spostamento)...
 
 <!-- Contenuto successivo consolidato: le sezioni avanzate (AI pipeline, notifiche, adattamento) sono ora nel documento esteso. -->
+
+## 4.1 Nutrient Snapshot Decoupling (Backend‑Centric)
+
+Per garantire stabilità storica degli analytics, ogni `meal_entry` memorizza uno snapshot immutabile dei nutrienti al momento del log. Motivi:
+
+- Sorgenti esterne (OpenFoodFacts, enrichment AI) possono aggiornare valori: evitiamo drift retroattivo.
+- Calcoli settimanali/storici non devono ricalcolarsi se cambiano profili fonte.
+- Consente normalizzazione unica (kJ→kcal, sale→sodio) e versionamento schema interno.
+
+Campi minimi snapshot:
+
+```json
+{
+	"schema_version": 1,
+	"energy_kcal": 250,
+	"protein_g": 15,
+	"carbs_g": 20,
+	"fat_g": 9,
+	"source": "OFF|MANUAL|AI",
+	"source_ref": "barcode|manual|inference:<id>"
+}
+```
+
+Strategia evoluzione:
+
+- Nuovi micronutrienti → aggiunti opzionalmente (backward compatible).
+- Se un valore fuori range plausibile viene ricevuto dall’origine → log errore + fallback (scarto entry).
+- Migrazione schema snapshot (bump `schema_version`) con migrazione forward-only; nessuna retroattiva.
+
+## 4.2 Macro Pacing & Sugar Spike Rationale
+
+Per feedback intra-giornaliero la piattaforma calcola una traiettoria attesa dei macronutrienti. Assumendo finestra alimentare di 16h, l'aspettativa lineare per le proteine a ora `h` è:
+
+```
+expected_protein = target_protein_g * (h / 16)
+```
+
+Uno slack (default 5g) evita segnalazioni premature. Lo spike zuccheri è rilevato confrontando `sugars_so_far` con media rolling 7 giorni alla stessa fascia oraria:
+
+```
+is_spike = sugars_so_far > max(rolling_mean_sugars * 1.35, 40g)
+```
+
+Fattore (1.35) e soglia assoluta (40g) sono parametri configurabili e potranno diventare personalizzati per utente. Le euristiche alimentano i trigger nel motore raccomandazioni (`recommendation_engine.md`) e potranno essere sostituite da modelli adattivi (EWMA / regressione) senza breaking del contratto GraphQL.

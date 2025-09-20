@@ -1,23 +1,23 @@
 # AI Food Recognition Pipeline
 
-Questa README descrive il flusso tecnico end-to-end del riconoscimento alimenti basato su GPT-4V + OpenFoodFacts + dizionario interno.
+Questa README descrive il flusso tecnico end-to-end del riconoscimento alimenti basato su GPT-4V + OpenFoodFacts + dizionario interno, orchestrato interamente dal backend monolitico (backend‑centric). Nessuna chiamata esterna viene eseguita direttamente dal client.
 
 ## Obiettivi
 
 - Time-to-value rapido senza modello custom iniziale.
-- Grounding deterministico nutrienti (mai fidarsi di stime LLM dirette).
-- Cost & Latency Control con early-exit (barcode-first) e caching profili.
+- Grounding deterministico nutrienti (mai fidarsi di stime LLM dirette) via adapter OFF centralizzato.
+- Cost & Latency Control con early-exit (barcode-first) e caching profili centralizzata lato server.
 
 ## Flusso Sintetico
 
 1. Upload immagine → ottieni `uploadId` (fuori scope qui).
 2. Mutation `analyzeMealPhoto(uploadId)` → avvia pipeline.
-3. Backend:
+3. Backend (monolite):
    - Estrae eventuale barcode (ZXing) → se trovato skip GPT.
    - Altrimenti pre-process (resize 1024, strip EXIF, optional blur volti).
    - Prompt GPT-4V (vedi `ai_food_recognition_prompt.md`).
    - Parsing JSON + normalizzazione label.
-   - Matching (fuzzy + embeddings) contro:
+  - Matching (fuzzy + embeddings) contro:
      1. Dizionario interno (preferito)
      2. OpenFoodFacts (nome + synonyms)
      3. Fallback generico
@@ -47,8 +47,8 @@ Policy auto-fill: final_conf ≥ 0.70 AND items ≤2 AND kcal_totali_stimati < 8
 
 ## Caching
 
-- Profili nutrienti OFF (chiave: product code) TTL 24h.
-- LRU 256 voci, frequenza alimenti utente → pre-warm.
+- Profili nutrienti OFF (chiave: product code) TTL 24h (fase B1/B4: in-memory + SWR; eventuale Redis se eviction > soglia).
+- LRU 256 voci (target iniziale) con metriche hit/miss → decisione scaling.
 
 ## Metriche Chiave
 
@@ -70,9 +70,12 @@ Policy auto-fill: final_conf ≥ 0.70 AND items ≤2 AND kcal_totali_stimati < 8
 
 ## Evoluzione Futura
 
-- Segmentazione multi-item on-device, bounding boxes.
+- Segmentazione multi-item on-device, bounding boxes (post federazione eventuale).
 - Distillazione modello per ridurre costo GPT.
 - Depth-based volume per piatti.
+- Enrichment Robotoff (fronte etichette/barcode) prima di GPT se barcode mancante.
+ - Source Chain Tracking: ogni inferenza confermata arricchisce `meal_entry.source_chain` (lista step: barcode→OFF normalization→AI match→portion adjust) per audit.
+ - Quality Score Late Update: se enrichment tardivo modifica macro >5% ricalcolo `quality_score` (non mutiamo snapshot nutrienti originale, append step al source_chain).
 
 ## TODO
 

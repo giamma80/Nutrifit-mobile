@@ -1,12 +1,12 @@
 # Mobile Architecture & Delivery Plan
 
-Versione: 1.0 (Bozza Iniziale)
+Versione: 1.1 (Allineamento Backend‑Centric)
 Owner: Team Mobile
 Ultimo aggiornamento: 2025-09-18
 
 ## 1. Visione
 
-Fornire una app Flutter cross‑platform (iOS/Android) focalizzata su logging nutrizionale rapido, adattamento dinamico piano e insight storici, con evoluzione graduale da MVP offline → piattaforma real-time con AI e notifiche.
+Fornire una app Flutter cross‑platform (iOS/Android) focalizzata su logging nutrizionale rapido, adattamento dinamico piano e insight storici, delegando ogni integrazione dati esterna al backend GraphQL centralizzato (product lookup, AI, enrichment) per ridurre coupling, migliorare consistenza nutrienti e facilitare rollout evolutivi.
 
 ## 2. Principi Architetturali
 
@@ -24,7 +24,7 @@ Fornire una app Flutter cross‑platform (iOS/Android) focalizzata su logging nu
 | Framework | Flutter (stable) | Channel stable + LTS upgrade plan trimestrale |
 | Stato | Riverpod | Provider scoping + testabilità |
 | Routing | GoRouter | Deep link + web parity futura |
-| GraphQL | graphql_flutter + codegen | Persisted queries in fasi successive |
+| GraphQL | graphql_flutter + codegen | Contratto stabile; persisted queries fasi successive |
 | Serializzazione | Freezed + json_serializable | Immutevolezza modelli |
 | Storage offline | Hive / Isar (da valutare) | Cache summary + meal queue |
 | Secure Storage | flutter_secure_storage | Refresh token, device keys |
@@ -33,7 +33,7 @@ Fornire una app Flutter cross‑platform (iOS/Android) focalizzata su logging nu
 | Crash | Sentry | Release health / performance |
 | Feature Flags | Remote config (Supabase table / LaunchDarkly opzionale) | Gate rollout |
 | Media | image_picker / camera | Foto pasti |
-| AI Client | HTTP custom verso backend | Gestisce upload + inference id |
+| AI Client | HTTP verso backend (nessuna chiamata OFF diretta) | Upload foto + analyze/confirm |
 | Notifications | Firebase Messaging | Wrapper astrazione locale/push |
 | CI/CD | GitHub Actions + Codemagic | Build pipeline e distribuzione store |
 
@@ -73,7 +73,7 @@ lib/
 | M2 | Offline Queue | Local meal queue + sync, caching summaries | Beta chiusa |
 | M3 | Storico & Weekly View | Serie 7 giorni + macro bars dettagliate | Beta allargata |
 | M4 | Notifiche & Reminder | Local + push (colazione, deficit sera) | Store soft launch |
-| M5 | AI Foto (Baseline) | analyzeMealPhoto + confirm, no auto-fill | Store v1 |
+| M5 | AI Foto (Baseline) | analyzeMealPhoto + confirm (backend monolite) | Store v1 |
 | M6 | Subscription Real-time | dailyNutritionUpdated + delta UI | v1.1 |
 | M7 | Auto-Fill & Heuristics | Confidence policy, autofill safe | v1.2 |
 | M8 | Performance & Prefetch | Persisted queries, prefetch range, mem opt | v1.3 |
@@ -83,7 +83,7 @@ lib/
 
 - Coda `pending_meals` Hive con stato (pending, syncing, failed).
 - Retry esponenziale (1m,5m,15m) fino max 24h.
-- Conflict Resolution: se server rifiuta (foodId deprecated) → trasformare in manual entry fallback.
+- Conflict Resolution: se server rifiuta (foodId deprecated) → manual entry fallback; barcode/lookup sempre via `product(barcode)` server.
 - Local projection daily summary aggiornata incrementale.
 
 ## 7. Error Handling & UX
@@ -149,7 +149,7 @@ Release Channels:
 |---------|--------|
 | Cold Start | <2.5s mid-tier device |
 | Dashboard first paint | <800ms dopo login |
-| AI Foto roundtrip | p90 <5s (MVP) → <3.5s (ottimizzata) |
+| AI Foto roundtrip | p90 <5s (MVP) → <3.5s (ottimizzata) (misurato end-to-end client→backend) |
 | Rebuild ring log pasto | <16ms frame |
 
 ## 14. Risk & Mitigations

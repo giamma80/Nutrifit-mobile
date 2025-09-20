@@ -1,22 +1,22 @@
 # Backend Platform Architecture & Delivery Plan
 
-Versione: 1.0 (Bozza Iniziale)
+Versione: 1.2 (Backend‑Centric + Activity & Recommendation Layer)
 Owner: Team Backend
-Ultimo aggiornamento: 2025-09-18
+Ultimo aggiornamento: 2025-09-20
 
 ## 1. Visione
 
-Costruire una piattaforma modulare che evolve da zero backend → servizi federati scalabili, fornendo API GraphQL unificate (Apollo Federation) per mobile e futura web dashboard, con Supabase come backbone per autenticazione secondaria, storage dati (Postgres), real-time (replication listen), file storage e notifiche (edge functions) dove possibile.
+Costruire un backend GraphQL centralizzato che astrae sorgenti esterne di nutrienti e AI (OpenFoodFacts oggi, Robotoff e pipeline Vision domani) offrendo un contratto stabile ai client (Mobile Flutter + Web Sandbox) con snapshot di nutrienti immutabili al log. La federazione multi‑servizio è rimandata: verrà introdotta solo quando i boundary di dominio divergeranno chiaramente (es. carichi AI intensivi o team separati).
 
 ## 2. Principi Architetturali
 
--
-- Start Simple: prima milestone senza backend (mock client) → riduce time-to-first-value.
-- Leverage Managed: usare Supabase per accelerare auth secondaria, Postgres, storage, realtime channel.
-- Federated Growth: aggiungere microservizi Python solo per logiche non coperte da Supabase (AI, plan adaptation, analytics derivata).
-- Idempotenza & Event Sourcing Light: eventi chiave (meal_logged, plan_updated) salvati in tabella append-only per audit + proiezioni.
-- Schema First: GraphQL come contratto stabile + versioning; federation per boundaries.
-- Security & Privacy: segmentazione dati sensibili, policy row-level (RLS) Supabase.
+- Backend‑Centric First: tutta la normalizzazione nutrienti e le chiamate esterne restano lato server.
+- Evoluzione Misurata: introdurre caching, metriche e poi (solo se necessario) service decomposition.
+- Snapshot Immutabili: ogni `meal_entry` contiene `nutrient_snapshot_json` per eliminare drift da fonti esterne.
+- Schema First: aggiunte non breaking versionate; breaking → release semver major backend.
+- Idempotenza: mutation critiche (`logMeal`, future batch) accettano `idempotency_key` obbligatorio.
+- Osservabilità nativa: trace id propagato in ogni resolver e call esterna.
+- Sicurezza difensiva: no secret negli header client, rotate key esterne (OFF/AI) lato backend.
 
 ## 3. Bill of Materials (BOM)
 
@@ -25,9 +25,10 @@ Costruire una piattaforma modulare che evolve da zero backend → servizi federa
 | DB Primario | Postgres (Supabase) | RLS + row policies |
 | Auth Primario | Auth0 (OIDC) | Token exchange → JWT custom claims |
 | Auth Secondario | Supabase Auth (fallback) | Usato per canali realtime se necessario |
-| API Gateway | Apollo Router/Federation | Compose subgraph Python / supabase-graph |
-| Subgraph Core | Strawberry + FastAPI | Nutrition, meals, plan logic |
-| AI Service | FastAPI + integrazione GPT-4V | Pipeline inference async |
+| API Layer | FastAPI + Strawberry | Schema GraphQL monolitico (fase iniziale) |
+| OFF Adapter | httpx + retry + normalizzazione | Conversioni nutrienti + mapping |
+| Caching | In-memory TTL (poi opzionale Redis) | Barcode & product detail |
+| AI Pipeline (futuro) | FastAPI internal module | Inference + enrichment |
 | Event Bus | Postgres logical decoding / NOTIFY + (futuro) Redpanda/Kafka | Scalare quando volume cresce |
 | Cache | Redis (Render) | Session ephemeral, rate limiting |
 | Storage Immagini | Supabase Storage Bucket | Policy access controllata |
@@ -37,20 +38,22 @@ Costruire una piattaforma modulare che evolve da zero backend → servizi federa
 | CI/CD | GitHub Actions + Render deploy hooks | Deploy blue/green subservices |
 | Infra IaC | Terraform (futuro) | Gestione config prod/staging |
 
-## 4. Evoluzione Incrementale (Milestones Backend)
+## 4. Milestones Backend (Aggiornate)
 
-| Fase | Stato App | Backend Necessario | Output |
-|------|-----------|--------------------|--------|
-| B0 | Mock totale | Nessuno (client offline) | Guida + schema stub |
-| B1 | Log pasto base | Supabase tables + simple REST RPC | Tabelle meal, food |
-| B2 | GraphQL base | Subgraph Core (meals, foods) + Apollo gateway | Query/Mutation plan & logging |
-| B3 | Storico & Aggregati | Aggiunta materiale daily summaries (SQL views) | Query summary range |
-| B4 | Notifiche base | Edge function time-based + event triggers | Reminder colazione/cena |
-| B5 | AI Foto baseline | AI microservice + storage bucket + analyzeMealPhoto | Inference pipeline |
-| B6 | Real-time delta | Subscription (websocket) + DB trigger publish | dailyNutritionUpdated |
-| B7 | Adattamento piano | Job schedulato microservice analytics | plan adjustments |
-| B8 | Web Dashboard | Next.js/React app + GraphQL reuse | Visualizzazione storici |
-| B9 | Hardening & Scaling | Rate limit, metrics, caching read-heavy | SLO stabilizzati |
+Prime fasi mirate a fornire subito la query prodotto (barcode) centralizzata e mutation logging con snapshot:
+
+| Fase | Focus | Output Chiave | Note |
+|------|-------|---------------|------|
+| B0 | Scaffold & Health | `hello`, `health`, toolchain preflight | FATTO |
+| B1 | Product Query | `product(barcode)` + OFF adapter | Cache base |
+| B2 | Meal Logging v1 | `logMeal` + snapshot nutrienti | Idempotency |
+| B3 | Activity Ingestion v1 | `ingestActivityEvents` (minuti) + `dailySummary` semplice | Baseline pacing |
+| B4 | Rolling Baselines & Triggers | `rolling_intake_window` + triggers: sugar, protein, carb/activity | Raccomandazioni iniziali |
+| B5 | Meal Intelligence | `quality_score`, mealType agg, nuovi trend queries | Recommendation estensioni |
+| B6 | Realtime & Subscriptions | `mealAdded`, `activityMinuteTick`, `recommendationIssued`, energy balance | Supabase realtime bridge |
+| B7 | Forecast & Reinforcement | Budget cena avanzato, deficit adherence, smoothing net curve | Reinforcement engine |
+| B8 | Web Sandbox | Dashboard trend & ring dinamico | Contract & UX validation |
+| B9 | Hardening & Scale | Partitioning, metriche avanzate, valutazione decomposizione AI | Gate prima di microservizi |
 
 ## 5. Domain Data Model (Sintesi)
 
@@ -59,11 +62,44 @@ Tabelle principali (Postgres):
 - `users` (Auth0 subject mapping)
 - `nutrition_plan` (user_id, targets, strategy, updated_at)
 - `food_item` (id, name, category, nutrients_json, brand)
-- `meal_entry` (id, user_id, food_id, quantity, unit, nutrient_snapshot_json, meal_type, created_at)
-- `daily_summary` (user_id, date, nutrient_agg_json, meal_count, adherence)
+- `meal_entry` (id, user_id, occurred_at, meal_type, source, quantity_value, quantity_unit, energy_kcal, protein_g, carb_g, sugars_g, fat_g, sat_fat_g, fiber_g, sodium_mg, micros_json, completeness_score, quality_score, flags[], source_chain, idempotency_key, created_at)
+- `daily_intake_summary` (user_id, date, energy_kcal_total, energy_kcal_target, energy_kcal_remaining, predicted_evening_consumption_kcal, macro_split_json, protein_target_g, protein_gap_g, sugar_spike, flags[], generated_at)
 - `ai_inference` (id, user_id, raw_label, status, confidence, created_at, items_json)
 - `event_log` (id, user_id, type, payload_json, created_at)
-- `notification_log` (id, user_id, rule_id, channel, delivered_at, tapped_at)
+ - `notification_log` (id, user_id, rule_id, channel, delivered_at, tapped_at)
+ - `activity_event_minute` (user_id, ts, steps, calories_out, hr_avg, hr_min, hr_max, source)
+ - Aggregati: `meal_type_daily_agg`, `rolling_intake_window`, (views) energy balance, pending quality
+ - `recommendations` (id, user_id, emitted_at, category, trigger_type, message, payload, status, acknowledged_at)
+### 5.1 Activity Time-Series & Aggregation Layer
+
+Obiettivi:
+- Ingestione minuto (steps, calories_out, heart rate) → query granulari e insight trend.
+- Aggregazioni incrementali (hourly, daily) per pannelli riepilogo.
+- Downsampling >180 giorni (compressione in hourly/daily, drop raw minuti).
+
+Indici: BRIN su `activity_event_minute.ts` + composite `(user_id, ts)`.
+
+### 5.2 Rolling Baselines
+
+Tabelle `rolling_intake_window` (7/14d) calcolano medie mobili per comparare andamento corrente (sugar spike, macro pacing). Refresh giornaliero (cron) + caching in-memory TTL 5m.
+
+### 5.3 Meal Intelligence Layer
+
+Estende `meal_entry` con denormalizzazione macro (protein_g, sugars_g...) e campi analitici:
+- `completeness_score`: copertura nutrienti base.
+- `quality_score` (B5): macro balance, fibra, zuccheri, sat_fat.
+- `flags[]`: marcatori euristici (HIGH_SUGAR, LOW_PROTEIN, HEAVY_DINNER...).
+
+Aggregato `meal_type_daily_agg` fornisce macro trend per meal_type → alimenta queries `mealTypeTrends`.
+
+### 5.4 Recommendation Persistence
+
+Tabella `recommendations` append-only, con debounce (unique logico per trigger/day). Worker di delivery aggiorna `delivery_status`. Subscription pubblica nuovi record.
+
+### 5.5 Energy Balance View
+
+Vista (o materialized) `energy_balance_timeslice` calcola cumulativi intake vs burn → curva netta usata per grafico ring dinamico e forecast budget cena.
+
 
 Indice raccomandati:
 
@@ -71,14 +107,15 @@ Indice raccomandati:
 - daily_summary: (user_id,date) unique
 - ai_inference: (user_id, created_at desc)
 
-## 6. Federation Boundaries (Prima Bozza)
+## 6. Federation (Deferrata)
 
-| Subgraph | Responsabilità | Tipi chiave |
-|----------|----------------|-------------|
-| core-nutrition | meals, foods, plans, inference orchestrazione base | MealEntry, FoodItem, NutritionPlan |
-| ai-service | arricchisce AIInferenceResult + mutations analyze/confirm | AIInferenceResult, AIInferenceItem |
-| notifications | subscriptions delta + regole reminder | DailyNutritionDelta |
-| analytics (futuro) | trend avanzati, adherence storica | TrendSeries |
+La federazione non è parte delle prime 9 fasi. Criteri di attivazione:
+
+- Throughput AI > 30% CPU totale o latenza p95 > SLO budget
+- Team separati con cicli di release indipendenti
+- Necessità di isolare failure domain (es. AI outage non deve impattare logMeal)
+
+Quando i criteri saranno soddisfatti: introdurre un secondo servizio (AI) come subgraph, mantenendo core monolitico stabile.
 
 ## 7. Sicurezza & Auth Flow
 
@@ -94,6 +131,28 @@ Indice raccomandati:
 - Long term: Event bus (Kafka/Redpanda) → aggregator → push incremental.
 - Delta payload: `DailyNutritionDelta` riduce banda rispetto full summary.
 
+Estensioni B6:
+- `mealAdded` (payload: MealEntry minimal)
+- `activityMinuteTick` (batch compress payload)
+- `energyBalanceDelta` (timestamp, net_kcal)
+- `recommendationIssued` (id, trigger_type, message)
+
+```mermaid
+sequenceDiagram
+  participant C as Client
+  participant API as GraphQL API
+  participant DB as Postgres/Supabase
+  participant ENG as Recommendation Engine
+  C->>API: mutation logMeal
+  API->>DB: insert meal_entry
+  DB-->>API: LISTEN notify (meal_added)
+  API-->>C: mealAdded subscription event
+  API->>ENG: trigger evaluation (async)
+  ENG->>DB: insert recommendation
+  DB-->>API: notify recommendation
+  API-->>C: recommendationIssued
+```
+
 ## 9. Notifiche
 
 - Trigger base: Cron Edge Function (Supabase) + query su meal coverage.
@@ -101,13 +160,18 @@ Indice raccomandati:
 - Delivery: Push (FCM/APNs) + local scheduling (client) per reminder offline.
 - Frequency cap enforced in `notification_log` + unique partial indexes (rule_id + timeframe) eventuali.
 
-## 10. AI Service Dettaglio
+## 10. AI Pipeline (Baseline Futuro)
 
-- Endpoint `/analyze` (uploadId) → job asincrono (coda in memoria / Redis stream BETA, poi sostituire con più robusto).
-- GPT-4V call + parse → store ai_inference row.
-- Matching nutrienti: query su `food_item` + fallback fetch OFF (cache 24h).
-- Confirm → crea meal_entry + produce event (meal_logged, ai_confirmed) + delta.
-- Observability: trace id per pipeline (propagation HTTP headers).
+Fase B5 integrerà un modulo interno (non servizio separato) che:
+
+1. Riceve mutation `analyzeMealPhoto` (uploadId)
+2. Barcode first pass (se immagine contiene codice) → salta GPT-4V
+3. Prompt GPT-4V (vision) → parsing robusto (retry fallback)
+4. Matching OFF / dizionario interno
+5. Produce record `ai_inference` + ritorna lista candidati
+6. `confirmInference` crea `meal_entry` con snapshot nutrienti consolidati
+
+Metriche p95, error ratio e costo per inference tracciati prima di considerare decomposizione.
 
 ## 11. Deployment & CI/CD
 
@@ -161,14 +225,14 @@ Alerting (Prometheus rules):
 - Partitioning possibile per meal_entry per mese se >10M row.
 - Cache calcoli adherence weekly in materialized view rinfrescata (cron 5m) se carico cresce.
 
-## 16. Risk & Mitigation
+## 16. Risk & Mitigation (Aggiornato)
 
 | Rischio | Mitigazione |
 |---------|------------|
 | GPT cost escalation | Rate limit + barcode short-circuit |
 | Lock contention summary | Incremental update + eventual materialized refresh |
 | Subscription overload | Backpressure + message coalescing (aggregate 2s) |
-| Federation complexity | Limitare subgraph iniziali (massimo 3) |
+| Federation premature adoption | Posticipata fino a criteri attivazione definiti |
 
 ## 17. Web Dashboard (Fase B8)
 
@@ -188,15 +252,22 @@ Alerting (Prometheus rules):
 - Audit events: CRUD plan, login mapping, AI inference confirm.
 - Retention logs: 30gg raw, 180gg aggregati.
 
-## 20. TODO & Backlog
+## 20. TODO & Backlog (Aggiornato)
 
-- [ ] Implementare proof-of-concept federation (core + ai-service) in staging
-- [ ] Configurare RLS policies meal_entry
-- [ ] Implementare subscription adapter LISTEN/NOTIFY
-- [ ] Setup tracing OpenTelemetry + exporter
-- [ ] Rate limit analyzeMealPhoto (Redis token bucket)
-- [ ] Materialized view adherence 7d
-- [ ] Edge function reminder colazione
+- [ ] Product query resolver + tests (B1)
+- [ ] Cache layer service TTL + SWR (B4)
+- [ ] Mutation logMeal + snapshot + idempotency (B2)
+- [ ] Ingestion activity minute + summary (B3)
+- [ ] Rolling baselines + triggers core (B4)
+- [ ] Meal intelligence (quality_score, flags) (B5)
+- [ ] Trend & insights queries (B5)
+- [ ] Realtime subscriptions (B6)
+- [ ] Forecast & reinforcement triggers (B7)
+- [ ] AI inference baseline (B5)
+- [ ] Metrics & tracing (continuous)
+- [ ] Rate limit analyzeMealPhoto (B5)
+- [ ] RLS policies meal_entry/activity (B3-B4)
+- [ ] Materialized view adherence 7d (post B3)
 
 ## 21. Appendice: Eventi Principali
 
@@ -210,36 +281,25 @@ Alerting (Prometheus rules):
 
 ---
 
-### 22. Deployment Diagram (Federation)
+### 22. Deployment Diagram (Monolite Iniziale)
 
 ```mermaid
 graph LR
-  subgraph Client
+  subgraph Clients
     APP[Flutter App]
-    DASH[Web Dashboard]
+    SANDBOX[Web Sandbox]
   end
 
-  APP --> GATE[GraphQL Gateway]
-  DASH --> GATE
+  APP --> API[GraphQL API Monolith]\nFastAPI+Strawberry
+  SANDBOX --> API
 
-  subgraph Federation
-    CORE[Core Nutrition Subgraph]\nFastAPI+Strawberry
-    AI[AI Service Subgraph]\nFastAPI+Strawberry
-    NOTIF[Notifications Subgraph]\n(Phase B5)
-  end
-
-  GATE --> CORE
-  GATE --> AI
-  GATE --> NOTIF
-
-  CORE --> PG[(Postgres/Supabase)]
-  AI --> OFF[(OpenFoodFacts)]
-  AI --> GPT[GPT-4V API]
-  NOTIF --> REDIS[(Redis)]
-  CORE --> RLS[(RLS Policies)]
+  API --> OFF[(OpenFoodFacts)]
+  API --> GPT[GPT-4V (B5+)]
+  API --> DB[(Postgres)]
+  API --> CACHE[(In-Memory / Redis)]
 ```
 
-### 23. Sequence: analyzeMealPhoto
+### 23. Sequence: analyzeMealPhoto (Monolite)
 
 ```mermaid
 sequenceDiagram
