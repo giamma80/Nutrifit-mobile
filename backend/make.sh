@@ -314,6 +314,7 @@ EOF
   lint_status="SKIP"; lint_msg=""
   tests_status="SKIP"; tests_msg=""
   schema_status="SKIP"; schema_msg=""
+  guard_status="SKIP"; guard_msg=""
   commitlint_status="SKIP"; commitlint_msg=""
   md_status="SKIP"; md_msg=""
 
@@ -335,7 +336,12 @@ EOF
     uv run pytest -q >/dev/null 2>&1; test_ec=$?
   if [ $test_ec -eq 0 ]; then tests_status=PASS; else tests_status=FAIL; tests_msg="pytest exit $test_ec"; fi
 
-    # Schema drift
+  # Schema guard (prima di drift)
+  header "Schema guard"
+  uv run python scripts/schema_guard.py >/dev/null 2>&1; guard_ec=$?
+  if [ $guard_ec -eq 0 ]; then guard_status=PASS; else guard_status=FAIL; guard_msg="exit $guard_ec"; fi
+
+  # Schema drift
     header "Schema drift check"
     tmpfile="$(mktemp -t schema_tmp_XXXX).graphql"
     uv run python scripts/export_schema.py --out "$tmpfile" >/dev/null 2>&1
@@ -376,13 +382,14 @@ EOF
     printf "%-12s | %-6s | %s\n" "format" "$fmt_status" "$fmt_msg"
     printf "%-12s | %-6s | %s\n" "lint" "$lint_status" "$lint_msg"
     printf "%-12s | %-6s | %s\n" "tests" "$tests_status" "$tests_msg"
-    printf "%-12s | %-6s | %s\n" "schema" "$schema_status" "$schema_msg"
+  printf "%-12s | %-6s | %s\n" "guard" "$guard_status" "$guard_msg"
+  printf "%-12s | %-6s | %s\n" "schema" "$schema_status" "$schema_msg"
     printf "%-12s | %-6s | %s\n" "commitlint" "$commitlint_status" "$commitlint_msg"
   printf "%-12s | %-6s | %s\n" "markdown" "$md_status" "$md_msg"
 
     # Determina exit code: fallisce se uno dei gate critici FAIL
     CRIT_FAIL=0
-  if [ "$lint_status" = FAIL ] || [ "$tests_status" = FAIL ] || [ "$schema_status" = FAIL ]; then CRIT_FAIL=1; fi
+  if [ "$lint_status" = FAIL ] || [ "$tests_status" = FAIL ] || [ "$schema_status" = FAIL ] || [ "$guard_status" = FAIL ]; then CRIT_FAIL=1; fi
   # Se strict e markdownlint FAIL lo includiamo
   if [ "$md_status" = FAIL ]; then CRIT_FAIL=1; fi
     if [ $CRIT_FAIL -eq 1 ]; then
