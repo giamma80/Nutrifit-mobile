@@ -1,0 +1,101 @@
+name: schema-diff
+
+on:
+  pull_request:
+    paths:
+      - 'backend/graphql/schema.graphql'
+      - 'graphql/schema.graphql'
+      - 'scripts/verify_schema_breaking.py'
+      - '.github/workflows/schema-diff.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  diff:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Show changed files
+        run: |
+          echo "Changed files:" && git diff --name-only origin/${{ github.base_ref }}...HEAD
+
+      - name: Compute diff (raw)
+        id: rawdiff
+        run: |
+          set -euo pipefail
+          BASE_FILE="backend/graphql/schema.graphql"
+          MIRROR_FILE="graphql/schema.graphql"
+          if [ ! -f "$BASE_FILE" ]; then
+            echo "::error::File $BASE_FILE non trovato"; exit 1; fi
+          if [ ! -f "$MIRROR_FILE" ]; then
+            echo "::warning::Mirror $MIRROR_FILE assente (add it)"; touch $MIRROR_FILE; fi
+          echo "--- BASE (backend) vs MIRROR (root)" >> diff.txt
+          diff -u "$MIRROR_FILE" "$BASE_FILE" || true
+          if git diff --exit-code -- "$BASE_FILE" "$MIRROR_FILE"; then
+            echo "diff_status=clean" >> $GITHUB_OUTPUT
+          else
+            echo "diff_status=changed" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install diff dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install 'graphql-core>=3.2.3,<4'
+
+      - name: Resolve semantic diff script
+        id: scriptpath
+        run: |
+          if [ -f scripts/verify_schema_breaking.py ]; then
+            echo "path=scripts/verify_schema_breaking.py" >> $GITHUB_OUTPUT
+          elif [ -f backend/scripts/verify_schema_breaking.py ]; then
+            # fallback (retrocompat)
+            echo "path=backend/scripts/verify_schema_breaking.py" >> $GITHUB_OUTPUT
+          else
+            echo "::error::verify_schema_breaking.py non trovato"; exit 1;
+          fi
+
+      - name: Semantic diff
+        id: semantic
+        run: |
+          set -euo pipefail
+          SCRIPT="${{ steps.scriptpath.outputs.path }}"
+          echo "Usando script: $SCRIPT"
+          python "$SCRIPT" > semantic.json || EXIT=$? || true
+          if [ -z "${EXIT+x}" ]; then EXIT=0; fi
+          echo "exit_code=$EXIT" >> $GITHUB_OUTPUT
+          CLASS=$(jq -r '.classification' semantic.json)
+          echo "classification=$CLASS" >> $GITHUB_OUTPUT
+          echo "Semantic classification: $CLASS"
+          cat semantic.json
+
+      - name: Emit summary
+        run: |
+          echo "### Schema Diff" >> $GITHUB_STEP_SUMMARY
+          echo "Status: ${{ steps.rawdiff.outputs.diff_status }}" >> $GITHUB_STEP_SUMMARY
+          echo "Semantic Classification: ${{ steps.semantic.outputs.classification }}" >> $GITHUB_STEP_SUMMARY
+          echo "Diff (first 200 lines):" >> $GITHUB_STEP_SUMMARY
+          diff -u graphql/schema.graphql backend/graphql/schema.graphql | head -n 200 >> $GITHUB_STEP_SUMMARY
+          echo "\nSemantic JSON:" >> $GITHUB_STEP_SUMMARY
+          cat semantic.json >> $GITHUB_STEP_SUMMARY
+
+      - name: Fail on mirror mismatch
+        if: steps.rawdiff.outputs.diff_status == 'changed'
+        run: |
+          echo '::error::Lo schema backend è cambiato ma il mirror root non è aggiornato.'
+          exit 1
+
+      - name: Fail on breaking semantic changes
+        if: steps.semantic.outputs.classification == 'breaking' || steps.semantic.outputs.classification == 'mixed'
+        run: |
+          echo '::error::Schema breaking/mixed rilevato'
+          exit 1

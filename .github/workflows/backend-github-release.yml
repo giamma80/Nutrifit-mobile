@@ -1,0 +1,13 @@
+name: backend-github-release
+
+on:
+  workflow_dispatch:
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Placeholder release
+        run: |
+          echo "TODO: implementare tagging automatico e GitHub Release con note generate"

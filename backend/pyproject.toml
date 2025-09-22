@@ -50,7 +50,8 @@ exclude = [
 
 [tool.pytest.ini_options]
 addopts = "-q"
-pythonpath = ["."]
+# Aggiungiamo anche 'backend' per consentire import 'app' quando pytest parte dalla root repo.
+pythonpath = [".", "backend"]
 
 [build-system]
 requires = ["setuptools", "wheel"]

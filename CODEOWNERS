@@ -1,0 +1,10 @@
+# CODEOWNERS definisce i revisori predefiniti per percorsi chiave
+# Formato: pattern @utente1 @team
+
+/backend/ @giamma80
+/docs/ @giamma80
+/graphql/ @giamma80
+/mobile/ @giamma80
+/web/ @giamma80
+
+# Aggiornare quando si formano team distinti (es. @nutrifit-mobile-team)

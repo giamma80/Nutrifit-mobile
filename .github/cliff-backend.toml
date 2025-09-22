@@ -1,0 +1,34 @@
+# git-cliff configuration for backend changelog generation
+# Docs: https://github.com/orhun/git-cliff
+
+[changelog]
+# Sort commits newest first
+sort = "newest"
+# Group similar types
+header = "# Changelog"
+body = "{{#each groups}}{{#if commits}}\n## {{this.title}}\n{{#each commits}}- {{this.message}}{{/each}}\n{{/if}}{{/each}}"
+trim = true
+
+[git]
+# Conventional commit types mapping to titles
+conventional_commits = true
+filter_unconventional = true
+commit_preprocessors = []
+commit_parsers = [
+  { message = "^feat", group = "Features" },
+  { message = "^fix", group = "Fixes" },
+  { message = "^perf", group = "Performance" },
+  { message = "^refactor", group = "Refactoring" },
+  { message = "^docs", group = "Documentation" },
+  { message = "^test", group = "Tests" },
+  { message = "^chore", group = "Chores" },
+  { message = "^build", group = "Build" },
+  { message = "^ci", group = "CI" },
+]
+
+tag_pattern = "^backend/v[0-9]+\.[0-9]+\.[0-9]+$"
+
+tag_order = "desc"
+
+[remote]
+# Not strictly needed; git-cliff infers origin

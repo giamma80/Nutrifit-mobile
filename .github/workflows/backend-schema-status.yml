@@ -1,0 +1,19 @@
+name: backend-schema-status
+
+on:
+  schedule:
+    - cron: '0 6 * * *'
+  workflow_dispatch:
+
+jobs:
+  status:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Report schema hash
+        run: |
+          if [ -f backend/graphql/schema.graphql ]; then
+            echo "Schema hash:" $(shasum backend/graphql/schema.graphql | cut -d' ' -f1)
+          else
+            echo "Schema mancante"
+          fi

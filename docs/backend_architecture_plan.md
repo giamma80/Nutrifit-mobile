@@ -2,7 +2,7 @@
 
 Versione: 1.2 (Backend‑Centric + Activity & Recommendation Layer)
 Owner: Team Backend
-Ultimo aggiornamento: 2025-09-20
+Ultimo aggiornamento: 2025-09-21
 
 ## 1. Visione
 
@@ -45,15 +45,28 @@ Prime fasi mirate a fornire subito la query prodotto (barcode) centralizzata e m
 | Fase | Focus | Output Chiave | Note |
 |------|-------|---------------|------|
 | B0 | Scaffold & Health | `hello`, `health`, toolchain preflight | FATTO |
-| B1 | Product Query | `product(barcode)` + OFF adapter | Cache base |
-| B2 | Meal Logging v1 | `logMeal` + snapshot nutrienti | Idempotency |
-| B3 | Activity Ingestion v1 | `ingestActivityEvents` (minuti) + `dailySummary` semplice | Baseline pacing |
-| B4 | Rolling Baselines & Triggers | `rolling_intake_window` + triggers: sugar, protein, carb/activity | Raccomandazioni iniziali |
-| B5 | Meal Intelligence | `quality_score`, mealType agg, nuovi trend queries | Recommendation estensioni |
-| B6 | Realtime & Subscriptions | `mealAdded`, `activityMinuteTick`, `recommendationIssued`, energy balance | Supabase realtime bridge |
-| B7 | Forecast & Reinforcement | Budget cena avanzato, deficit adherence, smoothing net curve | Reinforcement engine |
-| B8 | Web Sandbox | Dashboard trend & ring dinamico | Contract & UX validation |
-| B9 | Hardening & Scale | Partitioning, metriche avanzate, valutazione decomposizione AI | Gate prima di microservizi |
+| B1 | Product Query | `product(barcode)` + OFF adapter | FATTO (cache TTL in-memory) |
+| B2 | Meal Logging v1 | `logMeal` + snapshot nutrienti | FATTO (in-memory store, enrichment da Product cache, idempotenza base) |
+| B3 | Activity Ingestion v1 | `ingestActivityEvents` (minuti) + `dailySummary` semplice | Pianificato |
+| B4 | Rolling Baselines & Triggers | `rolling_intake_window` + triggers: sugar, protein, carb/activity | Pianificato |
+| B5 | Meal Intelligence | `quality_score`, mealType agg, nuovi trend queries | Pianificato |
+| B6 | Realtime & Subscriptions | `mealAdded`, `activityMinuteTick`, `recommendationIssued`, energy balance | Pianificato |
+| B7 | Forecast & Reinforcement | Budget cena avanzato, deficit adherence, smoothing net curve | Pianificato |
+| B8 | Web Sandbox | Dashboard trend & ring dinamico | Pianificato |
+| B9 | Hardening & Scale | Partitioning, metriche avanzate, valutazione decomposizione AI | Pianificato |
+
+### 4.1 Stato Runtime vs Draft
+
+Lo schema runtime espone solo `product` e `logMeal`. Tutte le altre query/mutation del draft rimangono deferred.
+
+Aggiornamenti pianificati (prossima milestone):
+1. Aggiunta argomento opzionale `idempotencyKey` alla mutation `logMeal` (retro‑compatibile) – deprecazione della chiave derivata interna (`name|quantityG|timestamp|barcode`).
+2. Aggiunta campo opzionale `nutrientSnapshotJson` in `MealEntry` (inizialmente `null` — verrà popolato quando la persistenza Postgres sarà attiva). Successivamente potrà diventare non‑null.
+3. Classificazione semantica schema integrata in CI (script diff AST) per enforcement additive/breaking.
+
+### 4.2 Convenzione Naming
+
+Strawberry (v0.211.1) applica camelCase automatico ai campi degli input/oggetti. API client devono usare `quantityG` nei payload GraphQL.
 
 ## 5. Domain Data Model (Sintesi)
 
@@ -177,11 +190,17 @@ Metriche p95, error ratio e costo per inference tracciati prima di considerare d
 
 ### GitHub Actions
 
-Workflows:
+Workflows attuali nel repository:
 
-- `lint-test` (PR): mypy, pytest, flake8, strawberry schema check.
-- `build-push-image` (main): build Docker, push registry (Render auto deploy).
-- `contract-check` (PR): estrazione schema federato → diff vs snapshot.
+- `backend-ci.yml`: pipeline monolitica (preflight → build/test → maintenance → commitlint + schema export).
+- `schema-diff.yml`: verifica sincronizzazione mirror schema (classificazione placeholder).
+- `mobile-ci.yml`: stub analisi Flutter (attiverà path corretti dopo scaffold mobile/).
+- Workflow placeholder vuoti (`backend-preflight.yml`, `backend-changelog.yml`, `backend-github-release.yml`, `backend-schema-status.yml`) che verranno rimossi o popolati con logica reale.
+
+Planned refactor (separazione futura):
+1. `backend-lint-test.yml` (PR)
+2. `backend-release.yml` (tag push) con changelog + badge aggiornato.
+3. `schema-semantic-diff.yml` con classificazione additive/deprecation/breaking.
 
 ### Environments
 

@@ -1,0 +1,31 @@
+name: backend-changelog
+
+on:
+  pull_request:
+    paths:
+      - 'backend/**'
+      - '.github/workflows/backend-changelog.yml'
+  workflow_dispatch:
+
+jobs:
+  changelog:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Install git-cliff
+        run: |
+          curl -sSL https://github.com/orhun/git-cliff/releases/latest/download/git-cliff-x86_64-unknown-linux-gnu.tar.gz \
+            | tar -xz --strip-components=1 git-cliff
+          sudo mv git-cliff /usr/local/bin/git-cliff
+      - name: Generate changelog (backend)
+        run: |
+          git-cliff --config .github/cliff-backend.toml --output backend/CHANGELOG_PENDING.md
+          echo '--- Preview (first 60 lines) ---'
+          head -n 60 backend/CHANGELOG_PENDING.md
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+            name: backend-changelog-preview
+            path: backend/CHANGELOG_PENDING.md

@@ -13,6 +13,95 @@
     - `hello`
     - `serverTime`
     - `health`
+    - `product(barcode: String!)`
+  - Mutation:
+    - `logMeal(input: LogMealInput!): MealEntry!`
+
+## Tipi GraphQL Principali
+
+```graphql
+# Estratto sintetico (schema runtime attuale)
+
+type Product { barcode name brand category calories protein carbs fat fiber sugar sodium }
+
+type MealEntry {
+  id: ID!
+  name: String!
+  quantityG: Float!
+  timestamp: String!
+  barcode: String
+  calories: Int
+  protein: Float
+  carbs: Float
+  fat: Float
+  fiber: Float
+  sugar: Float
+  sodium: Float
+}
+
+input LogMealInput {
+  name: String!
+  quantityG: Float!
+  timestamp: String
+  barcode: String
+}
+
+type Mutation {
+  """Log di un pasto con arricchimento nutrienti se barcode noto"""
+  logMeal(input: LogMealInput!): MealEntry!
+}
+```
+
+### Esempi Query / Mutation
+
+Fetch prodotto (cache TTL di default 10 minuti):
+
+```bash
+curl -s -H 'Content-Type: application/json' \
+  -d '{"query":"{ product(barcode: \"8000500310427\") { name calories protein } }"}' \
+  http://localhost:8080/graphql | jq
+```
+
+Log di un pasto senza barcode:
+
+```bash
+curl -s -H 'Content-Type: application/json' \
+  -d '{"query":"mutation { logMeal(input:{name: \"Mela\", quantityG:150}) { id name quantityG calories } }"}' \
+  http://localhost:8080/graphql | jq
+```
+
+Log con enrichment nutrienti via barcode (scaling per quantità /100g):
+
+```bash
+curl -s -H 'Content-Type: application/json' \
+  -d '{"query":"mutation { logMeal(input:{name: \"Bar\", quantityG:50, barcode: \"123456\"}) { id name quantityG calories protein } }"}' \
+  http://localhost:8080/graphql | jq
+```
+
+Idempotenza: se `name + quantityG + timestamp + barcode` identici, ritorna stesso `id`.
+- Se non passi `timestamp`, viene generato un nuovo timestamp → nuova chiave idempotenza → nuovo record.
+
+Errori comuni:
+- Quantità <= 0 → `INVALID_QUANTITY`
+- Barcode non trovato → logMeal ignora enrichment ma registra comunque il pasto.
+
+Nota camelCase: Strawberry (v0.211.1) converte automaticamente i campi (es. `quantity_g` → `quantityG`). Usare sempre i nomi camelCase nelle richieste.
+
+### Stato attuale vs Schema Draft
+
+Il file `docs/graphql_schema_draft.md` contiene una versione estesa (future milestone) con: meal entries connection, daily summary, timeline attività, recommendations, ecc. Lo schema runtime attuale implementa solo un sottoinsieme:
+
+| Funzione Draft | Stato Runtime | Note |
+|----------------|--------------|------|
+| `product` | ✅ | Basic fetch + cache in-memory TTL |
+| `logMeal` (base) | ✅ | Idempotenza semplice + enrichment nutrienti |
+| `mealEntries` | ❌ | Pianificato (richiederà storage persistente) |
+| `dailySummary` | ❌ | Dipende da log aggregation |
+| `activityTimeline` | ❌ | Richiede ingestion attività minuto |
+| `recommendations` | ❌ | Dipende da engine & triggers |
+| Subscriptions | ❌ | Rimandate a milestone B6 |
+
+---
 
 ## Esempi Rapidi
 
@@ -52,6 +141,8 @@ Subgraph nutrizionale / AI minimale con gestione dipendenze tramite **uv** e dep
   - `hello`: string di test
   - `server_time`: timestamp UTC
   - `health`: stato (placeholder per future verifiche interne)
+  - `product(barcode: String!)`
+  - Mutation: `logMeal`
 
 ## Avvio locale
 
@@ -332,4 +423,42 @@ Comandi rapidi:
 ./make.sh typecheck    # solo mypy
 ./make.sh lint         # lint + typecheck
 ./make.sh preflight    # full quality gate
+```
+
+## Schema Diff (Semantic Quick Reference)
+
+Lo script `scripts/verify_schema_breaking.py` confronta lo SDL runtime (`backend/graphql/schema.graphql`) con il mirror root (`graphql/schema.graphql`). Classificazioni:
+
+| classification | Significato | Exit |
+|----------------|-------------|------|
+| aligned | Nessun cambiamento semantico | 0 |
+| additive | Aggiunta campi / enum values | 0 |
+| breaking | Rimozioni o violazioni interfacce | 1 |
+
+Esecuzione manuale:
+```bash
+pwd  # deve essere la root repo o backend/
+cd backend
+uv run python scripts/verify_schema_breaking.py | jq
+```
+
+Output JSON include: `added_fields`, `removed_fields`, `added_enum_values`, `interface_breaks`, `tool_version`.
+
+Dettagli completi e roadmap: consultare `../../docs/schema_diff.md` (dal path di questo README) oppure `docs/schema_diff.md` dalla root.
+
+### Utility Schema (Sync)
+| Script | Scopo |
+|--------|-------|
+| `scripts/export_schema.py` | Esporta SDL runtime in `backend/graphql/schema.graphql` |
+| `../scripts/sync_schema_from_backend.sh` | Copia SDL nel mirror root `graphql/schema.graphql` |
+| `../scripts/schema_hash.sh` | Calcola hash (future freshness badge) |
+
+Flusso manuale:
+```bash
+cd backend
+uv run python scripts/export_schema.py
+cd ..
+./scripts/sync_schema_from_backend.sh
+cd backend
+uv run python scripts/verify_schema_breaking.py | jq
 ```

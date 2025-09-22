@@ -55,8 +55,11 @@ async def test_fetch_product_success(monkeypatch: pytest.MonkeyPatch) -> None:
 
     dto = await fetch_product("123456")
     assert dto.name == "Test Bar"
-    assert dto.nutrients["calories"] == 400
-    assert dto.nutrients["protein"] == 30
+    cal = dto.nutrients.get("calories")
+    prot = dto.nutrients.get("protein")
+    assert cal is not None and prot is not None
+    assert cal == 400
+    assert prot == 30
 
 
 @pytest.mark.asyncio
@@ -130,8 +133,11 @@ async def test_kj_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(httpx, "AsyncClient", _fake_async_client)
     dto = await fetch_product("kjfallback")
     # 1046 / 4.184 ≈ 250.0
-    assert dto.nutrients["calories"] == 250
-    assert dto.nutrients["protein"] == 10
+    cal = dto.nutrients.get("calories")
+    prot = dto.nutrients.get("protein")
+    assert cal is not None and prot is not None
+    assert cal == 250
+    assert prot == 10
 
 
 @pytest.mark.asyncio
@@ -170,7 +176,9 @@ async def test_salt_to_sodium(monkeypatch: pytest.MonkeyPatch) -> None:
 
     monkeypatch.setattr(httpx, "AsyncClient", _fake_async_client)
     dto = await fetch_product("saltconv")
-    assert dto.nutrients["sodium"] == 600
+    sod = dto.nutrients.get("sodium")
+    assert sod is not None
+    assert sod == 600
 
 
 @pytest.mark.asyncio

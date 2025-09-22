@@ -9,6 +9,16 @@ Formato ispirato a [Keep a Changelog](https://keepachangelog.com/it-IT/1.1.0/) e
 ### Docs
 - aggiorna tagline piattaforma end-to-end
 - explain permissions for schema status workflow
+- aggiunta documentazione completa diff semantico (`docs/schema_diff.md`)
+- aggiunta sintesi e link schema diff in README root e backend README
+- aggiunta sezione utility schema (export/sync/hash) in README root e backend README
+- link a policy contratto schema (`docs/schema_contract_policy.md`)
+- aggiunta nota percorso unico script diff e rimozione stub duplicato
+
+### Added
+- script `backend/scripts/verify_schema_breaking.py` (diff semantico: aligned/additive/breaking)
+- test `backend/tests/test_schema_diff.py` (casi additive, breaking, enum values, interfacce multiple)
+- script utility sync (`scripts/sync_schema_from_backend.sh|py`, `scripts/schema_hash.sh`)
 
 ### Chore
 - add backend version verify workflow
@@ -23,6 +33,12 @@ Formato ispirato a [Keep a Changelog](https://keepachangelog.com/it-IT/1.1.0/) e
 - restore consolidated workflows + mobile stub + maintenance sync steps
 - update changelog + badges
 - update changelog + badges + version line
+- rimozione script duplicato non canonico `scripts/verify_schema_breaking.py` (in favore di versione backend)
+- aggiornato workflow `schema-diff.yml` per usare solo `backend/scripts/verify_schema_breaking.py`
+ - cleanup trigger vecchio file root
+
+### Future
+- introduzione categoria `deprecation` nel semantic diff (in preparazione)
 
 ## [0.2.0] - 2025-09-21
 

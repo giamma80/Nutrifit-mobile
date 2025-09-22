@@ -523,18 +523,53 @@ EOF
     uv run python scripts/export_schema.py
     ;;
 
-  schema-check)
-    header "Schema drift check"
-    tmpfile="$(mktemp -t schema_tmp_XXXX).graphql"
-    uv run python scripts/export_schema.py --out "$tmpfile" >/dev/null 2>&1 || { err "Export schema fallito"; rm -f "$tmpfile"; exit 1; }
-    if ! diff -u graphql/schema.graphql "$tmpfile" > /dev/null 2>&1; then
-      echo "---- SCHEMA DIFF ----"
-      diff -u graphql/schema.graphql "$tmpfile" || true
+  schema-sync)
+    header "Schema sync"
+    DRY_RUN=${DRY_RUN:-0}
+    tmpfile="$(mktemp -t schema_export_XXXX).graphql"
+    mkdir -p logs
+    export_err_log="logs/schema_export_last.log"
+    if ! uv run python scripts/export_schema.py --out "$tmpfile" > /dev/null 2>"$export_err_log"; then
+      err "Export schema fallito"
+      [ -s "$export_err_log" ] && head -n 20 "$export_err_log" >&2 || true
       rm -f "$tmpfile"
-      err "Schema drift rilevato: eseguire ./make.sh schema-export e committare"
-      exit 2
+      exit 3
+    fi
+    backend_file="graphql/schema.graphql"
+    mirror_file="$REPO_ROOT/graphql/schema.graphql"
+    if [ ! -f "$backend_file" ]; then warn "File backend/schema mancante: verrà creato"; fi
+    if [ ! -f "$mirror_file" ]; then warn "File mirror root mancante: verrà creato"; fi
+    backend_hash_old=$(sha256sum "$backend_file" 2>/dev/null | awk '{print $1}' || echo "NONE")
+    mirror_hash_old=$(sha256sum "$mirror_file" 2>/dev/null | awk '{print $1}' || echo "NONE")
+    new_hash=$(sha256sum "$tmpfile" | awk '{print $1}')
+    changed=0
+    if ! diff -q "$backend_file" "$tmpfile" >/dev/null 2>&1; then
+      changed=1
+      if [ "$DRY_RUN" = 0 ]; then
+        cp "$tmpfile" "$backend_file"
+        cp "$tmpfile" "$mirror_file"
+      fi
     fi
     rm -f "$tmpfile"
+    backend_hash_new=$(sha256sum "$backend_file" 2>/dev/null | awk '{print $1}' || echo "NONE")
+    mirror_hash_new=$(sha256sum "$mirror_file" 2>/dev/null | awk '{print $1}' || echo "NONE")
+    status="unchanged"; [ $changed -eq 1 ] && status="updated"
+    echo "{\"status\":\"$status\",\"backend_before\":\"$backend_hash_old\",\"backend_after\":\"$backend_hash_new\",\"mirror_before\":\"$mirror_hash_old\",\"mirror_after\":\"$mirror_hash_new\",\"hash_export\":\"$new_hash\",\"dry_run\":$DRY_RUN}" | tee logs/schema_sync_last.json
+    [ $changed -eq 1 ] && info "Schema aggiornato ($status)" || info "Schema già allineato"
+    ;;
+
+  schema-check)
+    header "Schema check (DRY)"
+    DRY_RUN=1 $0 schema-sync >/dev/null || ec=$? || true
+    ec=${ec:-0}
+    if [ $ec -eq 3 ]; then err "Export fallito"; exit 1; fi
+    sync_json="logs/schema_sync_last.json"
+    drift=$(jq -r '.status' "$sync_json" 2>/dev/null || echo unknown)
+    if [ "$drift" = "updated" ]; then
+      err "Schema drift rilevato (usa: ./make.sh schema-sync)"
+      jq '.' "$sync_json" 2>/dev/null || true
+      exit 2
+    fi
     info "Schema allineato"
     ;;
 
