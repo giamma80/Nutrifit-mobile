@@ -138,4 +138,4 @@ app.*.symbols
 !/dev/ci/**/Gemfile.lock
 
 # Local progress / notes (non versionato)
-.local_progress.md
+.local_progress.mdbackend/backend/graphql/schema.graphql
