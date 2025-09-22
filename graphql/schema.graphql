@@ -1,14 +1,16 @@
 """
-Canonical GraphQL SDL (mirror).
-Fonte canonica: backend/graphql/schema.graphql
-Questo file deve essere mantenuto IDENTICO (contenuto e ordine) al canonico.
+Canonical GraphQL SDL.
+Percorso canonico: backend/graphql/schema.graphql
+Mirror obbligatorio: graphql/schema.graphql (root)
 
-Procedura di aggiornamento:
-  1. make -C backend schema-export
-  2. make -C backend schema-sync
-  3. make -C backend schema-check
+Non modificare solo uno dei due file.
+Workflow aggiornamento:
+  1. make -C backend schema-export   # genera runtime SDL
+  2. make -C backend schema-sync     # copia e aggiorna hash
+  3. make -C backend schema-check    # verifica drift (CI gate)
 
-Non editare solo questo file.
+Modifiche manuali devono essere replicate nel mirror prima del commit.
+Qualsiasi ricomparsa di backend/backend/graphql/schema.graphql è un errore e va rimossa.
 """
 input LogMealInput {
   name: String!
