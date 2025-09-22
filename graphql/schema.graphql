@@ -1,52 +1,52 @@
 input LogMealInput {
-	name: String!
-	quantityG: Float!
-	timestamp: String = null
-	barcode: String = null
-	idempotencyKey: String = null
+  name: String!
+  quantityG: Float!
+  timestamp: String = null
+  barcode: String = null
+  idempotencyKey: String = null
 }
 
 type MealEntry {
-	id: String!
-	name: String!
-	quantityG: Float!
-	timestamp: String!
-	barcode: String
-	idempotencyKey: String
-	nutrientSnapshotJson: String
-	calories: Int
-	protein: Float
-	carbs: Float
-	fat: Float
-	fiber: Float
-	sugar: Float
-	sodium: Float
+  id: String!
+  name: String!
+  quantityG: Float!
+  timestamp: String!
+  barcode: String
+  idempotencyKey: String
+  nutrientSnapshotJson: String
+  calories: Int
+  protein: Float
+  carbs: Float
+  fat: Float
+  fiber: Float
+  sugar: Float
+  sodium: Float
 }
 
 type Mutation {
-	"""Log di un pasto con arricchimento nutrienti se barcode noto"""
-	logMeal(input: LogMealInput!): MealEntry!
+  """Log di un pasto con arricchimento nutrienti se barcode noto"""
+  logMeal(input: LogMealInput!): MealEntry!
 }
 
 type Product {
-	barcode: String!
-	name: String!
-	brand: String
-	category: String
-	calories: Int
-	protein: Float
-	carbs: Float
-	fat: Float
-	fiber: Float
-	sugar: Float
-	sodium: Float
+  barcode: String!
+  name: String!
+  brand: String
+  category: String
+  calories: Int
+  protein: Float
+  carbs: Float
+  fat: Float
+  fiber: Float
+  sugar: Float
+  sodium: Float
 }
 
 type Query {
-	hello: String!
-	serverTime: String!
-	health: String!
+  hello: String!
+  serverTime: String!
+  health: String!
 
-	"""Fetch prodotto da OpenFoodFacts (cache)"""
-	product(barcode: String!): Product
+  """Fetch prodotto da OpenFoodFacts (cache)"""
+  product(barcode: String!): Product
 }

@@ -258,8 +258,93 @@ uv run python scripts/verify_schema_breaking.py | jq
 | Workflow | File | Funzione Sintetica |
 |----------|------|--------------------|
 | Backend CI | `.github/workflows/backend-ci.yml` | Lint, type-check, test, export schema |
-| Schema Diff | `.github/workflows/schema-diff.yml` | (Planned) Verifica drift e classificazione semantica |
+| Schema Diff | `.github/workflows/schema-diff.yml` | Verifica drift e classificazione semantica (additive/breaking) |
 | Release Backend | `.github/workflows/backend-github-release.yml` | Tag + pubblicazione release backend |
 | Changelog Backend | `.github/workflows/backend-changelog.yml` | Generazione changelog automatizzata |
 | Version Badge Update | `.github/workflows/update-backend-version-badge.yml` | Aggiornamento badge versione |
 | Commitlint | `.github/workflows/commitlint.yml` | Validazione messaggi commit |
+
+---
+
+## 🤝 Contributi
+
+1. Fork / branch naming: `feature/<slug>` o `fix/<slug>`
+2. PR checklist:
+  - [ ] Tests pass
+  - [ ] Schema GraphQL invariato (o snapshot aggiornato con nota breaking)
+  - [ ] Docs aggiornate se necessario
+3. Event naming: snake_case, no payload ridondante.
+
+---
+
+## 🧪 Quality Gates (Target)
+
+| Gate | Strumento | Esito Richiesto |
+|------|-----------|-----------------|
+| Lint | `flutter analyze` | 0 errori |
+| Test | `flutter test` | ≥90% critical logic |
+| Contract | schema diff | nessun breaking non documentato |
+| Performance | dashboard frame time | <16ms frame hot path |
+
+---
+
+## 🧠 Nerd Corner
+>
+> “All models are wrong, some are useful.” — G.E.P. Box
+
+Snippet pseudo-calcolo adattamento calorie:
+
+```text
+delta_pct = clamp((trend_weight - expected)/expected, -0.15, 0.15)
+new_cal = round_to_50(old_cal * (1 - delta_pct))
+```
+
+Easter Egg Roadmap: quando AI autofill >70% adoption → attivare modalità "Hyper Logging" (UI minimalista).
+
+---
+
+## 🗒 Changelog
+
+Vedi [CHANGELOG.md](CHANGELOG.md). Release corrente backend: `v0.2.1` (cockpit script, logging, bump tooling aggiornati).
+
+Quick check versione backend da root (senza entrare in `backend/`):
+
+```bash
+cd backend && ./make.sh version-show
+```
+
+Altri comandi utili backend:
+
+```bash
+./make.sh version-verify   # controlla match tag HEAD vs pyproject
+./make.sh schema-export    # genera/aggiorna SDL GraphQL
+./make.sh schema-check     # verifica che lo schema versionato sia aggiornato
+```
+
+Suggerimento: per utenti junior basta ricordare la sequenza:
+
+```bash
+cd backend
+make setup   # o ./make.sh setup
+make run     # avvia server
+make preflight   # prima di fare commit/push
+```
+
+Il badge `backend_version` sopra viene aggiornato automaticamente dal workflow
+`update-backend-version-badge.yml` quando cambia `backend/pyproject.toml`.
+
+## 📝 Licenza
+
+Da definire. (Per ora nessuna licenza pubblicata; evitare uso in produzione esterna.)
+
+---
+
+## 🧭 Navigazione Rapida
+
+| Se vuoi... | Vai a |
+|------------|-------|
+| Capire il dominio nutrizionale | [Guida Nutrizione](docs/nutrifit_nutrition_guide.md) |
+| Vedere pipeline AI cibo | [Pipeline AI](docs/ai_food_pipeline_README.md) |
+| Leggere roadmap mobile | [Arch Mobile](docs/mobile_architecture_plan.md) |
+| Leggere roadmap backend | [Arch Backend](docs/backend_architettura_plan.md) |
+| Modificare prompt GPT-4V | [Prompt AI](docs/ai_food_recognition_prompt.md) |
