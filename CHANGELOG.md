@@ -7,6 +7,15 @@ Formato ispirato a [Keep a Changelog](https://keepachangelog.com/it-IT/1.1.0/) e
 ## [Unreleased]
 
 ### Docs
+- add ingestion contract, schema draft, recommendation engine and update existing guides
+
+### Chore
+- typing tests, schema sync, infra scripts consolidation
+
+## [0.2.1] - 2025-09-22
+
+
+### Docs
 - aggiorna tagline piattaforma end-to-end
 - explain permissions for schema status workflow
 - aggiunta documentazione completa diff semantico (`docs/schema_diff.md`)
