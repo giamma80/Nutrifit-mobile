@@ -1,3 +1,15 @@
+"""
+Canonical GraphQL SDL (mirror).
+Fonte canonica: backend/graphql/schema.graphql
+Questo file deve essere mantenuto IDENTICO (contenuto e ordine) al canonico.
+
+Procedura di aggiornamento:
+  1. make -C backend schema-export
+  2. make -C backend schema-sync
+  3. make -C backend schema-check
+
+Non editare solo questo file.
+"""
 input LogMealInput {
   name: String!
   quantityG: Float!

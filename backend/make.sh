@@ -164,6 +164,7 @@ Targets disponibili:
   test              Pytest
   schema-export     Esporta SDL GraphQL (aggiorna file versionato)
   schema-check      Verifica drift schema (fail se differente)
+  schema-guard      Verifica presenza duplicati e sync canonico/mirror schema
   preflight         format + lint + test + schema-check + commitlint
                    (markdownlint STRICT di default; disattiva con MD_STRICT=0)
   changelog         Aggiorna CHANGELOG.md dai commit conventional (usa DRY=1 per anteprima)
@@ -571,6 +572,11 @@ EOF
       exit 2
     fi
     info "Schema allineato"
+    ;;
+
+  schema-guard)
+    header "Schema guard"
+    uv run python "$REPO_ROOT/scripts/schema_guard.py" || exit $?
     ;;
 
   status)
