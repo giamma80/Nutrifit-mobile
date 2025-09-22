@@ -138,4 +138,7 @@ app.*.symbols
 !/dev/ci/**/Gemfile.lock
 
 # Local progress / notes (non versionato)
-.local_progress.mdbackend/backend/graphql/schema.graphql
+.local_progress.md
+# Legacy duplicate schema path (prevent accidental recreation)
+backend/backend/
+backend/backend/graphql/schema.graphql
