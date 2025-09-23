@@ -29,8 +29,8 @@ RUN curl -LsSf https://astral.sh/uv/install.sh | sh \
 
 # uv ora è globale in /usr/local/bin (nessuna dipendenza su /root)
 
-# Copia manifest per caching layer dipendenze
-COPY pyproject.toml uv.lock ./
+# Copia solo il manifest principale (uv.lock non versionato al momento)
+COPY pyproject.toml ./
 
 # Sync dipendenze (solo prod per immagine runtime finale)
 RUN uv sync --no-dev --all-extras
