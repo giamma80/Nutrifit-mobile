@@ -1,0 +1,17 @@
+name: update-backend-version-badge (placeholder)
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'backend/pyproject.toml'
+      - '.github/workflows/update-backend-version-badge.yml'
+
+jobs:
+  noop:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Info
+        run: |
+          echo 'Workflow placeholder: la logica di aggiornamento badge versione è stata consolidata nel job maintenance di backend-ci.yml.'
+          echo 'Questo file rimane per evitare link rotti; valutare la rimozione futura.'

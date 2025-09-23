@@ -12,8 +12,8 @@ on:
       - '.github/workflows/backend-ci.yml'
 
 jobs:
-  core:
-    name: Backend core (lint/tests/schema via make preflight subset)
+  preflight:
+    name: Backend full preflight (format/lint/tests/schema + commitlint + markdown)
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -30,30 +30,42 @@ jobs:
         run: |
           curl -LsSf https://astral.sh/uv/install.sh | sh
           echo "${HOME}/.local/bin" >> $GITHUB_PATH
-      - name: Sync deps
+      - name: Setup Node 20 (commitlint/markdownlint)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - name: Install optional Node deps (if package.json exists)
+        run: |
+          if [ -f package.json ]; then npm ci; fi
+      - name: Sync deps (backend)
         working-directory: backend
         run: uv sync --all-extras --dev
-      - name: Preflight (subset no markdown/commitlint)
+      - name: Run preflight (strict md)
         working-directory: backend
         env:
+          NO_COLOR: "1"
           MD_MODE: git
-          SKIP_MARKDOWN: "1"
-          SKIP_COMMITLINT: "1"
-        run: |
-          ./make.sh preflight || true
-          # Fallback selective enforcement: fail if format/lint/tests/schema failed in summary.
-          if grep -q 'format *FAIL' logs/preflight_summary.log; then echo '::error::Format gate failed'; EXIT=1; fi || true
-          if grep -q 'lint *FAIL' logs/preflight_summary.log; then echo '::error::Lint gate failed'; EXIT=1; fi || true
-          if grep -q 'tests *FAIL' logs/preflight_summary.log; then echo '::error::Tests gate failed'; EXIT=1; fi || true
-          if grep -q 'schema *FAIL' logs/preflight_summary.log; then echo '::error::Schema gate failed'; EXIT=1; fi || true
-          if [ -n "${EXIT+x}" ]; then exit 1; fi
+          MD_STRICT: "1"
+        run: ./make.sh preflight
       - name: Upload preflight summary
         if: always()
         uses: actions/upload-artifact@v4
         with:
-            name: backend-preflight-core-summary
-            path: backend/logs/preflight_summary.log
+          name: backend-preflight-summary
+          path: backend/logs/preflight_summary.log
+      - name: Upload markdownlint log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: markdownlint-log
+          path: backend/logs/md_lint_latest.log
       - name: Export schema artifact
+        if: always()
+        working-directory: backend
+        run: |
+          uv run python scripts/export_schema.py --out schema_export.graphql || true
+      - name: Upload schema export
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -63,7 +75,7 @@ jobs:
   docker-integration:
     name: Docker build & integration tests
     runs-on: ubuntu-latest
-    needs: core
+    needs: preflight
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -141,5 +153,5 @@ jobs:
           git push
 
 # NOTE:
-# - Commitlint & Markdownlint centralizzati in backend-preflight.yml
-# - Questo workflow si concentra su enforcement core + docker + maintenance.
+# - Workflow unificato: questo file esegue preflight completo + docker + maintenance.
+# - Rimuovere backend-preflight.yml (legacy) per evitare run duplicate.
