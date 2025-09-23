@@ -15,6 +15,14 @@ Formato ispirato a [Keep a Changelog](https://keepachangelog.com/it-IT/1.1.0/) e
 ### Chore
 - integrazione docker debug, copia cache.py e log preflight
 
+### Fixed
+- drop uv.lock copy for CI build
+
+### Chore
+- add concurrency to backend-ci
+- integrazione docker debug, copia cache.py e log preflight
+- update changelog + badges + version line
+
 ## [0.2.3] - 2025-09-23
 
 
