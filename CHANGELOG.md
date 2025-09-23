@@ -7,6 +7,12 @@ Formato ispirato a [Keep a Changelog](https://keepachangelog.com/it-IT/1.1.0/) e
 ## [Unreleased]
 
 ### Chore
+- remove deprecated backend workflows
+
+## [0.2.3] - 2025-09-23
+
+
+### Chore
 - add schema guard script, headers e target make schema-guard
 - align mirror header with canonical
 - clean newline + ignore legacy backend/backend/
