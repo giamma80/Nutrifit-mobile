@@ -364,6 +364,7 @@ EOF
     header "Preflight"
   # Raccogli esiti singoli gates senza abort immediato (compat bash 3.2: niente associative arrays)
   set +e
+  mkdir -p "$LOG_DIR"
   fmt_status="SKIP"; fmt_msg=""
   lint_status="SKIP"; lint_msg=""
   tests_status="SKIP"; tests_msg=""
@@ -443,15 +444,22 @@ EOF
     # Report finale
     echo
     header "Preflight Summary"
-    printf "%-12s | %-6s | %s\n" "GATE" "ESITO" "NOTE"
-    printf "%-12s-+-%-6s-+-%s\n" "------------" "------" "----------------------------"
-    printf "%-12s | %-6s | %s\n" "format" "$fmt_status" "$fmt_msg"
-    printf "%-12s | %-6s | %s\n" "lint" "$lint_status" "$lint_msg"
-    printf "%-12s | %-6s | %s\n" "tests" "$tests_status" "$tests_msg"
-  printf "%-12s | %-6s | %s\n" "guard" "$guard_status" "$guard_msg"
-  printf "%-12s | %-6s | %s\n" "schema" "$schema_status" "$schema_msg"
-    printf "%-12s | %-6s | %s\n" "commitlint" "$commitlint_status" "$commitlint_msg"
-  printf "%-12s | %-6s | %s\n" "markdown" "$md_status" "$md_msg"
+    {
+      printf "%-12s | %-6s | %s\n" "GATE" "ESITO" "NOTE"
+      printf "%-12s-+-%-6s-+-%s\n" "------------" "------" "----------------------------"
+      printf "%-12s | %-6s | %s\n" "format" "$fmt_status" "$fmt_msg"
+      printf "%-12s | %-6s | %s\n" "lint" "$lint_status" "$lint_msg"
+      printf "%-12s | %-6s | %s\n" "tests" "$tests_status" "$tests_msg"
+      printf "%-12s | %-6s | %s\n" "guard" "$guard_status" "$guard_msg"
+      printf "%-12s | %-6s | %s\n" "schema" "$schema_status" "$schema_msg"
+      printf "%-12s | %-6s | %s\n" "commitlint" "$commitlint_status" "$commitlint_msg"
+      printf "%-12s | %-6s | %s\n" "markdown" "$md_status" "$md_msg"
+    } | tee "$LOG_DIR/preflight_summary.log"
+
+    # Garantire esistenza log markdown anche in PASS per artifact CI
+    if [ ! -f "$LOG_DIR/md_lint_latest.log" ]; then
+      : > "$LOG_DIR/md_lint_latest.log"
+    fi
 
     # Determina exit code: fallisce se uno dei gate critici FAIL
     CRIT_FAIL=0

@@ -89,7 +89,17 @@ jobs:
           sleep 5
       - name: Integration test (health/version/graphql)
         working-directory: backend
+        env:
+          INTEG_RETRIES: 40
+          INTEG_SLEEP: 1
         run: bash scripts/integration_test.sh
+      - name: Docker logs (on failure)
+        if: failure()
+        run: |
+          echo "==== docker ps ===="
+          docker ps -a
+          echo "==== container logs nutrifit-backend-ci ===="
+          docker logs nutrifit-backend-ci || true
       - name: Stop container
         if: always()
         run: docker stop nutrifit-backend-ci || true

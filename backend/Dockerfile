@@ -36,7 +36,8 @@ COPY pyproject.toml ./
 RUN uv sync --no-dev --all-extras
 
 # Copia sorgenti
-COPY app.py ./
+# Copia codice applicativo principale (incluso cache.py richiesto da app.py)
+COPY app.py cache.py ./
 COPY openfoodfacts ./openfoodfacts
 COPY rules ./rules
 
