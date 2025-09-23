@@ -6,6 +6,21 @@ Formato ispirato a [Keep a Changelog](https://keepachangelog.com/it-IT/1.1.0/) e
 
 ## [Unreleased]
 
+### Chore
+- add schema guard script, headers e target make schema-guard
+- align mirror header with canonical
+- clean newline + ignore legacy backend/backend/
+- cleanup node_modules tracking and prepare release
+- integrate schema-guard in preflight and add test
+- purge stray duplicate schema file and ignore path
+- update changelog + badges + version line
+
+### Other
+- integra origin/main, allinea schema e rimuove duplicato
+
+## [0.2.2] - 2025-09-23
+
+
 ### Docs
 
 - add ingestion contract, schema draft, recommendation engine and update existing guides
