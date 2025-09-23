@@ -11,6 +11,13 @@
 *.egg-info/
 **/*.egg-info/
 
+# Node / frontend dependencies (evita tracking pacchetti installati)
+node_modules/
+**/node_modules/
+
+#kill porocess vscode
+killvscode.sh
+
 # Backend build artifacts (Python package dist) - non versionati
 backend/dist/
 

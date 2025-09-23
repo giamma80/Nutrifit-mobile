@@ -1,17 +1,89 @@
 name: backend-preflight
 
 on:
-	pull_request:
-		paths:
-			- 'backend/**'
-			- '.github/workflows/backend-preflight.yml'
+  pull_request:
+    paths:
+      - 'backend/**'
+      - '.github/workflows/backend-preflight.yml'
+  push:
+    paths:
+      - 'backend/**'
+      - '.github/workflows/backend-preflight.yml'
+  workflow_dispatch: {}
 
 jobs:
-	preflight:
-		runs-on: ubuntu-latest
-		steps:
-			- name: Checkout
-				uses: actions/checkout@v4
-			- name: Echo placeholder
-				run: |
-					echo "TODO: aggiungere security scans / license checks / bandit / trivy"
+  preflight:
+    name: Backend Preflight Gates
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install uv
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+
+      - name: Setup Node 20 (commitlint/markdownlint)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install optional Node deps (if package.json exists)
+        run: |
+          if [ -f package.json ]; then npm ci; fi
+
+      - name: Sync Python deps (backend)
+        working-directory: backend
+        run: uv sync --all-extras --dev
+
+      - name: Run preflight (strict markdown, git mode)
+        working-directory: backend
+        env:
+          NO_COLOR: "1"
+          MD_MODE: git
+          MD_STRICT: "1"
+        run: ./make.sh preflight
+
+      - name: Upload markdownlint log (always)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: markdownlint-log
+          path: backend/logs/md_lint_latest.log
+
+      - name: Export schema (artifact) even on failure
+        if: always()
+        working-directory: backend
+        shell: bash
+        run: |
+          set +e
+          uv run python scripts/export_schema.py --out schema_export.graphql || true
+
+      - name: Upload schema artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-schema-preflight
+          path: backend/schema_export.graphql
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "### Preflight eseguito" >> $GITHUB_STEP_SUMMARY
+          echo "Gates eseguiti: format, lint (flake8+mypy), tests, schema guard, schema drift, commitlint, markdown" >> $GITHUB_STEP_SUMMARY
+          if [ -f backend/logs/md_lint_latest.log ]; then
+            echo "\n<details><summary>Markdownlint (prime 30 righe)</summary>" >> $GITHUB_STEP_SUMMARY
+            head -30 backend/logs/md_lint_latest.log >> $GITHUB_STEP_SUMMARY || true
+            echo "</details>" >> $GITHUB_STEP_SUMMARY
+          fi

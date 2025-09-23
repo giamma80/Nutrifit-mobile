@@ -1,10 +1,10 @@
-# Backend
+#   Backend
 
 ![Build Backend](https://github.com/giamma80/Nutrifit-mobile/actions/workflows/backend-ci.yml/badge.svg)
 ![Schema Status](https://img.shields.io/badge/schema-aligned-brightgreen?label=GraphQL%20SDL)
 ![Release](https://github.com/giamma80/Nutrifit-mobile/actions/workflows/release.yml/badge.svg)
 
-## Endpoints
+##   Endpoints
 
 - `GET /health`
 - `GET /version`
@@ -17,7 +17,7 @@
   - Mutation:
     - `logMeal(input: LogMealInput!): MealEntry!`
 
-## Tipi GraphQL Principali
+##   Tipi GraphQL Principali
 
 ```graphql
 # Estratto sintetico (schema runtime attuale)
@@ -52,7 +52,7 @@ type Mutation {
 }
 ```
 
-### Esempi Query / Mutation
+###   Esempi Query / Mutation
 
 Fetch prodotto (cache TTL di default 10 minuti):
 
@@ -79,17 +79,24 @@ curl -s -H 'Content-Type: application/json' \
 ```
 
 Idempotenza: se `name + quantityG + timestamp + barcode` identici, ritorna stesso `id`.
-- Se non passi `timestamp`, viene generato un nuovo timestamp → nuova chiave idempotenza → nuovo record.
+
+- Se non passi `timestamp`, viene generato un nuovo timestamp → nuova chiave
+  idempotenza → nuovo record.
 
 Errori comuni:
+
 - Quantità <= 0 → `INVALID_QUANTITY`
 - Barcode non trovato → logMeal ignora enrichment ma registra comunque il pasto.
 
-Nota camelCase: Strawberry (v0.211.1) converte automaticamente i campi (es. `quantity_g` → `quantityG`). Usare sempre i nomi camelCase nelle richieste.
+Nota camelCase: Strawberry (v0.211.1) converte automaticamente i campi (es.
+`quantity_g` → `quantityG`). Usare sempre i nomi camelCase nelle richieste.
 
-### Stato attuale vs Schema Draft
+###   Stato attuale vs Schema Draft
 
-Il file `docs/graphql_schema_draft.md` contiene una versione estesa (future milestone) con: meal entries connection, daily summary, timeline attività, recommendations, ecc. Lo schema runtime attuale implementa solo un sottoinsieme:
+Il file `docs/graphql_schema_draft.md` contiene una versione estesa (future
+milestone) con: meal entries connection, daily summary, timeline attività,
+recommendations, ecc. Lo schema runtime attuale implementa solo un
+sottoinsieme:
 
 | Funzione Draft | Stato Runtime | Note |
 |----------------|--------------|------|
@@ -103,7 +110,7 @@ Il file `docs/graphql_schema_draft.md` contiene una versione estesa (future mile
 
 ---
 
-## Esempi Rapidi
+##   Esempi Rapidi
 
 ```bash
 ./make.sh docker-build
@@ -114,26 +121,26 @@ Il file `docs/graphql_schema_draft.md` contiene una versione estesa (future mile
 ./make.sh schema-check
 ```
 
-## Health & GraphQL
+##   Health & GraphQL
 
 ```bash
 curl localhost:8080/health
 curl -s -H 'Content-Type: application/json' -d '{"query":"{ health serverTime }"}' http://localhost:8080/graphql
 ```
 
-## CI
+##   CI
 
 La pipeline `backend-ci` esegue: lint, type-check, test, export schema, build immagine (con ARG VERSION) e test di integrazione container.
 
 ---
 
-## Panoramica
+##   Panoramica
 
 Subgraph nutrizionale / AI minimale con gestione dipendenze tramite **uv** e deployment container-first.
 
 > Shell compatibility: lo script `make.sh` è scritto per funzionare anche con la bash 3.2 di macOS (niente `${var,,}` ecc.). Colori disattivabili con `NO_COLOR=1`.
 
-### Endpoints (dettaglio)
+###   Endpoints (dettaglio)
 
 - `GET /health` → `{status: ok}`
 - `GET /version` → `{"version": "0.1.x"}`  (il valore reale è sincronizzato con `pyproject.toml` e il tag `v0.1.x`; evitare hardcode per ridurre aggiornamenti manuali)
@@ -144,7 +151,7 @@ Subgraph nutrizionale / AI minimale con gestione dipendenze tramite **uv** e dep
   - `product(barcode: String!)`
   - Mutation: `logMeal`
 
-## Avvio locale
+##   Avvio locale
 
 Prerequisiti: Python 3.11, [uv](https://github.com/astral-sh/uv) installato.
 
@@ -154,7 +161,7 @@ uv sync --all-extras --dev
 uv run uvicorn app:app --reload --port 8080
 ```
 
-### Cockpit (script `make.sh`)
+###   Cockpit (script `make.sh`)
 
 > C'è anche un `Makefile`: puoi usare sia `./make.sh <target>` sia `make <target>` da `backend/`.
 
@@ -210,7 +217,7 @@ Esempi rapidi:
 ./make.sh docker-test
 ```
 
-### Logging locale
+###   Logging locale
 
 La cartella `backend/logs/` contiene `server.log` se avvii in background:
 
@@ -222,7 +229,7 @@ La cartella `backend/logs/` contiene `server.log` se avvii in background:
 
 I log sono ignorati da git. (Futuro: structlog JSON.)
 
-### Versioning
+###   Versioning
 
 ```bash
 ./make.sh version-show
@@ -230,7 +237,7 @@ I log sono ignorati da git. (Futuro: structlog JSON.)
 ./make.sh version-verify
 ```
 
-#### Version Verify (Workflow Tag)
+####   Version Verify (Workflow Tag)
 
 Ogni push di un tag `vX.Y.Z` attiva il workflow GitHub Actions `Backend Version Verify` che:
 
@@ -250,7 +257,7 @@ Benefici: previene disallineamenti tra codice distribuito e metadati backend, ri
 
 > Nota: il workflow GitHub Release richiede `permissions: contents: write`; è stato aggiunto per evitare l'errore 403 "Resource not accessible by integration".
 
-### Riferimento rapido target (categorie)
+###   Riferimento rapido target (categorie)
 
 | Categoria | Target | Scopo sintetico |
 |-----------|--------|-----------------|
@@ -265,7 +272,7 @@ Benefici: previene disallineamenti tra codice distribuito e metadati backend, ri
 | Docker | docker-build / docker-run / docker-logs / docker-stop | Container locale |
 | Utility | status / clean / clean-dist / all | Info e pulizia |
 
-## Avvio via Docker
+##   Avvio via Docker
 
 Differenza rapida:
 
@@ -299,7 +306,7 @@ curl -s -H 'Content-Type: application/json' \
   http://localhost:8080/graphql
 ```
 
-## Strategia Deployment (Render)
+##   Strategia Deployment (Render)
 
 1. Push su `main` → GitHub Actions (`backend-ci`) esegue lint, type-check, test, export schema e build Docker + integration test.
 2. Render rileva il cambio della directory `backend/` e ricostruisce l'immagine usando il `Dockerfile`.
@@ -315,7 +322,7 @@ Note:
 - Le versioni sono mantenute in `pyproject.toml` e aggiornabili via `./make.sh version-bump`.
 - Il check schema drift è incluso in `preflight` (`schema-check`). Se fallisce: `./make.sh schema-export` e commit.
 
-## Prossimi Step
+##   Prossimi Step
 
 - Integrare schema reale Nutrition (porting da file GraphQL)
 - Implementare resolver `myNutritionPlan`
@@ -324,7 +331,7 @@ Note:
 - Rule Engine runtime (valutazione condizioni + throttle)
 - Caching OpenFoodFacts (LRU + TTL)
 
-## Roadmap & Progress (Backend)
+##   Roadmap & Progress (Backend)
 
 | Area | Stato Attuale | Prossimo Obiettivo | Note |
 |------|---------------|--------------------|------|
@@ -341,11 +348,11 @@ Note:
 
 Legenda: ✅ completato base · 🟡 in progresso/parziale · ❌ non avviato.
 
-## Changelog & Release Automation
+##   Changelog & Release Automation
 
 Il file `CHANGELOG.md` (root repo) viene aggiornato automaticamente da uno script che raccoglie i commit in formato **Conventional Commits**.
 
-### Target `changelog`
+###   Target `changelog`
 
 Genera/aggiorna la sezione `[Unreleased]` raggruppando i commit dalla **ultima tag**:
 
@@ -359,7 +366,7 @@ Le categorie vengono mappate in sezioni: Added, Fixed, Changed, Performance, Doc
 
 Idempotente: se una voce è già presente non viene duplicata.
 
-### Integrazione con `release`
+###   Integrazione con `release`
 
 Il target `release` ora effettua un ciclo completo con finalize automatico:
 
@@ -387,7 +394,7 @@ Sezione `[Unreleased]` rimane vuota (o pronta per i futuri commit) dopo il final
 
 Il workflow GitHub `backend-changelog.yml` continua ad aggiornare la parte `[Unreleased]` su push a `main` (evita drift locale → remoto).
 
-## Typing & Static Analysis Strategy
+##   Typing & Static Analysis Strategy
 
 Adottiamo una strategia di typing incrementale ma portata a stato fully‑typed (0 errori mypy) con configurazione strict.
 
@@ -425,7 +432,7 @@ Comandi rapidi:
 ./make.sh preflight    # full quality gate
 ```
 
-## Schema Diff (Semantic Quick Reference)
+##   Schema Diff (Semantic Quick Reference)
 
 Lo script `scripts/verify_schema_breaking.py` confronta lo SDL runtime (`backend/graphql/schema.graphql`) con il mirror root (`graphql/schema.graphql`). Classificazioni:
 
@@ -446,7 +453,7 @@ Output JSON include: `added_fields`, `removed_fields`, `added_enum_values`, `int
 
 Dettagli completi e roadmap: consultare `../../docs/schema_diff.md` (dal path di questo README) oppure `docs/schema_diff.md` dalla root.
 
-### Utility Schema (Sync)
+###   Utility Schema (Sync)
 | Script | Scopo |
 |--------|-------|
 | `scripts/export_schema.py` | Esporta SDL runtime in `backend/graphql/schema.graphql` |

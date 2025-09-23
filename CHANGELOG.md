@@ -7,15 +7,18 @@ Formato ispirato a [Keep a Changelog](https://keepachangelog.com/it-IT/1.1.0/) e
 ## [Unreleased]
 
 ### Docs
+
 - add ingestion contract, schema draft, recommendation engine and update existing guides
 
 ### Chore
+
 - typing tests, schema sync, infra scripts consolidation
 
 ## [0.2.1] - 2025-09-22
 
 
 ### Docs
+
 - aggiorna tagline piattaforma end-to-end
 - explain permissions for schema status workflow
 - aggiunta documentazione completa diff semantico (`docs/schema_diff.md`)
@@ -25,11 +28,13 @@ Formato ispirato a [Keep a Changelog](https://keepachangelog.com/it-IT/1.1.0/) e
 - aggiunta nota percorso unico script diff e rimozione stub duplicato
 
 ### Added
+
 - script `backend/scripts/verify_schema_breaking.py` (diff semantico: aligned/additive/breaking)
 - test `backend/tests/test_schema_diff.py` (casi additive, breaking, enum values, interfacce multiple)
 - script utility sync (`scripts/sync_schema_from_backend.sh|py`, `scripts/schema_hash.sh`)
 
 ### Chore
+
 - add backend version verify workflow
 - archive deprecated workflows under _deprecated/
 - consolidate workflows into backend-ci + release
@@ -44,15 +49,17 @@ Formato ispirato a [Keep a Changelog](https://keepachangelog.com/it-IT/1.1.0/) e
 - update changelog + badges + version line
 - rimozione script duplicato non canonico `scripts/verify_schema_breaking.py` (in favore di versione backend)
 - aggiornato workflow `schema-diff.yml` per usare solo `backend/scripts/verify_schema_breaking.py`
- - cleanup trigger vecchio file root
+- cleanup trigger vecchio file root
 
 ### Future
+
 - introduzione categoria `deprecation` nel semantic diff (in preparazione)
 
 ## [0.2.0] - 2025-09-21
 
 
 ### Chore
+
 - align backend-changelog workflow (python setup + uv install)
 - cleanup backend README and add markdownlint gate
 - fix schema badge push & pip cache; build(changelog): uniform version headers
@@ -64,12 +71,11 @@ Formato ispirato a [Keep a Changelog](https://keepachangelog.com/it-IT/1.1.0/) e
 - grant schema status workflow permissions
 
 ### Docs
-- explain permissions for schema status workflow
 
-### Docs
 - explain permissions for schema status workflow
 
 ### Chore
+
 - add backend version verify workflow
 - consolidate workflows into backend-ci + release
 - fix markdownlint issues in CHANGELOG

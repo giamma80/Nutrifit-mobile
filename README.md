@@ -242,6 +242,31 @@ Strumenti per sincronizzazione e verifica contratto GraphQL.
 | Calcolo Hash | `scripts/schema_hash.sh` | Produce hash per badge freshness (future) |
 | Diff Semantico | `backend/scripts/verify_schema_breaking.py` | Classifica aligned/additive/breaking |
 
+### 🔁 Comportamento Avanzato `schema-sync`
+
+Il target `schema-sync` ora emette un JSON arricchito con il campo booleano `mirror_only_aligned`:
+
+```jsonc
+{
+  "status": "updated",            // "updated" se almeno un file è stato modificato, altrimenti "unchanged"
+  "backend_before": "<hash>",
+  "backend_after":  "<hash>",
+  "mirror_before":  "<hash>",
+  "mirror_after":   "<hash>",
+  "hash_export":    "<hash_export_runtime>",
+  "mirror_only_aligned": 1,        // 1 se è stato necessario riallineare SOLO il mirror (contenuto identico all'export già presente nel backend)
+  "dry_run": 0
+}
+```
+
+Caso d'uso: a volte il file canonico backend è già aggiornato ma il mirror root diverge (es. differenze newline / whitespace). Prima questo stato non veniva corretto (status restava `unchanged`); ora `schema-sync` forza l'allineamento del mirror e segnala l'evento con `mirror_only_aligned=1` mantenendo `status:"updated"` per rendere evidente la mutazione.
+
+Implicazioni CI:
+* `schema-check` in DRY RUN fallisce se `status == updated` (quindi includendo i riallineamenti del solo mirror) evitando drift silenzioso.
+* Gli sviluppatori devono committare il mirror riallineato prima del merge.
+
+Nota: il guard (`scripts/schema_guard.py`) continuerà a fallire (exit 4) se i due file differiscono anche solo per whitespace finale.
+
 Esecuzione rapida:
 ```bash
 cd backend

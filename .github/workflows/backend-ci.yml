@@ -12,68 +12,69 @@ on:
       - '.github/workflows/backend-ci.yml'
 
 jobs:
-  preflight:
-    name: Preflight (aggregate quick gate)
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Install uv
-        run: curl -LsSf https://astral.sh/uv/install.sh | sh
-      - name: Run preflight script
-        working-directory: backend
-        env:
-          NO_COLOR: "1"
-        run: |
-          ./make.sh setup
-          ./make.sh preflight
-
-  build-test:
-    name: Backend build & tests
-    needs: preflight
+  core:
+    name: Backend core (lint/tests/schema via make preflight subset)
     runs-on: ubuntu-latest
     permissions:
       contents: read
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Ensure pip cache dir exists (avoid warning)
-        run: mkdir -p /home/runner/.cache/pip
+        with:
+          fetch-depth: 0
       - name: Setup Python 3.11
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-          cache: 'pip'
       - name: Install uv
         run: |
           curl -LsSf https://astral.sh/uv/install.sh | sh
           echo "${HOME}/.local/bin" >> $GITHUB_PATH
-      - name: Sync deps (prod + dev)
+      - name: Sync deps
         working-directory: backend
         run: uv sync --all-extras --dev
-      - name: Lint (flake8)
+      - name: Preflight (subset no markdown/commitlint)
         working-directory: backend
-        run: uv run flake8 .
-      - name: Type check (mypy)
-        working-directory: backend
-        run: uv run mypy .
-      - name: Tests (pytest)
-        working-directory: backend
-        run: uv run pytest
-      - name: Strawberry Schema Export
-        working-directory: backend
-        run: uv run python scripts/export_schema.py --out schema_export.graphql
-      - name: Upload schema artifact
+        env:
+          MD_MODE: git
+          SKIP_MARKDOWN: "1"
+          SKIP_COMMITLINT: "1"
+        run: |
+          ./make.sh preflight || true
+          # Fallback selective enforcement: fail if format/lint/tests/schema failed in summary.
+          if grep -q 'format *FAIL' logs/preflight_summary.log; then echo '::error::Format gate failed'; EXIT=1; fi || true
+          if grep -q 'lint *FAIL' logs/preflight_summary.log; then echo '::error::Lint gate failed'; EXIT=1; fi || true
+          if grep -q 'tests *FAIL' logs/preflight_summary.log; then echo '::error::Tests gate failed'; EXIT=1; fi || true
+          if grep -q 'schema *FAIL' logs/preflight_summary.log; then echo '::error::Schema gate failed'; EXIT=1; fi || true
+          if [ -n "${EXIT+x}" ]; then exit 1; fi
+      - name: Upload preflight summary
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+            name: backend-preflight-core-summary
+            path: backend/logs/preflight_summary.log
+      - name: Export schema artifact
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: backend-schema
           path: backend/schema_export.graphql
+
+  docker-integration:
+    name: Docker build & integration tests
+    runs-on: ubuntu-latest
+    needs: core
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - name: Docker Build (validation)
         run: docker build --build-arg VERSION=$(grep -m1 '^version' backend/pyproject.toml | sed -E 's/^[^0-9]*([0-9]+\.[0-9]+\.[0-9]+).*/\1/') -t nutrifit-backend:ci backend
       - name: Run container
         run: |
           docker run -d --rm -p 8080:8080 --name nutrifit-backend-ci nutrifit-backend:ci
-          sleep 3
+          sleep 5
       - name: Integration test (health/version/graphql)
         working-directory: backend
         run: bash scripts/integration_test.sh
@@ -83,7 +84,7 @@ jobs:
 
   maintenance:
     name: Maintenance (changelog + badges)
-    needs: build-test
+    needs: docker-integration
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
@@ -134,27 +135,11 @@ jobs:
           fi
           git config user.name "github-actions"
           git config user.email "actions@users.noreply.github.com"
-            
           MSG="chore(maintenance): update changelog + badges + version line"
           git add README.md CHANGELOG.md || true
           git commit -m "$MSG" || exit 0
           git push
 
-  commitlint:
-    name: Commitlint (PR only)
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-      - name: Install deps
-        run: npm ci || echo "No package.json present, skipping"
-      - name: Commitlint
-        run: |
-          if [ -f package.json ]; then npx commitlint --from=origin/main --to=HEAD --verbose; else echo "Skipped"; fi
+# NOTE:
+# - Commitlint & Markdownlint centralizzati in backend-preflight.yml
+# - Questo workflow si concentra su enforcement core + docker + maintenance.

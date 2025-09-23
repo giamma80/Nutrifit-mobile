@@ -5,9 +5,9 @@ Mirror obbligatorio: graphql/schema.graphql (root)
 
 Non modificare solo uno dei due file.
 Workflow aggiornamento:
-  1. make -C backend schema-export   # genera runtime SDL
-  2. make -C backend schema-sync     # copia e aggiorna hash
-  3. make -C backend schema-check    # verifica drift (CI gate)
+    1. make -C backend schema-export   # genera runtime SDL
+    2. make -C backend schema-sync     # copia e aggiorna hash
+    3. make -C backend schema-check    # verifica drift (CI gate)
 
 Modifiche manuali devono essere replicate nel mirror prima del commit.
 Qualsiasi ricomparsa di backend/backend/graphql/schema.graphql è un errore e va rimossa.

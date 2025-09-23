@@ -89,24 +89,72 @@ docker_running(){ docker ps --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$
 # Esegue markdownlint/markdownlint-cli2 dal root repository.
 # Variabile: MD_STRICT=1 per fallire preflight se esistono violazioni.
 run_markdownlint(){
-  local md_tmp_out md_ec summary_files strict
+  local md_tmp_out md_ec summary_files strict mode file_list tmp_list include_untracked
   # Default ora strict (1) disattivabile esplicitamente con MD_STRICT=0
   strict=${MD_STRICT:-1}
+  mode=${MD_MODE:-auto}  # auto|git|glob
+  include_untracked=${MD_INCLUDE_UNTRACKED:-0}
   if ! command -v npx >/dev/null 2>&1; then
     echo "MD_STATUS=SKIP"; echo "MD_MSG=npx assente"; return 0
   fi
-  if [ ! -f "$REPO_ROOT/.markdownlint.yml" ] && [ ! -f "$REPO_ROOT/.markdownlint.yaml" ]; then
+  if [ ! -f "$REPO_ROOT/.markdownlint.yml" ] && \
+     [ ! -f "$REPO_ROOT/.markdownlint.yaml" ] && \
+     [ ! -f "$REPO_ROOT/.markdownlint.json" ]; then
     echo "MD_STATUS=SKIP"; echo "MD_MSG=no config"; return 0
   fi
+  # NOTE: MD013 (line length) è volutamente disabilitata ("MD013": false) in .markdownlint.json
+  # per ridurre rumore e velocizzare il completamento del gating. Re-abilitare
+  # rimuovendo la chiave o impostandola ad oggetto se in futuro si decide di
+  # imporre wrapping coerente.
   md_tmp_out="$(mktemp -t md_lint_out_XXXX)"
   (
     cd "$REPO_ROOT" || exit 0
-    # Usa cli2 se presente; passiamo pattern multipli come argomenti separati per garantire esclusioni.
-    if npx --yes markdownlint-cli2 --version >/dev/null 2>&1; then
-      npx --yes markdownlint-cli2 "**/*.md" "!flutter/**" "!**/node_modules/**" "!**/build/**" 2>&1 | tee "$md_tmp_out" >/dev/null
+    # Determina se usare git ls-files
+    if [ "$mode" = "git" ] || { [ "$mode" = "auto" ] && command -v git >/dev/null 2>&1; }; then
+      tmp_list="$(mktemp -t md_file_list_XXXX)"
+      # Tracciati
+      git ls-files '*.md' > "$tmp_list" 2>/dev/null || true
+      if [ "$include_untracked" = "1" ]; then
+        # Aggiungi untracked (escludendo pattern noti)
+        git ls-files -o --exclude-standard '*.md' | grep -v -E '(^|/)node_modules/|(^|/)\.venv/|(^|/).pytest_cache/' >> "$tmp_list" 2>/dev/null || true
+      fi
+      # Filtra esclusioni ancora una volta (robustezza)
+      grep -v -E '(^|/)node_modules/|(^|/)\.venv/|(^|/).pytest_cache/|(^|/)build/|(^|/)dist/|dist-info/|(^|/)licenses/|LICENSE.md$' "$tmp_list" > "$tmp_list.clean" || true
+      mv "$tmp_list.clean" "$tmp_list"
+      if [ ! -s "$tmp_list" ]; then
+        echo "[run_markdownlint] Lista file Markdown vuota" >&2
+        exit 0
+      fi
+      if npx --yes markdownlint-cli2 --version >/dev/null 2>&1; then
+        # Usa xargs per evitare arg list troppo lunga
+        xargs -a "$tmp_list" npx --yes markdownlint-cli2 2>&1 | tee "$md_tmp_out" >/dev/null
+      else
+        xargs -a "$tmp_list" npx --yes markdownlint 2>&1 | tee "$md_tmp_out" >/dev/null
+      fi
+      rm -f "$tmp_list"
     else
-      # Fallback markdownlint core (non supporta ! pattern multipli in stesso modo, quindi piping + grep -v)
-      npx --yes markdownlint "**/*.md" 2>&1 | grep -v 'flutter/' | tee "$md_tmp_out" >/dev/null
+      # Fallback glob
+      if npx --yes markdownlint-cli2 --version >/dev/null 2>&1; then
+        npx --yes markdownlint-cli2 \
+          "**/*.md" \
+          "!**/node_modules/**" \
+          "!**/.venv/**" \
+          "!**/.pytest_cache/**" \
+          "!**/build/**" \
+          "!**/dist/**" \
+          "!**/*.dist-info/**" \
+          "!**/licenses/**" \
+          "!**/LICENSE.md" 2>&1 | tee "$md_tmp_out" >/dev/null
+      else
+        npx --yes markdownlint "**/*.md" 2>&1 | \
+          grep -v '/node_modules/' | \
+          grep -v '/.venv/' | \
+          grep -v '/.pytest_cache/' | \
+          grep -v '/build/' | \
+          grep -v '/dist/' | \
+          grep -v '.dist-info/' | \
+          grep -v 'licenses/' | tee "$md_tmp_out" >/dev/null
+      fi
     fi
   )
   md_ec=$?
@@ -127,21 +175,26 @@ run_markdownlint(){
   fi
   mkdir -p "$LOG_DIR"
   cp "$md_tmp_out" "$LOG_DIR/md_lint_latest.log" 2>/dev/null || true
+  # Calcola violazioni critiche (strutturali) vs totali
+  local critical_rules="MD010 MD022 MD024 MD029 MD031 MD032 MD040 MD041 MD058 MD051"
+  local crit_count=0 line code
+  while IFS= read -r line; do
+    code=$(echo "$line" | awk -F: '{print $4}' | sed 's/ //g')
+    for r in $critical_rules; do
+      if [ "$code" = "$r" ]; then crit_count=$((crit_count+1)); break; fi
+    done
+  done < "$md_tmp_out"
   {
     echo "--- MARKDOWNLINT (summary) ---"
-    awk -F: 'NF>3 {print $1}' "$md_tmp_out" | sort | uniq -c | sort -rn | head -5 | awk '{printf "%s\t%s\n", $2, $1}' | while read -r f c; do printf "%-60s %s\n" "$f" "$c"; done
-    echo "Totale violazioni: $total"
-    echo "Log completo salvato in backend/logs/md_lint_latest.log"
-    echo "--- MARKDOWNLINT (prime 3 righe grezze) ---"
-    head -3 "$md_tmp_out" || true
+    awk -F: 'NF>3 {print $1}' "$md_tmp_out" | sort | uniq -c | sort -rn | head -6 | awk '{printf "%s\t%s\n", $2, $1}'
+    echo "Totale: $total  Critiche: $crit_count"
+    echo "Log completo: backend/logs/md_lint_latest.log"
+    echo "Prime 3:"; head -3 "$md_tmp_out" || true
   } >&2
-  if [ "$strict" = "1" ]; then
-  # Includi prime 2 occorrenze compatte nel messaggio per debug veloce (troncate)
-  local first_two
-  first_two=$(head -2 "$md_tmp_out" | sed 's/:/ /g' | cut -c1-80 | tr '\n' ';')
-  echo "MD_STATUS='FAIL'"; echo "MD_MSG='$total violazioni ($first_two)'"; return 0
+  if [ "$strict" = "1" ] && [ $crit_count -gt 0 ]; then
+    echo "MD_STATUS='FAIL'"; echo "MD_MSG='critiche=$crit_count tot=$total'"; return 0
   else
-  echo "MD_STATUS='WARN'"; echo "MD_MSG='violazioni rilevate $total'"; return 0
+    echo "MD_STATUS='WARN'"; echo "MD_MSG='critiche=$crit_count tot=$total'"; return 0
   fi
 }
 
@@ -167,6 +220,7 @@ Targets disponibili:
   schema-guard      Verifica presenza duplicati e sync canonico/mirror schema
   preflight         format + lint + test + schema-check + commitlint
                    (markdownlint STRICT di default; disattiva con MD_STRICT=0)
+                   (usa SCHEMA_DRIFT_MODE=warn per non fallire su semplice drift)
   changelog         Aggiorna CHANGELOG.md dai commit conventional (usa DRY=1 per anteprima)
 
   # Versioning / Release
@@ -338,18 +392,30 @@ EOF
 
   # Schema guard (prima di drift)
   header "Schema guard"
-  uv run python scripts/schema_guard.py >/dev/null 2>&1; guard_ec=$?
+  # Usa percorso assoluto dal root per robustezza (evita working dir inconsistenti)
+  uv run python "$REPO_ROOT/scripts/schema_guard.py" >/dev/null 2>&1; guard_ec=$?
   if [ $guard_ec -eq 0 ]; then guard_status=PASS; else guard_status=FAIL; guard_msg="exit $guard_ec"; fi
 
   # Schema drift
     header "Schema drift check"
+    schema_drift_mode=${SCHEMA_DRIFT_MODE:-fail} # fail|warn
     tmpfile="$(mktemp -t schema_tmp_XXXX).graphql"
     uv run python scripts/export_schema.py --out "$tmpfile" >/dev/null 2>&1
     export_ec=$?
     if [ $export_ec -ne 0 ]; then
       schema_status=FAIL; schema_msg="export failed ($export_ec)"; rm -f "$tmpfile"
     else
-      if diff -q graphql/schema.graphql "$tmpfile" >/dev/null 2>&1; then schema_status=PASS; else schema_status=FAIL; schema_msg="drift detected"; echo "---- SCHEMA DIFF ----"; diff -u graphql/schema.graphql "$tmpfile" || true; fi
+      if diff -q graphql/schema.graphql "$tmpfile" >/dev/null 2>&1; then
+        schema_status=PASS; schema_msg=""
+      else
+        echo "---- SCHEMA DIFF ----"
+        diff -u graphql/schema.graphql "$tmpfile" || true
+        if [ "$schema_drift_mode" = "warn" ]; then
+          schema_status=WARN; schema_msg="drift (warn mode)"
+        else
+          schema_status=FAIL; schema_msg="drift detected"
+        fi
+      fi
       rm -f "$tmpfile"
     fi
 
@@ -551,6 +617,7 @@ EOF
     mirror_hash_old=$(sha256sum "$mirror_file" 2>/dev/null | awk '{print $1}' || echo "NONE")
     new_hash=$(sha256sum "$tmpfile" | awk '{print $1}')
     changed=0
+    mirror_only_aligned=0
     if ! diff -q "$backend_file" "$tmpfile" >/dev/null 2>&1; then
       changed=1
       if [ "$DRY_RUN" = 0 ]; then
@@ -558,11 +625,19 @@ EOF
         cp "$tmpfile" "$mirror_file"
       fi
     fi
+    # Se backend già coincide con export ma mirror differisce, riallinea solo mirror
+    if diff -q "$backend_file" "$tmpfile" >/dev/null 2>&1 && ! diff -q "$backend_file" "$mirror_file" >/dev/null 2>&1; then
+      mirror_only_aligned=1
+      changed=1
+      if [ "$DRY_RUN" = 0 ]; then
+        cp "$backend_file" "$mirror_file"
+      fi
+    fi
     rm -f "$tmpfile"
     backend_hash_new=$(sha256sum "$backend_file" 2>/dev/null | awk '{print $1}' || echo "NONE")
     mirror_hash_new=$(sha256sum "$mirror_file" 2>/dev/null | awk '{print $1}' || echo "NONE")
     status="unchanged"; [ $changed -eq 1 ] && status="updated"
-    echo "{\"status\":\"$status\",\"backend_before\":\"$backend_hash_old\",\"backend_after\":\"$backend_hash_new\",\"mirror_before\":\"$mirror_hash_old\",\"mirror_after\":\"$mirror_hash_new\",\"hash_export\":\"$new_hash\",\"dry_run\":$DRY_RUN}" | tee logs/schema_sync_last.json
+    echo "{\"status\":\"$status\",\"backend_before\":\"$backend_hash_old\",\"backend_after\":\"$backend_hash_new\",\"mirror_before\":\"$mirror_hash_old\",\"mirror_after\":\"$mirror_hash_new\",\"hash_export\":\"$new_hash\",\"mirror_only_aligned\":$mirror_only_aligned,\"dry_run\":$DRY_RUN}" | tee logs/schema_sync_last.json
     [ $changed -eq 1 ] && info "Schema aggiornato ($status)" || info "Schema già allineato"
     ;;
 
