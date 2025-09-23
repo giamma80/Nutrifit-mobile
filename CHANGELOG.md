@@ -9,6 +9,12 @@ Formato ispirato a [Keep a Changelog](https://keepachangelog.com/it-IT/1.1.0/) e
 ### Chore
 - remove deprecated backend workflows
 
+### Fixed
+- drop uv.lock copy for CI build
+
+### Chore
+- integrazione docker debug, copia cache.py e log preflight
+
 ## [0.2.3] - 2025-09-23
 
 
