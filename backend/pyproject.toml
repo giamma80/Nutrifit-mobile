@@ -1,6 +1,6 @@
 [project]
 name = "nutrifit-backend"
-version = "0.2.7"
+version = "0.2.8"
 description = "Nutrifit backend subgraph (FastAPI + Strawberry)"
 authors = [ { name = "Nutrifit Team" } ]
 readme = "README.md"
