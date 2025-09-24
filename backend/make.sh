@@ -281,6 +281,7 @@ Targets disponibili:
   version-bump      Bump versione (LEVEL=patch|minor|major)
   release           preflight + changelog + bump + tag + push (auto include CHANGELOG)
   release-continue  Se release interrotta dopo finalize/bump: commit/tag/push senza ri-finalizzare
+  release-deploy    Come 'release' + aggiorna APP_VERSION in render.yaml + commit e push blueprint
 
   # Git helpers
   commit MSG="..."  Preflight + commit
@@ -624,6 +625,32 @@ EOF
     git tag "v$newv"
     git push && git push --tags
     info "Release completata"
+    ;;
+
+  release-deploy)
+    header "Release + Deploy (Render)"
+    LEVEL=${LEVEL:-patch}
+    $0 preflight
+    current="$(pyproject_version)"; newv="$(semver_bump "$LEVEL")"
+    info "Release: $current → $newv (con aggiornamento render.yaml)"
+    DRY=1 $0 changelog || true
+    read -r -p "Procedere (finalize + bump + render)? [y/N] " ans; ans_lc=$(printf '%s' "$ans" | tr '[:upper:]' '[:lower:]'); { [ "$ans_lc" = "y" ] || [ "$ans_lc" = "yes" ]; } || { warn "Abort"; exit 1; }
+    uv run python scripts/generate_changelog.py --finalize "$newv"
+    $0 changelog || true
+    set_pyproject_version "$newv"
+    # Aggiorna APP_VERSION in render.yaml (se presente)
+    if [ -f "$REPO_ROOT/render.yaml" ]; then
+      info "Aggiorno APP_VERSION in render.yaml -> $newv"
+      uv run python "$SCRIPT_DIR/scripts/update_app_version_in_render.py" "$newv" || { warn "Aggiornamento render.yaml fallito"; }
+    else
+      warn "render.yaml non trovato: salto aggiornamento APP_VERSION"
+    fi
+    git add "$VERSION_FILE" "$CHANGELOG_FILE" "$REPO_ROOT/render.yaml" 2>/dev/null || true
+    git commit -m "chore(release): bump version to $newv (deploy)" || true
+    git tag "v$newv" || true
+    git push || true
+    git push --tags || true
+    info "Release+Deploy completata"
     ;;
 
   changelog)

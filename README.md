@@ -12,7 +12,7 @@
 <img src="https://img.shields.io/badge/graphql-modular-purple" alt="GraphQL" />
 <img src="https://img.shields.io/badge/ai-food%20vision-orange" alt="AI" />
 <img src="https://img.shields.io/badge/license-TBD-lightgrey" alt="License" />
- <img src="https://img.shields.io/badge/backend_version-0.2.3-green" alt="Backend Version" />
+ <img src="https://img.shields.io/badge/backend_version-0.2.4-green" alt="Backend Version" />
  <img src="https://img.shields.io/badge/schema_status-synced-brightgreen" alt="Schema Status" />
 <a href="https://github.com/giamma80/Nutrifit-mobile/actions/workflows/backend-ci.yml"><img src="https://github.com/giamma80/Nutrifit-mobile/actions/workflows/backend-ci.yml/badge.svg" alt="Backend CI" /></a>
 <a href="https://github.com/giamma80/Nutrifit-mobile/actions/workflows/mobile-ci.yml"><img src="https://img.shields.io/badge/mobile_ci-pending-lightgrey" alt="Mobile CI (stub)" /></a>
@@ -29,10 +29,12 @@
 5. [Feature Matrix](#-feature-matrix)
 6. [Roadmap & Progress](#-roadmap--progress)
 7. [Struttura Repository](#-struttura-repository-estratto)
-8. [Workflow CI/CD](#-workflow-cicd)
-9. [Contributi](#-contributi)
-10. [Nerd Corner](#-nerd-corner)
-11. [Licenza](#-licenza)
+8. [Governance & Release Flow](#-governance--release-flow)
+9. [Deploy su Render](#-deploy-su-render)
+10. [Workflow CI/CD](#-workflow-cicd)
+11. [Contributi](#-contributi)
+12. [Nerd Corner](#-nerd-corner)
+13. [Licenza](#-licenza)
 
 ## 🧩 Componenti del Monorepo
 
@@ -186,15 +188,84 @@ lib/
 
 ---
 
+## 🧭 Governance & Release Flow
+
+Il backend adotta un flusso di release centralizzato tramite `backend/make.sh` e versionamento SemVer taggato (`vX.Y.Z`).
+
+| Fase | Comando | Dettaglio |
+|------|---------|-----------|
+| Preflight | `./make.sh preflight` | format + lint + test + schema-check + commitlint + markdownlint (strict) |
+| Guard versione | `./make.sh version-guard` | Impedisce modifiche non autorizzate a `pyproject.toml` |
+| Changelog | `./make.sh changelog` | Genera/aggiorna CHANGELOG (conventional commits) |
+| Release interattiva | `./make.sh release` | finalize changelog + bump + tag + push |
+| Release CI | `./make.sh release-ci` | Non-interattivo (LEVEL=patch/minor/major) per pipeline |
+| Release + Deploy | `./make.sh release-deploy` | Release + aggiornamento `APP_VERSION` in `render.yaml` |
+| Utilities | `version-show`, `version-bump`, `version-verify` | Strumenti puntuali |
+
+Regole version_guard_logic:
+1. Branch feature: vietato cambiare la versione rispetto a merge-base `origin/main`.
+2. Branch main: la versione deve avere un tag corrispondente (`vX.Y.Z`).
+3. Solo i target di release generano bump + tag.
+
+Esempio release con deploy blueprint:
+```bash
+cd backend
+LEVEL=patch ./make.sh release-deploy
+```
+
+Script ausiliario: `backend/scripts/update_app_version_in_render.py` aggiorna `APP_VERSION` nel blueprint.
+
+---
+
+## 🚀 Deploy su Render
+
+Blueprint root: `render.yaml` definisce il servizio `nutrifit-backend-api` (runtime Docker).
+
+Caratteristiche:
+* Porta 8000 (healthcheck `/health`).
+* Variabili sensibili NON versionate (impostare da dashboard Render).
+* Build trigger su modifiche a `backend/**` o al blueprint stesso.
+* `APP_VERSION` aggiornato in release-deploy per tracciabilità.
+
+Validazione locale immagine prima del deploy:
+```bash
+cd backend
+docker build -t nutrifit-backend:local --build-arg APP_VERSION=$(./make.sh version-show) .
+docker run -p 8000:8000 nutrifit-backend:local
+curl -f http://localhost:8000/health
+curl -s http://localhost:8000/version
+```
+
+Roadmap deploy:
+| Evoluzione | Descrizione |
+|-----------|-------------|
+| Multi-servizi | Aggiunta gateway GraphQL e worker AI |
+| Redis opzionale | Cache condivisa per future features |
+| Preview PR | Ambienti ephemeral per feature branch |
+| Build esterna | Build immagine via CI + deploy da registry |
+
+---
+
+---
+
 ## 🔄 Workflow CI/CD
 
-Planned:
+Workflow unificato backend: `.github/workflows/backend-ci.yml` con jobs:
 
-- GitHub Actions: lint, analyze, schema diff, unit tests.
-- Codemagic: build store (iOS/Android) + distribuzione canali.
-- Backend: build Docker microservizi + deploy Render (rolling / canary AI service).
+| Job | Scopo |
+|-----|-------|
+| changes | Path filter: determina se eseguire build docker/integration |
+| preflight | Esegue target preflight completo (format, lint, test, schema, markdownlint) |
+| docker-integration | Build immagine + run container + test integrazione (GraphQL/health/version) |
+| maintenance | Aggiorna changelog + badge schema + versione (solo push main) |
 
-TODO: aggiungere workflow YAML (lint + schema snapshot) in `/ .github/workflows`.
+Altri workflow attivi:
+* `schema-diff.yml` – verifica drift/mirror schema (estensioni semantiche future).
+* `backend-changelog.yml` – aggiornamento changelog opzionale.
+* `update-backend-version-badge.yml` – sincronizza badge versione README.
+* `release.yml` – orchestrazione release (dispatch) se abilitato.
+
+La precedente frammentazione (preflight separato, schema-status) è stata consolidata.
 
 ### Workflow Schema Diff (Nuovo)
 
@@ -355,8 +426,7 @@ make run     # avvia server
 make preflight   # prima di fare commit/push
 ```
 
-Il badge `backend_version` sopra viene aggiornato automaticamente dal workflow
-`update-backend-version-badge.yml` quando cambia `backend/pyproject.toml`.
+Il badge `backend_version` è aggiornato da `update-backend-version-badge.yml` oppure tramite `release-deploy`.
 
 ## 📝 Licenza
 

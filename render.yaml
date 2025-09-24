@@ -1,0 +1,85 @@
+# =============================================================
+# NutriFit Mobile - Render Blueprint
+# =============================================================
+# Questo file definisce i servizi da deployare su Render per questo repository.
+# NOTE:
+# - Posizionato nella root del repo (necessario per Blueprint Sync di Render)
+# - Modificare SOLO tramite PR per garantire audit e governance
+# - Le variabili sensibili NON vanno inserite qui in chiaro (usare dashboard Render o secret file)
+# - Versione applicativa: aggiornare APP_VERSION in fase di release automatizzata
+# =============================================================
+
+version: "1"
+services:
+  # -----------------------------------------------------------
+  # Backend API principale (placeholder) - DA ADATTARE se/quando
+  # il repository includerà un servizio backend Python/FastAPI.
+  # -----------------------------------------------------------
+  - type: web
+    name: nutrifit-backend-api
+    runtime: docker
+    repo: https://github.com/giamma80/Nutrifit-mobile.git
+    rootDir: backend
+    dockerfilePath: Dockerfile
+    plan: starter
+    region: oregon
+    branch: main
+    autoDeploy: true
+
+    # Health check: assicurarsi che /health esista (da implementare nel backend)
+    healthCheckPath: /health
+
+    buildFilter:
+      paths:
+        - backend/**
+        - render.yaml
+
+    envVars:
+      # Ambiente
+      - key: ENVIRONMENT
+        value: production
+      - key: APP_VERSION
+        value: 0.0.0-dev  # AGGIORNATO DAL PROCESSO DI RELEASE
+      - key: PORT
+        value: "8000"
+      - key: LOG_LEVEL
+        value: info
+
+      # Flags (abilitare/disabilitare feature)
+      - key: ENABLE_INTROSPECTION
+        value: "false"
+      - key: ENABLE_PLAYGROUND
+        value: "false"
+
+      # Placeholder per future integrazioni
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_ANON_KEY
+        sync: false
+
+      # Secret generabili o gestiti manualmente (NON in chiaro qui)
+      - key: SECRET_KEY
+        sync: false
+      - key: JWT_SECRET_KEY
+        sync: false
+
+# -------------------------------------------------------------
+# NOTE OPERATIVE:
+# 1. Aggiungere nuovi servizi replicando la struttura sopra.
+# 2. Per microservizi multipli spostare ciascun servizio in directories es: services/<nome>/
+# 3. Aggiungere buildFilter specifici per ridurre build inutili.
+# 4. Tenere APP_VERSION allineata alle release (script di release aggiornerà il valore).
+# 5. Configurare le variabili sensibili su Render prima del primo deploy.
+# -------------------------------------------------------------
+
+# Futuri servizi potenziali (esempi):
+# - nutrifit-graphql-gateway (node)
+# - nutrifit-meal-tracker (python)
+# - nutrifit-ai-coach (python)
+# - nutrifit-notifications (worker)
+
+# Osservabilità futura:
+# - Aggiungere servizio redis se necessario
+# - Integrare Sentry (DSN come secret)
+# - Aggiungere log JSON strutturati
+# =============================================================

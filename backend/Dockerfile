@@ -5,9 +5,9 @@
 
 FROM python:3.11-slim AS base
 
-# Passare versione applicazione a build time (es: --build-arg VERSION=0.2.0)
-ARG VERSION="0.1.2"
-ENV APP_VERSION=${VERSION}
+# Versione applicazione (passare con --build-arg APP_VERSION=0.2.x)
+ARG APP_VERSION="0.0.0-dev"
+ENV APP_VERSION=${APP_VERSION}
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
@@ -48,9 +48,16 @@ RUN useradd -u 1000 -m appuser \
 ENV UV_CACHE_DIR=/home/appuser/.cache/uv
 USER appuser
 
-EXPOSE 8080
+EXPOSE 8000
 
-HEALTHCHECK --interval=30s --timeout=5s --retries=3 CMD curl -fsS http://localhost:8080/health || exit 1
+# Labels OCI per tracciabilità
+LABEL org.opencontainers.image.title="NutriFit Backend API" \
+  org.opencontainers.image.source="https://github.com/giamma80/Nutrifit-mobile" \
+  org.opencontainers.image.version="${APP_VERSION}" \
+  org.opencontainers.image.licenses="Proprietary"
 
-# Avvio
-CMD ["uv", "run", "uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8080"]
+HEALTHCHECK --interval=30s --timeout=5s --retries=3 CMD curl -fsS http://localhost:8000/health || exit 1
+
+# Avvio (PORT overridable runtime, default 8000)
+ENV PORT=8000
+CMD ["sh", "-c", "uv run uvicorn app:app --host 0.0.0.0 --port ${PORT}"]
