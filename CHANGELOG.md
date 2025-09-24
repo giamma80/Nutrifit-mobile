@@ -6,6 +6,9 @@ Formato ispirato a [Keep a Changelog](https://keepachangelog.com/it-IT/1.1.0/) e
 
 ## [Unreleased]
 
+## [0.2.5] - 2025-09-24
+
+
 ### Added
 - skip docker on docs-only changes + add logMeal idempotency integ test
 - version governance targets + maintenance-ci; fix(integ): robust logMeal id parsing
