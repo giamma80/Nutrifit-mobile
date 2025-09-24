@@ -198,6 +198,55 @@ run_markdownlint(){
   fi
 }
 
+# ------------------------------
+# Version Guard helper
+# Regole:
+#  - Su branch != main: la versione in pyproject.toml NON deve differire da quella al merge-base con origin/main.
+#    Se differisce -> FAIL (si deve eseguire il bump solo tramite ./make.sh release/version-bump su main).
+#  - Su main: la versione corrente deve essere taggata (vX.Y.Z). Se non esiste tag corrispondente -> FAIL.
+#    (Eccezione: se origin/main ancora non ha tag alcuno, prima release consentita.)
+# Restituisce exit code 0 (ok) / 2 (violazione) / 0 (skip scenario non determinabile).
+version_guard_logic(){
+  # Se repository git non disponibile, PASS silenzioso
+  command -v git >/dev/null 2>&1 || return 0
+  local branch cur merge_base base_version last_tag have_tag
+  cur="$(pyproject_version 2>/dev/null || echo UNKNOWN)"
+  branch="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo unknown)"
+
+  # Recupera ultimo tag (se esiste)
+  last_tag="$(git describe --tags --abbrev=0 2>/dev/null || echo '')"
+  have_tag=0; git rev-parse -q --verify "refs/tags/v$cur" >/dev/null 2>&1 && have_tag=1
+
+  if [ "$branch" = "main" ]; then
+    # Se non esistono ancora tag nel repo (prima release) permetti assenza
+    if [ -z "$last_tag" ]; then
+      [ $have_tag -eq 1 ] && return 0 || return 0
+    fi
+    if [ $have_tag -eq 1 ]; then
+      return 0
+    else
+      # Versione modificata senza tag: violazione
+      return 2
+    fi
+  else
+    # Branch feature: vietato cambiare versione rispetto al merge-base con origin/main
+    merge_base="$(git merge-base origin/main HEAD 2>/dev/null || echo '')"
+    if [ -z "$merge_base" ]; then
+      # Origin/main assente (fork locale?) non applichiamo guardia
+      return 0
+    fi
+    # Estrai versione a merge-base
+    base_version=$(git show "${merge_base}:backend/pyproject.toml" 2>/dev/null | grep -m1 '^version' | sed -E 's/^[^=]+= *"([0-9]+\.[0-9]+\.[0-9]+)".*/\1/' || echo "")
+    if [ -z "$base_version" ]; then
+      return 0
+    fi
+    if [ "$cur" != "$base_version" ]; then
+      return 2
+    fi
+    return 0
+  fi
+}
+
 case "$TARGET" in
   help)
     cat <<EOF
@@ -221,6 +270,9 @@ Targets disponibili:
   preflight         format + lint + test + schema-check + commitlint
                    (markdownlint STRICT di default; disattiva con MD_STRICT=0)
                    (usa SCHEMA_DRIFT_MODE=warn per non fallire su semplice drift)
+  version-guard     Verifica che la versione non sia stata modificata fuori dal flusso autorizzato
+  maintenance-ci    Esegue operazioni manutentive (changelog, badge schema, badge versione, linea release)
+  release-ci        Pipeline release non interattiva (LEVEL=patch|minor|major) pensata per automazione
   changelog         Aggiorna CHANGELOG.md dai commit conventional (usa DRY=1 per anteprima)
 
   # Versioning / Release
@@ -372,6 +424,7 @@ EOF
   guard_status="SKIP"; guard_msg=""
   commitlint_status="SKIP"; commitlint_msg=""
   md_status="SKIP"; md_msg=""
+  version_guard_status="SKIP"; version_guard_msg=""
 
     # Format (non blocking): se format modifica file, consideriamo PASS comunque
     header "Format (black)"
@@ -396,6 +449,17 @@ EOF
   # Usa percorso assoluto dal root per robustezza (evita working dir inconsistenti)
   uv run python "$REPO_ROOT/scripts/schema_guard.py" >/dev/null 2>&1; guard_ec=$?
   if [ $guard_ec -eq 0 ]; then guard_status=PASS; else guard_status=FAIL; guard_msg="exit $guard_ec"; fi
+
+  # Version guard
+  header "Version guard"
+  if version_guard_logic; then vg_ec=$?; else vg_ec=$?; fi
+  if [ $vg_ec -eq 0 ]; then
+    version_guard_status=PASS
+  elif [ $vg_ec -eq 2 ]; then
+    version_guard_status=FAIL; version_guard_msg="versione modificata non consentita"
+  else
+    version_guard_status=SKIP; version_guard_msg="indeterminato"
+  fi
 
   # Schema drift
     header "Schema drift check"
@@ -451,6 +515,7 @@ EOF
       printf "%-12s | %-6s | %s\n" "lint" "$lint_status" "$lint_msg"
       printf "%-12s | %-6s | %s\n" "tests" "$tests_status" "$tests_msg"
       printf "%-12s | %-6s | %s\n" "guard" "$guard_status" "$guard_msg"
+  printf "%-12s | %-6s | %s\n" "ver-guard" "$version_guard_status" "$version_guard_msg"
       printf "%-12s | %-6s | %s\n" "schema" "$schema_status" "$schema_msg"
       printf "%-12s | %-6s | %s\n" "commitlint" "$commitlint_status" "$commitlint_msg"
       printf "%-12s | %-6s | %s\n" "markdown" "$md_status" "$md_msg"
@@ -463,7 +528,7 @@ EOF
 
     # Determina exit code: fallisce se uno dei gate critici FAIL
     CRIT_FAIL=0
-  if [ "$lint_status" = FAIL ] || [ "$tests_status" = FAIL ] || [ "$schema_status" = FAIL ] || [ "$guard_status" = FAIL ]; then CRIT_FAIL=1; fi
+  if [ "$lint_status" = FAIL ] || [ "$tests_status" = FAIL ] || [ "$schema_status" = FAIL ] || [ "$guard_status" = FAIL ] || [ "$version_guard_status" = FAIL ]; then CRIT_FAIL=1; fi
   # Se strict e markdownlint FAIL lo includiamo
   if [ "$md_status" = FAIL ]; then CRIT_FAIL=1; fi
     if [ $CRIT_FAIL -eq 1 ]; then
@@ -667,6 +732,66 @@ EOF
   schema-guard)
     header "Schema guard"
     uv run python "$REPO_ROOT/scripts/schema_guard.py" || exit $?
+    ;;
+
+  version-guard)
+    header "Version guard (manual)"
+    if version_guard_logic; then vg_ec=$?; else vg_ec=$?; fi
+    if [ $vg_ec -eq 0 ]; then
+      info "Version guard OK"
+    elif [ $vg_ec -eq 2 ]; then
+      err "Version guard FAIL: versione non consentita"; exit 2
+    else
+      warn "Version guard SKIP (indeterminato)"
+    fi
+    ;;
+
+  maintenance-ci)
+    header "Maintenance (CI)"
+    set -e
+    # 1. Changelog auto (non blocking)
+    ./make.sh changelog || true
+    # 2. Schema status -> badge
+    if ./make.sh schema-check; then STATUS=synced; else STATUS=drift; fi
+    COLOR=lightgrey; if [ "$STATUS" = "synced" ]; then COLOR=brightgreen; else COLOR=orange; fi
+    # 3. Version badge + textual release line (operate dal root README)
+    version=$(pyproject_version)
+    ( cd "$REPO_ROOT" && \
+      sed -i "s|schema_status-[a-zA-Z0-9_-]*-[a-zA-Z]*|schema_status-${STATUS}-${COLOR}|" README.md 2>/dev/null || true; \
+      sed -i "s|backend_version-[a-zA-Z0-9_.-]*-green|backend_version-${version}-green|" README.md 2>/dev/null || true; \
+      sed -i "s|backend_version-loading-grey|backend_version-${version}-green|" README.md 2>/dev/null || true; \
+      if grep -q 'Release corrente backend:' README.md; then \
+        sed -i "s/Release corrente backend: \`v[0-9]\+\.[0-9]\+\.[0-9]\+\`/Release corrente backend: \`v${version}\`/" README.md || true; \
+      fi )
+    # 4. Commit se ci sono cambi
+    if git diff --quiet -- README.md CHANGELOG.md; then
+      info "Nessuna modifica manutentiva da committare"
+    else
+      git config user.name "github-actions"
+      git config user.email "actions@users.noreply.github.com"
+      git add README.md CHANGELOG.md || true
+      git commit -m "chore(maintenance): update changelog + badges + version line" || true
+    fi
+    ;;
+
+  release-ci)
+    header "Release CI (non-interactive)"
+    LEVEL=${LEVEL:-patch}
+    assert_clean_worktree
+    current="$(pyproject_version)"; newv="$(semver_bump "$LEVEL")"
+    info "Release: $current -> $newv (non-interactive)"
+    # Preflight (incluso version-guard): deve passare prima
+    ./make.sh preflight
+    # Finalizza changelog
+    uv run python scripts/generate_changelog.py --finalize "$newv" || true
+    ./make.sh changelog || true
+    set_pyproject_version "$newv"
+    git add "$VERSION_FILE" "$CHANGELOG_FILE" || true
+    git commit -m "chore(release): bump version to $newv" || true
+    git tag "v$newv" || true
+    git push || true
+    git push --tags || true
+    info "Release CI completata"
     ;;
 
   status)

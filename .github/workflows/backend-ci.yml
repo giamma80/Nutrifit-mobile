@@ -153,40 +153,9 @@ jobs:
       - name: Sync deps
         working-directory: backend
         run: uv sync --all-extras --dev
-      - name: Generate changelog (auto)
+      - name: Run maintenance-ci target
         working-directory: backend
-        run: |
-          ./make.sh changelog || echo "Changelog generation failed (non-blocking)"
-      - name: Schema drift & badge
-        working-directory: backend
-        run: |
-          if ./make.sh schema-check; then STATUS=synced; else STATUS=drift; fi
-          cd ..
-          COLOR=lightgrey; if [ "$STATUS" = "synced" ]; then COLOR=brightgreen; else COLOR=orange; fi
-          sed -i "s|schema_status-[a-zA-Z0-9_-]*-[a-zA-Z]*|schema_status-${STATUS}-${COLOR}|" README.md || true
-      - name: Version badge
-        run: |
-          version=$(grep -m1 '^version' backend/pyproject.toml | sed -E 's/^[^=]+= *"([0-9]+\.[0-9]+\.[0-9]+)".*/\1/')
-          sed -i "s|backend_version-[a-zA-Z0-9_.-]*-green|backend_version-${version}-green|" README.md || true
-          sed -i "s|backend_version-loading-grey|backend_version-${version}-green|" README.md || true
-      - name: Sync textual backend release line
-        run: |
-          version=$(grep -m1 '^version' backend/pyproject.toml | sed -E 's/^[^=]+= *"([0-9]+\.[0-9]+\.[0-9]+)".*/\1/')
-          if grep -q 'Release corrente backend:' README.md; then
-            sed -i "s/Release corrente backend: \`v[0-9]\+\.[0-9]\+\.[0-9]\+\`/Release corrente backend: \`v${version}\`/" README.md || true
-          fi
-      - name: Commit aggregated maintenance changes
-        run: |
-          if git diff --quiet -- README.md CHANGELOG.md; then
-            echo "No maintenance changes"
-            exit 0
-          fi
-          git config user.name "github-actions"
-          git config user.email "actions@users.noreply.github.com"
-          MSG="chore(maintenance): update changelog + badges + version line"
-          git add README.md CHANGELOG.md || true
-          git commit -m "$MSG" || exit 0
-          git push
+        run: ./make.sh maintenance-ci
 
 # NOTE:
 # - Workflow unificato: questo file esegue preflight completo + docker + maintenance.
