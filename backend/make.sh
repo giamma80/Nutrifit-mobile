@@ -360,10 +360,29 @@ EOF
 
   docker-run)
     $0 check-docker
-    header "Docker run ${CONTAINER_NAME}"
+    header "Docker run ${CONTAINER_NAME} (porta 8000)"
     if docker_running; then warn "Container già attivo"; exit 0; fi
-    docker run -d --rm -p 8080:8080 --name "${CONTAINER_NAME}" "${IMAGE_NAME}" uv run uvicorn app:app --host 0.0.0.0 --port 8080
-    info "Container avviato"
+    # Verifica esistenza immagine, altrimenti build
+    if ! docker image inspect "${IMAGE_NAME}" >/dev/null 2>&1; then
+      warn "Immagine ${IMAGE_NAME} non trovata: eseguo build rapida"
+      docker build -t "${IMAGE_NAME}" .
+    fi
+    # Usa CMD del Dockerfile (porta definita lì), esponendo 8000
+    docker run -d --rm -p 8000:8000 --name "${CONTAINER_NAME}" "${IMAGE_NAME}"
+    info "Container avviato (http://localhost:8000)"
+    ;;
+
+  docker-run-debug)
+    $0 check-docker
+    header "Docker run debug (no --rm, shell disponibile)"
+    if docker_running; then warn "Container già attivo"; exit 0; fi
+    if ! docker image inspect "${IMAGE_NAME}" >/dev/null 2>&1; then
+      warn "Immagine ${IMAGE_NAME} non trovata: eseguo build rapida"
+      docker build -t "${IMAGE_NAME}" .
+    fi
+    docker run -d -p 8000:8000 --name "${CONTAINER_NAME}" "${IMAGE_NAME}"
+    info "Container avviato in modalità debug (non verrà rimosso automaticamente)"
+    info "Logs: docker logs -f ${CONTAINER_NAME} | Shell: docker exec -it ${CONTAINER_NAME} sh"
     ;;
 
   docker-stop)
