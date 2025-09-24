@@ -26,7 +26,7 @@ wait_service(){
 }
 
 run_tests(){
-  local health version gql
+  local health version gql meal1 meal2 meal_idempotent_payload
   health=$(curl -fsS "$BASE_URL/health") || { log "Health fallito"; return 2; }
   version=$(curl -fsS "$BASE_URL/version") || { log "Version fallito"; return 3; }
   gql=$(curl -fsS -H 'Content-Type: application/json' -d '{"query":"{ health serverTime }"}' "$BASE_URL/graphql") || { log "GraphQL fallito"; return 4; }
@@ -39,7 +39,21 @@ run_tests(){
   echo "$version" | grep -q '"version"' || { log "Campo version assente"; return 11; }
   echo "$gql"     | grep -q '"health"' || { log "Campo health GraphQL assente"; return 12; }
 
-  log "SUCCESS: integrazione OK"
+  # Test mutation logMeal + idempotenza
+  meal_idempotent_payload='{"query":"mutation($input: LogMealInput!){ logMeal(input:$input){ id name quantityG idempotencyKey calories } }","variables":{"input":{"name":"Apple","quantityG":100}}}'
+  meal1=$(curl -fsS -H 'Content-Type: application/json' -d "$meal_idempotent_payload" "$BASE_URL/graphql") || { log "Mutation logMeal fallita"; return 20; }
+  meal2=$(curl -fsS -H 'Content-Type: application/json' -d "$meal_idempotent_payload" "$BASE_URL/graphql") || { log "Seconda mutation logMeal fallita"; return 21; }
+  echo "MEAL1: $meal1"
+  echo "MEAL2: $meal2"
+  id1=$(echo "$meal1" | sed -n 's/.*"id":"\([0-9a-fA-F-]*\)".*/\1/p') || true
+  id2=$(echo "$meal2" | sed -n 's/.*"id":"\([0-9a-fA-F-]*\)".*/\1/p') || true
+  if [ -z "$id1" ] || [ -z "$id2" ]; then
+    log "IDs non estratti correttamente dalla risposta logMeal"; return 22
+  fi
+  if [ "$id1" != "$id2" ]; then
+    log "Idempotenza fallita: id diversi ($id1 vs $id2)"; return 23
+  fi
+  log "SUCCESS: integrazione OK (incl. logMeal idempotent)"
 }
 
 main(){

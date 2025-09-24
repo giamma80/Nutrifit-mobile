@@ -16,9 +16,30 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  changes:
+    name: Detect relevant backend changes
+    runs-on: ubuntu-latest
+    outputs:
+      run_docker: ${{ steps.filter.outputs.run_docker }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Path filter
+        id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            run_docker:
+              - 'backend/**'
+              - '!backend/README.md'
+              - '!README.md'
+              - '!CHANGELOG.md'
+              - '!**/*.md'
+              - '.github/workflows/backend-ci.yml'
   preflight:
     name: Backend full preflight (format/lint/tests/schema + commitlint + markdown)
     runs-on: ubuntu-latest
+    needs: changes
     permissions:
       contents: read
     steps:
@@ -79,7 +100,8 @@ jobs:
   docker-integration:
     name: Docker build & integration tests
     runs-on: ubuntu-latest
-    needs: preflight
+    needs: [preflight, changes]
+    if: needs.changes.outputs.run_docker == 'true'
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -110,8 +132,8 @@ jobs:
 
   maintenance:
     name: Maintenance (changelog + badges)
-    needs: docker-integration
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [docker-integration, changes]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.changes.outputs.run_docker == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: write
