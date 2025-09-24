@@ -39,7 +39,7 @@ services:
       - key: ENVIRONMENT
         value: production
       - key: APP_VERSION
-        value: 0.0.0-dev  # AGGIORNATO DAL PROCESSO DI RELEASE
+        value: 0.2.6
       - key: PORT
         value: "8000"
       - key: LOG_LEVEL

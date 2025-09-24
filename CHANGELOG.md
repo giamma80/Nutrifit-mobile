@@ -6,6 +6,10 @@ Formato ispirato a [Keep a Changelog](https://keepachangelog.com/it-IT/1.1.0/) e
 
 ## [Unreleased]
 
+### Chore
+- add render blueprint + deploy tooling (post 0.2.5)
+- minor tweak before release-deploy
+
 ## [0.2.5] - 2025-09-24
 
 
