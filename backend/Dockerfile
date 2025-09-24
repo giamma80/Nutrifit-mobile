@@ -40,6 +40,9 @@ RUN uv sync --no-dev --all-extras
 COPY app.py cache.py ./
 COPY openfoodfacts ./openfoodfacts
 COPY rules ./rules
+# NUOVO: repository (in-memory meal repo) e schema GraphQL
+COPY repository ./repository
+COPY graphql ./graphql
 
 # Utente non-root con home (necessario per cache uv)
 RUN useradd -u 1000 -m appuser \
