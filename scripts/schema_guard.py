@@ -29,6 +29,7 @@ CANON = ROOT / "backend" / "graphql" / "schema.graphql"
 MIRROR = ROOT / "graphql" / "schema.graphql"
 LEGACY = ROOT / "backend" / "backend" / "graphql" / "schema.graphql"
 
+
 def main() -> int:
     if not CANON.exists():
         print(
@@ -58,7 +59,6 @@ def main() -> int:
         return 4
     print("[SCHEMA GUARD] OK (canonical + mirror in sync)")
     return 0
-
 
 
 if __name__ == "__main__":

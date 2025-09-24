@@ -2,7 +2,7 @@
 
 Versione: 1.2 (Backend‑Centric + Activity & Recommendation Layer)
 Owner: Team Backend
-Ultimo aggiornamento: 2025-09-21
+Ultimo aggiornamento: 2025-09-24
 
 ## 1. Visione
 
@@ -40,14 +40,15 @@ Costruire un backend GraphQL centralizzato che astrae sorgenti esterne di nutrie
 
 ## 4. Milestones Backend (Aggiornate)
 
-Prime fasi mirate a fornire subito la query prodotto (barcode) centralizzata e mutation logging con snapshot:
+Prime fasi mirate a fornire subito la query prodotto (barcode) centralizzata, mutation logging e prime funzioni di consultazione pasti / riepilogo:
 
 | Fase | Focus | Output Chiave | Note |
 |------|-------|---------------|------|
 | B0 | Scaffold & Health | `hello`, `health`, toolchain preflight | FATTO |
 | B1 | Product Query | `product(barcode)` + OFF adapter | FATTO (cache TTL in-memory) |
 | B2 | Meal Logging v1 | `logMeal` + snapshot nutrienti | FATTO (in-memory store, enrichment da Product cache, idempotenza base) |
-| B3 | Activity Ingestion v1 | `ingestActivityEvents` (minuti) + `dailySummary` semplice | Pianificato |
+| B2.5 | Meal Listing & Daily | `mealEntries` (filtri after/before/limit) + `dailySummary` (conteggio/calorie base) | FATTO (in-memory aggregate; valori nutrienti avanzati deferred) |
+| B3 | Activity Ingestion v1 | `ingestActivityEvents` (minuti) + estensione `dailySummary` activity aware | Pianificato |
 | B4 | Rolling Baselines & Triggers | `rolling_intake_window` + triggers: sugar, protein, carb/activity | Pianificato |
 | B5 | Meal Intelligence | `quality_score`, mealType agg, nuovi trend queries | Pianificato |
 | B6 | Realtime & Subscriptions | `mealAdded`, `activityMinuteTick`, `recommendationIssued`, energy balance | Pianificato |
@@ -57,12 +58,13 @@ Prime fasi mirate a fornire subito la query prodotto (barcode) centralizzata e m
 
 ### 4.1 Stato Runtime vs Draft
 
-Lo schema runtime espone solo `product` e `logMeal`. Tutte le altre query/mutation del draft rimangono deferred.
+Lo schema runtime espone attualmente: `product`, `logMeal`, `mealEntries`, `dailySummary` (versione minimale: campi core, protein/calories placeholder). Le altre query/mutation del draft rimangono deferred.
 
 Aggiornamenti pianificati (prossima milestone):
-1. Aggiunta argomento opzionale `idempotencyKey` alla mutation `logMeal` (retro‑compatibile) – deprecazione della chiave derivata interna (`name|quantityG|timestamp|barcode`).
+1. Evoluzione `dailySummary`: includere breakdown macro, target derivati e gap (B3+).
 2. Aggiunta campo opzionale `nutrientSnapshotJson` in `MealEntry` (inizialmente `null` — verrà popolato quando la persistenza Postgres sarà attiva). Successivamente potrà diventare non‑null.
 3. Classificazione semantica schema integrata in CI (script diff AST) per enforcement additive/breaking.
+4. Consolidare idempotenza: oggi è supportata via input opzionale `idempotencyKey`; se assente si deriva una chiave deterministica (escludendo timestamp server) — futura deprecazione della derivazione implicita.
 
 ### 4.2 Convenzione Naming
 

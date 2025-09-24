@@ -14,6 +14,8 @@
     - `serverTime`
     - `health`
     - `product(barcode: String!)`
+    - `mealEntries(limit: Int = 20, after: String, before: String, userId: String): [MealEntry!]!`
+  - `dailySummary(date: String!, userId: String): DailySummary!`
   - Mutation:
     - `logMeal(input: LogMealInput!): MealEntry!`
 
@@ -26,10 +28,12 @@ type Product { barcode name brand category calories protein carbs fat fiber suga
 
 type MealEntry {
   id: ID!
+  userId: String!      # Multi-tenant placeholder (attualmente default fisso "default")
   name: String!
   quantityG: Float!
   timestamp: String!
   barcode: String
+  idempotencyKey: String
   calories: Int
   protein: Float
   carbs: Float
@@ -44,11 +48,31 @@ input LogMealInput {
   quantityG: Float!
   timestamp: String
   barcode: String
+  idempotencyKey: String
+  userId: String
+}
+
+type Query {
+  # ... altri campi
+  mealEntries(limit: Int = 20, after: String, before: String, userId: String): [MealEntry!]!
+  dailySummary(date: String!, userId: String): DailySummary!
 }
 
 type Mutation {
   """Log di un pasto con arricchimento nutrienti se barcode noto"""
   logMeal(input: LogMealInput!): MealEntry!
+}
+type DailySummary {
+  date: String!
+  userId: String!
+  meals: Int!
+  calories: Int!
+  protein: Float
+  carbs: Float
+  fat: Float
+  fiber: Float
+  sugar: Float
+  sodium: Float
 }
 ```
 
@@ -78,10 +102,17 @@ curl -s -H 'Content-Type: application/json' \
   http://localhost:8080/graphql | jq
 ```
 
-Idempotenza: se `name + quantityG + timestamp + barcode` identici, ritorna stesso `id`.
+Idempotenza: la chiave è calcolata così (se non fornisci `idempotencyKey` esplicito):
 
-- Se non passi `timestamp`, viene generato un nuovo timestamp → nuova chiave
-  idempotenza → nuovo record.
+```
+lower(name) | round(quantityG,3) | (timestamp se fornito al client altrimenti "") | barcode | userId
+```
+
+Note:
+
+- Se NON passi `timestamp`, il server ne genera uno ma NON lo include nella chiave ⇒ due chiamate identiche senza timestamp condividono la stessa chiave (comportamento idempotente più robusto lato client).
+- Se passi tu un `timestamp` allora entra nella chiave e due richieste con timestamp diversi producono record diversi.
+- Puoi sempre passare un tuo `idempotencyKey` custom per controllare la deduplicazione.
 
 Errori comuni:
 
@@ -90,6 +121,37 @@ Errori comuni:
 
 Nota camelCase: Strawberry (v0.211.1) converte automaticamente i campi (es.
 `quantity_g` → `quantityG`). Usare sempre i nomi camelCase nelle richieste.
+
+###   nutrientSnapshotJson (Snapshot Nutrienti)
+
+Il campo `nutrientSnapshotJson` (se disponibile) contiene una stringa JSON con i nutrienti calcolati al momento del log, derivati dal prodotto (barcode) e scalati per `quantityG`:
+
+```jsonc
+{
+  "calories": 180,
+  "protein": 6.4,
+  "carbs": 22.5,
+  "fat": 5.1,
+  "fiber": 3.2,
+  "sugar": 12.0,
+  "sodium": 150
+}
+```
+
+Regole attuali:
+1. Se il barcode è fornito e il prodotto viene trovato nella cache o via OpenFoodFacts → snapshot popolato.
+2. Se il prodotto non è trovato o non è fornito `barcode` → snapshot `null` (verrà popolato in futuro da enrichment AI / risoluzione differita).
+3. Il contenuto è stabile (immutabile); futuri cambi di nutrienti a sorgente non retro-modificano lo snapshot.
+4. Serializzazione ordinata (`sort_keys=True`) per consentire confronti deterministici nei test futuri.
+
+###   Idempotenza (Dettaglio Aggiornato)
+
+Chiave generata (fallback) se non passi `idempotencyKey`:
+```
+lower(name) | round(quantityG,3) | (timestamp se fornito) | barcode | userId
+```
+Differenze chiave rispetto al passato: se il timestamp NON è fornito dal client non viene incluso → due chiamate identiche senza timestamp condividono la chiave (evita duplicati accidentali quando il client non genera un timestamp deterministico).
+Se passi un `idempotencyKey` esplicito, qualunque differenza nel payload (es. quantity) viene ignorata e il primo record rimane autorevole.
 
 ###   Stato attuale vs Schema Draft
 
@@ -102,8 +164,8 @@ sottoinsieme:
 |----------------|--------------|------|
 | `product` | ✅ | Basic fetch + cache in-memory TTL |
 | `logMeal` (base) | ✅ | Idempotenza semplice + enrichment nutrienti |
-| `mealEntries` | ❌ | Pianificato (richiederà storage persistente) |
-| `dailySummary` | ❌ | Dipende da log aggregation |
+| `mealEntries` | ✅ | In-memory repository (limite 20 default, max 200, filtri after/before) |
+| `dailySummary` | ✅ | Aggregazione in-memory (conteggio + calorie/protein placeholder) |
 | `activityTimeline` | ❌ | Richiede ingestion attività minuto |
 | `recommendations` | ❌ | Dipende da engine & triggers |
 | Subscriptions | ❌ | Rimandate a milestone B6 |

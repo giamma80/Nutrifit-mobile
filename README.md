@@ -67,8 +67,9 @@ Note operative:
 3. Mobile & Web fetch / diff (fallimento se breaking non annunciato).
 4. Code generation (quando introdotta) si basa sul mirror versione taggato.
 
-Nota evolutiva imminente:
-* Verranno introdotti: argomento `idempotencyKey` in `logMeal` (opzionale) e campo `nutrientSnapshotJson` (opzionale) in `MealEntry` per stabilizzare il contratto prima della persistenza Postgres.
+Nota evolutiva imminente / stato attuale:
+* Runtime slice oggi: `product`, `logMeal`, `mealEntries`, `dailySummary` (versione minimale con calorie/protein placeholder).
+* Introdotto: campo `nutrientSnapshotJson` (snapshot nutrizionale opzionale). In arrivo: `idempotencyKey` obbligatorio e arricchimento macro avanzato nel `dailySummary`.
 
 ### 🛣 Prossimi Passi Monorepo
 | Step | Descrizione | Priorità |
@@ -80,6 +81,7 @@ Nota evolutiva imminente:
 | Commitlint per componente | Prefisso commit (`backend:`, `mobile:`, `web:`) | Media |
 | Codegen (mobile) | ferry / graphql_flutter + fragments condivisi | Media |
 | Sandbox query catalog | Collezione query e mutation di test | Medio |
+| Documentare dailySummary | Esempi e campi futuri (target B3) | Alta |
 
 ---
 
@@ -89,7 +91,7 @@ Nota evolutiva imminente:
 |-----------|------|-------------|
 | Guida Nutrizione Estesa | [docs/nutrifit_nutrition_guide.md](docs/nutrifit_nutrition_guide.md) | Dominio, formule, UX dashboard, snapshot nutrienti |
 | Architettura Mobile | [docs/mobile_architecture_plan.md](docs/mobile_architecture_plan.md) | Roadmap M0–M9, BOM, testing, performance |
-| Architettura Backend | [docs/backend_architecture_plan.md](docs/backend_architettura_plan.md) | Roadmap B0–B9 (backend‑centric), SLO, data model |
+| Architettura Backend | [docs/backend_architecture_plan.md](docs/backend_architecture_plan.md) | Roadmap B0–B9 (backend‑centric), SLO, data model |
 | Policy Contratto Schema | [docs/schema_contract_policy.md](docs/schema_contract_policy.md) | Regole evoluzione schema, deprecation, label PR |
 | Diff Semantico Schema | [docs/schema_diff.md](docs/schema_diff.md) | Classificazione aligned/additive/breaking, output JSON, roadmap |
 | Contratto Ingestion Dati | (coming soon) [docs/data_ingestion_contract.md](docs/data_ingestion_contract.md) | Evento `logMeal`, idempotenza, validazioni |
@@ -211,6 +213,15 @@ Esempio release con deploy blueprint:
 ```bash
 cd backend
 LEVEL=patch ./make.sh release-deploy
+```
+
+### Setup locale rapido (Backend)
+Usare sempre `uv` (no pip/poetry):
+```bash
+cd backend
+uv sync                  # installa dipendenze
+./make.sh preflight      # lint+test+schema (usa interprete venv attivato dallo script)
+./make.sh schema-export  # rigenera SDL runtime
 ```
 
 Script ausiliario: `backend/scripts/update_app_version_in_render.py` aggiorna `APP_VERSION` nel blueprint.
@@ -399,6 +410,49 @@ Easter Egg Roadmap: quando AI autofill >70% adoption → attivare modalità "Hyp
 
 ---
 
+## 🔎 Esempi Query Runtime (Snapshot Attuale)
+
+### Log Meal
+```graphql
+mutation {
+  logMeal(input:{name:"Oatmeal", quantityG:150, timestamp:"2025-09-24T08:15:00Z"}) {
+    id
+    name
+    quantityG
+    timestamp
+  }
+}
+```
+
+### Lista Pasti (mealEntries)
+```graphql
+{
+  mealEntries(limit: 5, after: "2025-09-24T00:00:00Z") {
+    id
+    name
+    quantityG
+    timestamp
+  }
+}
+```
+
+### Riepilogo Giornaliero (dailySummary)
+```graphql
+{
+  dailySummary(date: "2025-09-24") {
+    date
+    userId
+    meals
+    calories
+    protein
+  }
+}
+```
+
+Nota: `calories` e `protein` sono placeholder calcolati in modo minimale; verranno sostituiti da aggregazioni nutrienti reali quando introdotti gli snapshot + enrichment completo.
+
+---
+
 ## 🗒 Changelog
 
 Vedi [CHANGELOG.md](CHANGELOG.md). Release corrente backend: `v0.2.3` (cockpit script, logging, bump tooling aggiornati).
@@ -441,5 +495,5 @@ Da definire. (Per ora nessuna licenza pubblicata; evitare uso in produzione este
 | Capire il dominio nutrizionale | [Guida Nutrizione](docs/nutrifit_nutrition_guide.md) |
 | Vedere pipeline AI cibo | [Pipeline AI](docs/ai_food_pipeline_README.md) |
 | Leggere roadmap mobile | [Arch Mobile](docs/mobile_architecture_plan.md) |
-| Leggere roadmap backend | [Arch Backend](docs/backend_architettura_plan.md) |
+| Leggere roadmap backend | [Arch Backend](docs/backend_architecture_plan.md) |
 | Modificare prompt GPT-4V | [Prompt AI](docs/ai_food_recognition_prompt.md) |

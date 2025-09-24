@@ -12,16 +12,31 @@ Workflow aggiornamento:
 Modifiche manuali devono essere replicate nel mirror prima del commit.
 Qualsiasi ricomparsa di backend/backend/graphql/schema.graphql è un errore e va rimossa.
 """
+type DailySummary {
+  date: String!
+  userId: String!
+  meals: Int!
+  calories: Int!
+  protein: Float
+  carbs: Float
+  fat: Float
+  fiber: Float
+  sugar: Float
+  sodium: Float
+}
+
 input LogMealInput {
   name: String!
   quantityG: Float!
   timestamp: String = null
   barcode: String = null
   idempotencyKey: String = null
+  userId: String = null
 }
 
 type MealEntry {
   id: String!
+  userId: String!
   name: String!
   quantityG: Float!
   timestamp: String!
@@ -63,4 +78,10 @@ type Query {
 
   """Fetch prodotto da OpenFoodFacts (cache)"""
   product(barcode: String!): Product
+
+  """Lista pasti più recenti (desc)"""
+  mealEntries(limit: Int! = 20, after: String = null, before: String = null, userId: String = null): [MealEntry!]!
+
+  """Riepilogo nutrienti per giorno (UTC)"""
+  dailySummary(date: String!, userId: String = null): DailySummary!
 }

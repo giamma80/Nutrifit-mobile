@@ -18,10 +18,12 @@ input LogMealInput {
   timestamp: String = null
   barcode: String = null
   idempotencyKey: String = null
+  userId: String = null
 }
 
 type MealEntry {
   id: String!
+  userId: String!
   name: String!
   quantityG: Float!
   timestamp: String!
@@ -63,4 +65,23 @@ type Query {
 
   """Fetch prodotto da OpenFoodFacts (cache)"""
   product(barcode: String!): Product
+
+  """Lista pasti più recenti (ordinati per timestamp decrescente)"""
+  mealEntries(limit: Int = 20, after: String, before: String, userId: String): [MealEntry!]!
+
+  """Riepilogo nutrienti per giorno (UTC)"""
+  dailySummary(date: String!, userId: String): DailySummary!
+}
+
+type DailySummary {
+  date: String!
+  userId: String!
+  meals: Int!
+  calories: Int!
+  protein: Float
+  carbs: Float
+  fat: Float
+  fiber: Float
+  sugar: Float
+  sodium: Float
 }

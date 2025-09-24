@@ -22,6 +22,7 @@ from graphql import GraphQLError
 
 from cache import cache
 from openfoodfacts import adapter
+from repository.meals import meal_repo, MealRecord  # NEW
 
 # TTL in secondi per la cache del prodotto (default 10 minuti)
 PRODUCT_CACHE_TTL_S = float(os.getenv("PRODUCT_CACHE_TTL_S", "600"))
@@ -71,11 +72,12 @@ def _map_product(dto: _ProductLike) -> Product:
     )
 
 
-# ----------------- Meal Logging (B2) -----------------
+# ----------------- Meal Logging (B2) + Repository refactor -----------------
 @strawberry.type
 @dataclasses.dataclass
 class MealEntry:
     id: str
+    user_id: str  # NEW
     name: str
     quantity_g: float
     timestamp: str
@@ -91,6 +93,21 @@ class MealEntry:
     sodium: Optional[float] = None
 
 
+@strawberry.type
+@dataclasses.dataclass
+class DailySummary:
+    date: str
+    user_id: str
+    meals: int
+    calories: int
+    protein: Optional[float]
+    carbs: Optional[float]
+    fat: Optional[float]
+    fiber: Optional[float]
+    sugar: Optional[float]
+    sodium: Optional[float]
+
+
 @strawberry.input
 class LogMealInput:
     name: str
@@ -98,10 +115,10 @@ class LogMealInput:
     timestamp: Optional[str] = None
     barcode: Optional[str] = None
     idempotency_key: Optional[str] = None
+    user_id: Optional[str] = None  # NEW (default handled in mutation)
 
 
-_MEALS: List[MealEntry] = []  # in-memory store semplice
-_MEAL_IDEMPOTENCY: Dict[str, str] = {}  # key hash -> meal.id
+DEFAULT_USER_ID = "default"
 
 
 def _enrich_from_product(prod: Product, quantity_g: float) -> Dict[str, Optional[float]]:
@@ -158,8 +175,68 @@ class Query:
             raise GraphQLError(f"OPENFOODFACTS_ERROR: {e}") from e
         prod = _map_product(cast("_ProductLike", dto))
         cache.set(key, prod, PRODUCT_CACHE_TTL_S)
-
         return prod
+
+    @strawberry.field(description="Lista pasti più recenti (desc)")  # type: ignore[misc]
+    def meal_entries(
+        self,
+        info: Info[Any, Any],  # noqa: ARG002
+        limit: int = 20,
+        after: Optional[str] = None,
+        before: Optional[str] = None,
+        user_id: Optional[str] = None,
+    ) -> List[MealEntry]:
+        if limit <= 0:
+            limit = 20
+        if limit > 200:
+            limit = 200
+        uid = user_id or DEFAULT_USER_ID
+        records = meal_repo.list(uid, limit, after, before)
+        return [MealEntry(**dataclasses.asdict(r)) for r in records]
+
+    @strawberry.field(description="Riepilogo nutrienti per giorno (UTC)")  # type: ignore[misc]
+    def daily_summary(
+        self,
+        info: Info[Any, Any],  # noqa: ARG002
+        date: str,
+        user_id: Optional[str] = None,
+    ) -> DailySummary:
+        """Aggrega nutrienti dei pasti il cui timestamp inizia con 'date'.
+
+        'date' formato YYYY-MM-DD. Validazione minima per ora.
+        """
+        uid = user_id or DEFAULT_USER_ID
+        all_meals = meal_repo.list_all(uid)
+        day_meals = [m for m in all_meals if m.timestamp.startswith(date)]
+
+        def _acc(field: str) -> float:
+            total = 0.0
+            for m in day_meals:
+                val = getattr(m, field)
+                if val is not None:
+                    total += float(val)
+            return total
+
+        calories_total = int(_acc("calories")) if day_meals else 0
+
+        def _opt(field: str) -> Optional[float]:
+            if not day_meals:
+                return 0.0
+            val = _acc(field)
+            return round(val, 2)
+
+        return DailySummary(
+            date=date,
+            user_id=uid,
+            meals=len(day_meals),
+            calories=calories_total,
+            protein=_opt("protein"),
+            carbs=_opt("carbs"),
+            fat=_opt("fat"),
+            fiber=_opt("fiber"),
+            sugar=_opt("sugar"),
+            sodium=_opt("sodium"),
+        )
 
 
 @strawberry.type
@@ -173,14 +250,17 @@ class Mutation:
         if input.quantity_g <= 0:
             raise GraphQLError("INVALID_QUANTITY: quantity_g deve essere > 0")
         ts = input.timestamp or datetime.datetime.utcnow().isoformat() + "Z"
+        user_id = input.user_id or DEFAULT_USER_ID
+        # Idempotency key non deve dipendere da timestamp server; se timestamp
+        # non è fornito dall'utente non lo includiamo nella chiave.
+        base_ts_for_key = input.timestamp or ""  # se utente non specifica, non includere ts
         idempotency_key = input.idempotency_key or (
-            f"{input.name.lower()}|{round(input.quantity_g, 3)}|" f"{ts}|{input.barcode or ''}"
+            f"{input.name.lower()}|{round(input.quantity_g, 3)}|"
+            f"{base_ts_for_key}|{input.barcode or ''}|{user_id}"
         )
-        if idempotency_key in _MEAL_IDEMPOTENCY:
-            existing_id = _MEAL_IDEMPOTENCY[idempotency_key]
-            for m in _MEALS:
-                if m.id == existing_id:
-                    return m
+        existing = meal_repo.find_by_idempotency(user_id, idempotency_key)
+        if existing:
+            return MealEntry(**dataclasses.asdict(existing))
 
         nutrient_keys = [
             "calories",
@@ -211,14 +291,33 @@ class Mutation:
         if prod:
             nutrients = _enrich_from_product(prod, input.quantity_g)
 
-        meal = MealEntry(
+        meal = MealRecord(
             id=str(uuid.uuid4()),
+            user_id=user_id,
             name=input.name,
             quantity_g=input.quantity_g,
             timestamp=ts,
             barcode=input.barcode,
             idempotency_key=idempotency_key,
-            nutrient_snapshot_json=None,
+            nutrient_snapshot_json=(
+                __import__("json").dumps(
+                    {
+                        k: nutrients[k]
+                        for k in [
+                            "calories",
+                            "protein",
+                            "carbs",
+                            "fat",
+                            "fiber",
+                            "sugar",
+                            "sodium",
+                        ]
+                    },
+                    sort_keys=True,
+                )
+                if prod
+                else None
+            ),
             calories=(
                 nutrients["calories"]
                 if nutrients["calories"] is None
@@ -231,9 +330,8 @@ class Mutation:
             sugar=nutrients["sugar"],
             sodium=nutrients["sodium"],
         )
-        _MEALS.append(meal)
-        _MEAL_IDEMPOTENCY[idempotency_key] = meal.id
-        return meal
+        meal_repo.add(meal)
+        return MealEntry(**dataclasses.asdict(meal))
 
 
 schema = strawberry.Schema(

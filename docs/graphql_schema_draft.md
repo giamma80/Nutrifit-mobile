@@ -1,7 +1,36 @@
 # GraphQL Schema Draft – Nutrition, Activity & Recommendations
 
 Versione: 0.1 (Draft evolutivo)
-Ultimo aggiornamento: 2025-09-20
+Ultimo aggiornamento: 2025-09-24
+
+## Stato Runtime Attuale (Slice Implementato)
+Al momento il backend espone solo un sottoinsieme minimo del draft completo:
+
+Implemented oggi:
+```
+type Query {
+  product(barcode: String!): Product
+  mealEntries(after: String, before: String, limit: Int, userId: ID): [MealEntry!]!
+  dailySummary(date: Date!, userId: ID): DailySummary!
+}
+
+type Mutation {
+  logMeal(input: LogMealInput!): MealEntry!
+}
+
+type MealEntry { id: ID! name: String! quantityG: Int! timestamp: DateTime! userId: ID! }
+type DailySummary { date: Date! userId: ID! meals: Int! calories: Int! protein: Float! }
+
+input LogMealInput { name: String! quantityG: Int! timestamp: DateTime! barcode: String userId: ID }
+```
+
+Differenze principali vs draft:
+- Nessun connection pattern per `mealEntries` (lista semplice + filtri base).
+- `dailySummary` minimizzato (solo conteggio pasti + calorie/protein placeholder).
+- Assenti tutte le query activity / recommendation / trend.
+- `logMeal` usa idempotenza opzionale (`idempotencyKey`) non ancora obbligatoria in schema draft.
+
+Le sezioni successive restano il target evolutivo.
 
 ## Query
 ```graphql

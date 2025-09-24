@@ -85,11 +85,7 @@ def parse_schema(sdl: str) -> ParsedSchema:
             impls: List[str] = []
             if "implements" in extra:
                 after = extra.split("implements", 1)[1]
-                impls = [
-                    p.strip()
-                    for p in re.split(r"[&\s]+", after)
-                    if p.strip()
-                ]
+                impls = [p.strip() for p in re.split(r"[&\s]+", after) if p.strip()]
             objects[name] = _extract_fields(body_lines)
             implements[name] = impls
         elif kind == "interface":
@@ -110,11 +106,15 @@ def parse_schema(sdl: str) -> ParsedSchema:
 
 def main() -> int:
     if not MIRROR_PATH.exists() or not BACKEND_PATH.exists():
-        print(json.dumps({
-            "error": "File schema mancanti",
-            "mirror_exists": MIRROR_PATH.exists(),
-            "backend_exists": BACKEND_PATH.exists(),
-        }))
+        print(
+            json.dumps(
+                {
+                    "error": "File schema mancanti",
+                    "mirror_exists": MIRROR_PATH.exists(),
+                    "backend_exists": BACKEND_PATH.exists(),
+                }
+            )
+        )
         return 2
 
     mirror_sdl = MIRROR_PATH.read_text(encoding="utf-8")
@@ -149,16 +149,11 @@ def main() -> int:
         b_fields = b["objects"].get(obj, set())
         for iface in impl_list:
             iface_fields = (
-                b["interfaces"].get(iface)
-                or m["interfaces"].get(iface)
-                or set()
+                b["interfaces"].get(iface) or m["interfaces"].get(iface) or set()
             )
             missing = sorted(f for f in iface_fields if f not in b_fields)
             if missing:
-                msgs = [
-                    f"Campo mancante per interfaccia {iface}: {f}"
-                    for f in missing
-                ]
+                msgs = [f"Campo mancante per interfaccia {iface}: {f}" for f in missing]
                 interface_breaks.setdefault(obj, []).extend(msgs)
 
     breaking = bool(removed_fields or interface_breaks)
