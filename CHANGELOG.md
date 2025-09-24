@@ -6,6 +6,12 @@ Formato ispirato a [Keep a Changelog](https://keepachangelog.com/it-IT/1.1.0/) e
 
 ## [Unreleased]
 
+### Added
+- meal logging, listing, daily summary + nutrient snapshot & idempotency logic; schema sync and tests
+
+## [0.2.7] - 2025-09-24
+
+
 ### Chore
 - add render blueprint + deploy tooling (post 0.2.5)
 - minor tweak before release-deploy
