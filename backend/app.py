@@ -23,6 +23,13 @@ from graphql import GraphQLError
 from cache import cache
 from openfoodfacts import adapter
 from repository.meals import meal_repo, MealRecord  # NEW
+from repository.activities import (
+    activity_repo,
+    ActivityEventRecord as _ActivityEventRecord,
+    ActivitySource as _RepoActivitySource,
+)  # NEW
+import hashlib as _hashlib  # NEW
+import json as _json  # NEW
 from nutrients import NUTRIENT_FIELDS
 
 # TTL in secondi per la cache del prodotto (default 10 minuti)
@@ -107,6 +114,50 @@ class DailySummary:
     fiber: Optional[float]
     sugar: Optional[float]
     sodium: Optional[float]
+    # Activity (B3)
+    activity_steps: int = 0
+    activity_calories_out: float = 0.0
+    activity_events: int = 0
+
+
+# ----------------- Activity Ingestion (B3) -----------------
+# Riutilizziamo l'enum del repository per evitare duplicazione incoerente
+ActivitySource = strawberry.enum(_RepoActivitySource, name="ActivitySource")
+
+
+@strawberry.type
+@dataclasses.dataclass
+class ActivityEvent:
+    user_id: str
+    ts: str  # ISO timestamp normalizzato a minuto UTC
+    steps: Optional[int] = None
+    calories_out: Optional[float] = None
+    hr_avg: Optional[float] = None
+    source: ActivitySource = ActivitySource.MANUAL
+
+
+@strawberry.type
+@dataclasses.dataclass
+class RejectedActivityEvent:
+    index: int
+    reason: str
+
+
+@strawberry.type
+@dataclasses.dataclass
+class IngestActivityResult:
+    accepted: int
+    duplicates: int
+    rejected: List[RejectedActivityEvent]
+
+
+@strawberry.input
+class ActivityMinuteInput:
+    ts: str  # DateTime as string, will be normalized to minute precision
+    steps: Optional[int] = 0
+    calories_out: Optional[float] = None
+    hr_avg: Optional[float] = None
+    source: ActivitySource = ActivitySource.MANUAL
 
 
 @strawberry.input
@@ -227,6 +278,9 @@ class Query:
             val = _acc(field)
             return round(val, 2)
 
+        # Activity stats: usiamo inizio giornata per get_daily_stats richiede datetime
+        # Passiamo date + "T00:00:00Z" (accetta iso). Se implementazione cambia, adattare.
+        act_stats = activity_repo.get_daily_stats(uid, date + "T00:00:00Z")
         return DailySummary(
             date=date,
             user_id=uid,
@@ -238,6 +292,9 @@ class Query:
             fiber=_opt("fiber"),
             sugar=_opt("sugar"),
             sodium=_opt("sodium"),
+            activity_steps=act_stats.get("total_steps", 0),
+            activity_calories_out=act_stats.get("total_calories_out", 0.0),
+            activity_events=act_stats.get("events_count", 0),
         )
 
     @strawberry.field(description="Statistiche cache prodotto")  # type: ignore[misc]
@@ -408,6 +465,77 @@ class Mutation:
     def delete_meal(self, info: Info[Any, Any], id: str) -> bool:  # noqa: ARG002
         ok = meal_repo.delete(id)
         return ok
+
+    @strawberry.mutation(  # type: ignore[misc]
+        description="Ingest batch minute activity events (idempotent)"
+    )
+    def ingest_activity_events(
+        self,
+        info: Info[Any, Any],  # noqa: ARG002
+        input: List[ActivityMinuteInput],
+        idempotency_key: str,
+        user_id: Optional[str] = None,
+    ) -> IngestActivityResult:
+        uid = user_id or DEFAULT_USER_ID
+        # Canonicalize & normalize timestamps to minute BEFORE signature
+        norm_events: List[_ActivityEventRecord] = []
+        for ev in input:
+            raw_ts = ev.ts
+            ts_norm = activity_repo.normalize_minute_iso(raw_ts) or raw_ts
+            repo_source = _RepoActivitySource[ev.source.name]
+            norm_events.append(
+                _ActivityEventRecord(
+                    user_id=uid,
+                    ts=ts_norm,
+                    steps=ev.steps if ev.steps is not None else 0,
+                    calories_out=ev.calories_out,
+                    hr_avg=ev.hr_avg,
+                    source=repo_source,
+                )
+            )
+        sig_payload = [
+            {
+                "ts": e.ts,
+                "steps": e.steps,
+                "calories_out": e.calories_out,
+                "hr_avg": e.hr_avg,
+                "source": e.source.value,
+            }
+            for e in sorted(norm_events, key=lambda r: r.ts)
+        ]
+        canonical = _json.dumps(sig_payload, sort_keys=True, separators=(",", ":"))
+        signature = _hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+        idem_key = (uid, idempotency_key)
+        cached = getattr(activity_repo, "_batch_idempo", {}).get(idem_key)
+        if cached:
+            existing_sig, result_dict = cached
+            if existing_sig == signature:
+                # Cached result: convert rejected tuples into GraphQL objects
+                return IngestActivityResult(
+                    accepted=result_dict["accepted"],
+                    duplicates=result_dict["duplicates"],
+                    rejected=[
+                        RejectedActivityEvent(index=idx, reason=reason)
+                        for idx, reason in result_dict["rejected"]
+                    ],
+                )
+            raise GraphQLError("IdempotencyConflict: key re-used with different payload")
+        # Ingest via repository (normalization & dedup inside repo)
+        accepted, duplicates, rejected = activity_repo.ingest_batch(norm_events)
+        # Cache idempotent result
+        getattr(activity_repo, "_batch_idempo")[idem_key] = (
+            signature,
+            {
+                "accepted": accepted,
+                "duplicates": duplicates,
+                "rejected": rejected,
+            },
+        )
+        return IngestActivityResult(
+            accepted=accepted,
+            duplicates=duplicates,
+            rejected=[RejectedActivityEvent(index=i, reason=r) for i, r in rejected],
+        )
 
 
 schema = strawberry.Schema(

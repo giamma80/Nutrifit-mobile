@@ -12,6 +12,20 @@ Workflow aggiornamento:
 Modifiche manuali devono essere replicate nel mirror prima del commit.
 Qualsiasi ricomparsa di backend/backend/graphql/schema.graphql è un errore e va rimossa.
 """
+input ActivityMinuteInput {
+  ts: String!
+  steps: Int = 0
+  caloriesOut: Float = null
+  hrAvg: Float = null
+  source: ActivitySource! = MANUAL
+}
+
+enum ActivitySource {
+  APPLE_HEALTH
+  GOOGLE_FIT
+  MANUAL
+}
+
 type CacheStats {
   keys: Int!
   hits: Int!
@@ -29,6 +43,15 @@ type DailySummary {
   fiber: Float
   sugar: Float
   sodium: Float
+  activitySteps: Int!
+  activityCaloriesOut: Float!
+  activityEvents: Int!
+}
+
+type IngestActivityResult {
+  accepted: Int!
+  duplicates: Int!
+  rejected: [RejectedActivityEvent!]!
 }
 
 input LogMealInput {
@@ -67,6 +90,9 @@ type Mutation {
 
   """Cancella un pasto"""
   deleteMeal(id: String!): Boolean!
+
+  """Ingest batch minute activity events (idempotent)"""
+  ingestActivityEvents(input: [ActivityMinuteInput!]!, idempotencyKey: String!, userId: String = null): IngestActivityResult!
 }
 
 type Product {
@@ -99,6 +125,11 @@ type Query {
 
   """Statistiche cache prodotto"""
   cacheStats: CacheStats!
+}
+
+type RejectedActivityEvent {
+  index: Int!
+  reason: String!
 }
 
 input UpdateMealInput {

@@ -2,6 +2,7 @@ import pytest
 from httpx import AsyncClient
 from app import app
 from repository.meals import meal_repo
+from repository.activities import activity_repo
 
 
 def _q(s: str) -> str:
@@ -18,6 +19,16 @@ def _reset_repo() -> None:
     by_id = getattr(meal_repo, "_by_id", None)
     if by_id is not None:
         by_id.clear()
+    # reset activity
+    act_events = getattr(activity_repo, "_events_by_user", None)
+    if act_events is not None:
+        act_events.clear()
+    dup = getattr(activity_repo, "_duplicate_keys", None)
+    if dup is not None:
+        dup.clear()
+    batch = getattr(activity_repo, "_batch_idempo", None)
+    if batch is not None:
+        batch.clear()
 
 
 @pytest.mark.asyncio
@@ -26,7 +37,14 @@ async def test_daily_summary_empty_day() -> None:
     query = _q(
         """
         { dailySummary(date: \"2025-01-10\") {
-            date userId meals calories protein
+            date
+            userId
+            meals
+            calories
+            protein
+            activitySteps
+            activityCaloriesOut
+            activityEvents
         } }
         """
     )
@@ -38,6 +56,9 @@ async def test_daily_summary_empty_day() -> None:
     assert data["calories"] == 0
     # protein restituisce 0.0 come da implementazione
     assert data["protein"] == 0.0
+    assert data["activitySteps"] == 0
+    assert data["activityCaloriesOut"] == 0.0
+    assert data["activityEvents"] == 0
 
 
 @pytest.mark.asyncio
@@ -75,9 +96,27 @@ async def test_daily_summary_aggregation() -> None:
         )
         await ac.post("/graphql", json={"query": m1})
         await ac.post("/graphql", json={"query": m2})
+        # aggiungiamo alcune activity per il giorno
+        ingest = _q(
+            """
+            mutation {
+              ingestActivityEvents(
+                input:[
+                  { ts: \"2025-02-01T08:00:15Z\", steps: 50 }
+                  { ts: \"2025-02-01T08:00:45Z\", steps: 50 }
+                  { ts: \"2025-02-01T09:10:00Z\", caloriesOut: 3.2 }
+                ]
+                idempotencyKey: \"k1\"
+              ) { accepted duplicates rejected { index reason } }
+            }
+            """
+        )
+        await ac.post("/graphql", json={"query": ingest})
         query = _q(
             """
-            { dailySummary(date: \"2025-02-01\") { meals calories } }
+            { dailySummary(date: \"2025-02-01\") {
+                meals calories activitySteps activityCaloriesOut activityEvents
+            } }
             """
         )
         resp = await ac.post("/graphql", json={"query": query})
@@ -85,6 +124,11 @@ async def test_daily_summary_aggregation() -> None:
     # Nota: ignoriamo enrichment: verifichiamo solo il conteggio pasti.
     assert ds["meals"] == 2
     assert isinstance(ds["calories"], int)
+    # Activity: secondo evento stesso minuto è duplicato.
+    # Steps totali 50, eventi 2.
+    assert ds["activitySteps"] == 50
+    assert ds["activityCaloriesOut"] == 3.2
+    assert ds["activityEvents"] == 2
 
 
 @pytest.mark.asyncio
@@ -122,15 +166,45 @@ async def test_daily_summary_user_isolation() -> None:
         )
         await ac.post("/graphql", json={"query": m1})
         await ac.post("/graphql", json={"query": m2})
+        # activity per default user
+        ingest_def = _q(
+            """
+                        mutation {
+                            ingestActivityEvents(
+                                input:[
+                                  { ts: \"2025-03-01T10:00:00Z\"
+                                    steps:10 }
+                                ]
+                                idempotencyKey: \"kk1\"
+                            ) { accepted }
+                        }
+            """
+        )
+        # activity per user u2
+        ingest_u2 = _q(
+            """
+                        mutation {
+                            ingestActivityEvents(
+                                userId: \"u2\"
+                                input:[{ts: \"2025-03-01T11:05:00Z\", steps:5}]
+                                idempotencyKey: \"kk2\"
+                            ) { accepted }
+                        }
+            """
+        )
+        await ac.post("/graphql", json={"query": ingest_def})
+        await ac.post("/graphql", json={"query": ingest_u2})
         q_default = _q(
             """
-            { dailySummary(date: \"2025-03-01\") { userId meals } }
+            { dailySummary(date: \"2025-03-01\") {
+                userId meals activitySteps
+            } }
             """
         )
         q_u2 = _q(
             """
             { dailySummary(date: \"2025-03-01\", userId: \"u2\") {
-                userId meals
+                userId meals activitySteps
             } }
             """
         )
@@ -140,3 +214,5 @@ async def test_daily_summary_user_isolation() -> None:
     d_u2 = r_u2.json()["data"]["dailySummary"]
     assert d_def["userId"] == "default" and d_def["meals"] == 1
     assert d_u2["userId"] == "u2" and d_u2["meals"] == 1
+    assert d_def["activitySteps"] == 10
+    assert d_u2["activitySteps"] == 5
