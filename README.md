@@ -109,13 +109,13 @@ Nota evolutiva imminente / stato attuale:
 graph TD
   subgraph Client
     A[Flutter Mobile App]
-    W[Web Sandbox (React)]
+    W[Web Sandbox React]
   end
-  A -->|HTTPS GraphQL| B[Backend API (FastAPI + Strawberry)]
+  A -->|HTTPS GraphQL| B[Backend API FastAPI + Strawberry]
   W -->|HTTPS GraphQL| B
   B --> OFF[(OpenFoodFacts API)]
-  B --> R[Robotoff (future enrichment)]
-  B --> VAI[Vision AI Pipeline (future)]
+  B --> R[Robotoff future enrichment]
+  B --> VAI[Vision AI Pipeline future]
   B --> DB[(Persistence / Nutrient Snapshots)]
   A --> Local[Offline Queue / Local Cache]
 ```
