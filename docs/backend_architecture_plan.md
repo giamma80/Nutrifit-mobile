@@ -48,6 +48,7 @@ Prime fasi mirate a fornire subito la query prodotto (barcode) centralizzata, mu
 | B1 | Product Query | `product(barcode)` + OFF adapter | FATTO (cache TTL in-memory) |
 | B2 | Meal Logging v1 | `logMeal` + snapshot nutrienti | FATTO (in-memory store, enrichment da Product cache, idempotenza base) |
 | B2.5 | Meal Listing & Daily | `mealEntries` (filtri after/before/limit) + `dailySummary` (conteggio/calorie base) | FATTO (in-memory aggregate; valori nutrienti avanzati deferred) |
+| B2.8 | CRUD Completo Pasti | `updateMeal`, `deleteMeal` + `cacheStats` diagnostiche + nutrient constants | FATTO (ricalcolo automatico nutrienti, repository esteso, metriche cache) |
 | B3 | Activity Ingestion v1 | `ingestActivityEvents` (minuti) + estensione `dailySummary` activity aware | Pianificato |
 | B4 | Rolling Baselines & Triggers | `rolling_intake_window` + triggers: sugar, protein, carb/activity | Pianificato |
 | B5 | Meal Intelligence | `quality_score`, mealType agg, nuovi trend queries | Pianificato |
@@ -58,7 +59,13 @@ Prime fasi mirate a fornire subito la query prodotto (barcode) centralizzata, mu
 
 ### 4.1 Stato Runtime vs Draft
 
-Lo schema runtime espone attualmente: `product`, `logMeal`, `mealEntries`, `dailySummary` (versione minimale: campi core, protein/calories placeholder). Le altre query/mutation del draft rimangono deferred.
+Lo schema runtime espone attualmente: `product`, `logMeal`, `updateMeal`, `deleteMeal`, `mealEntries`, `dailySummary`, `cacheStats` (versione minimale: campi core, protein/calories con enrichment completo). Le altre query/mutation del draft rimangono deferred.
+
+**Aggiornamenti recenti (v0.2.8+):**
+1. **CRUD Completo Pasti**: `updateMeal` permette aggiornamento nome/quantità/timestamp/barcode con ricalcolo automatico nutrienti quando cambiano barcode o quantità. `deleteMeal` per rimozione pasti.
+2. **Nutrient Constants**: centralizzati in `backend/nutrients.py` (calories, protein, carbs, fat, fiber, sugar, sodium) per consistenza.
+3. **Cache Observability**: query `cacheStats` espone keys/hits/misses per diagnostiche performance OpenFoodFacts.
+4. **Repository Pattern Esteso**: `InMemoryMealRepository` con `get`, `update`, `delete` oltre ai precedenti `add`/`list`.
 
 Aggiornamenti pianificati (prossima milestone):
 1. Evoluzione `dailySummary`: includere breakdown macro, target derivati e gap (B3+).

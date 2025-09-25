@@ -4,7 +4,7 @@ Versione: 0.1 (Draft evolutivo)
 Ultimo aggiornamento: 2025-09-24
 
 ## Stato Runtime Attuale (Slice Implementato)
-Al momento il backend espone solo un sottoinsieme minimo del draft completo:
+Al momento il backend espone un sottoinsieme ampliato del draft completo:
 
 Implemented oggi:
 ```
@@ -12,14 +12,19 @@ type Query {
   product(barcode: String!): Product
   mealEntries(after: String, before: String, limit: Int, userId: ID): [MealEntry!]!
   dailySummary(date: Date!, userId: ID): DailySummary!
+  cacheStats: CacheStats!
 }
 
 type Mutation {
   logMeal(input: LogMealInput!): MealEntry!
+  updateMeal(id: ID!, input: LogMealInput!): MealEntry!
+  deleteMeal(id: ID!): DeleteMealResult!
 }
 
 type MealEntry { id: ID! name: String! quantityG: Int! timestamp: DateTime! userId: ID! }
 type DailySummary { date: Date! userId: ID! meals: Int! calories: Int! protein: Float! }
+type CacheStats { hits: Int! misses: Int! keys: Int! }
+type DeleteMealResult { success: Boolean! deletedAt: DateTime! recalculatedStats: DailySummary! }
 
 input LogMealInput { name: String! quantityG: Int! timestamp: DateTime! barcode: String userId: ID }
 ```
@@ -28,7 +33,9 @@ Differenze principali vs draft:
 - Nessun connection pattern per `mealEntries` (lista semplice + filtri base).
 - `dailySummary` minimizzato (solo conteggio pasti + calorie/protein placeholder).
 - Assenti tutte le query activity / recommendation / trend.
-- `logMeal` usa idempotenza opzionale (`idempotencyKey`) non ancora obbligatoria in schema draft.
+- CRUD completo: `logMeal`, `updateMeal`, `deleteMeal` con nutrient recalculation.
+- Cache observability: `cacheStats` query per monitoring diagnostico.
+- Nutrient constants: centralizzati in `nutrients.py` per coerenza cross-operation.
 
 Le sezioni successive restano il target evolutivo.
 
@@ -51,6 +58,8 @@ type Query {
 ```graphql
 type Mutation {
   logMeal(input: LogMealInput!, idempotencyKey: ID!): LogMealResult!
+  updateMeal(id: ID!, input: LogMealInput!): LogMealResult!
+  deleteMeal(id: ID!): DeleteMealResult!
   ingestActivityEvents(input: [ActivityMinuteInput!]!, idempotencyKey: ID!): IngestActivityResult!
   acknowledgeRecommendation(id: ID!): Recommendation!
   refreshDailyForecast: DailyIntakeSummary!

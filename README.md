@@ -12,7 +12,7 @@
 <img src="https://img.shields.io/badge/graphql-modular-purple" alt="GraphQL" />
 <img src="https://img.shields.io/badge/ai-food%20vision-orange" alt="AI" />
 <img src="https://img.shields.io/badge/license-TBD-lightgrey" alt="License" />
- <img src="https://img.shields.io/badge/backend_version-0.2.4-green" alt="Backend Version" />
+ <img src="https://img.shields.io/badge/backend_version-0.2.8-green" alt="Backend Version" />
  <img src="https://img.shields.io/badge/schema_status-synced-brightgreen" alt="Schema Status" />
 <a href="https://github.com/giamma80/Nutrifit-mobile/actions/workflows/backend-ci.yml"><img src="https://github.com/giamma80/Nutrifit-mobile/actions/workflows/backend-ci.yml/badge.svg" alt="Backend CI" /></a>
 <a href="https://github.com/giamma80/Nutrifit-mobile/actions/workflows/mobile-ci.yml"><img src="https://img.shields.io/badge/mobile_ci-pending-lightgrey" alt="Mobile CI (stub)" /></a>
@@ -69,7 +69,10 @@ Note operative:
 
 Nota evolutiva imminente / stato attuale:
 * Runtime slice oggi: `product`, `logMeal`, `mealEntries`, `dailySummary` (versione minimale con calorie/protein placeholder).
-* Introdotto: campo `nutrientSnapshotJson` (snapshot nutrizionale opzionale). In arrivo: `idempotencyKey` obbligatorio e arricchimento macro avanzato nel `dailySummary`.
+* Introdotto recentemente: campo `nutrientSnapshotJson` (snapshot nutrizionale opzionale), `idempotencyKey` per prevenire duplicati, `cacheStats` per diagnostiche cache prodotti.
+* **NUOVO (v0.2.8+)**: mutation `updateMeal` e `deleteMeal` per gestione completa CRUD pasti, con ricalcolo automatico nutrienti quando barcode/quantità cambiano.
+* **NUOVO**: modulo `nutrients.py` centralizzato per costanti nutrizionali (calories, protein, carbs, fat, fiber, sugar, sodium).
+* Prossimi: arricchimento macro avanzato nel `dailySummary`.
 
 ### 🛣 Prossimi Passi Monorepo
 | Step | Descrizione | Priorità |
@@ -420,7 +423,29 @@ mutation {
     name
     quantityG
     timestamp
+    calories
+    protein
   }
+}
+```
+
+### Update Meal (NUOVO v0.2.8+)
+```graphql
+mutation {
+  updateMeal(input:{id:"meal-123", name:"Oatmeal Updated", quantityG:200}) {
+    id
+    name
+    quantityG
+    calories
+    protein
+  }
+}
+```
+
+### Delete Meal (NUOVO v0.2.8+)
+```graphql
+mutation {
+  deleteMeal(id:"meal-123")  # Returns boolean
 }
 ```
 
@@ -432,6 +457,8 @@ mutation {
     name
     quantityG
     timestamp
+    calories
+    protein
   }
 }
 ```
@@ -445,6 +472,19 @@ mutation {
     meals
     calories
     protein
+    carbs
+    fat
+  }
+}
+```
+
+### Cache Stats (NUOVO v0.2.8+)
+```graphql
+{
+  cacheStats {
+    keys
+    hits
+    misses
   }
 }
 ```
@@ -455,7 +495,7 @@ Nota: `calories` e `protein` sono placeholder calcolati in modo minimale; verran
 
 ## 🗒 Changelog
 
-Vedi [CHANGELOG.md](CHANGELOG.md). Release corrente backend: `v0.2.3` (cockpit script, logging, bump tooling aggiornati).
+Vedi [CHANGELOG.md](CHANGELOG.md). Release corrente backend: `v0.2.8` (aggiornamento CRUD completo: update/delete mutations, cache stats, nutrient constants centralizzati).
 
 Quick check versione backend da root (senza entrare in `backend/`):
 

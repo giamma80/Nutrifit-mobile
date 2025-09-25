@@ -6,6 +6,9 @@ Formato ispirato a [Keep a Changelog](https://keepachangelog.com/it-IT/1.1.0/) e
 
 ## [Unreleased]
 
+## [0.3.3] - 2025-09-25
+
+
 ### Fixed
 - add missing nutrients.py to COPY instruction
 

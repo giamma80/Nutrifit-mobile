@@ -74,6 +74,12 @@ Il workflow userà questo output per decidere PASS/FAIL.
 - Aggiunta argomento non obbligatorio: additive.
 - Aggiunta argomento obbligatorio senza default: breaking.
 
+**Esempi Recenti (v0.2.8+):**
+- `updateMeal(input: UpdateMealInput!)` → additive (nuova mutation)
+- `deleteMeal(id: String!)` → additive (nuova mutation)  
+- `cacheStats` query → additive (nuovo tipo CacheStats)
+- Campi nutrienti estesi su `MealEntry` → additive (arricchimento esistente)
+
 ## FAQ
 **Perché mirror root?** Riduce coupling temporale: mobile/web possono aggiornare da mirror stabile durante refactor backend.
 

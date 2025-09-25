@@ -14,6 +14,8 @@ Definire il contratto stabile per l’ingestione di pasti nel backend Nutrifit, 
 
 ## 2. Mutation Principale
 
+### 2.1 Create: logMeal
+
 ```graphql
 mutation logMeal($input: LogMealInput!, $idempotencyKey: ID!) {
   logMeal(input: $input, idempotencyKey: $idempotencyKey) {
@@ -25,6 +27,46 @@ mutation logMeal($input: LogMealInput!, $idempotencyKey: ID!) {
       carbsG
       fatG
       ... future nutrient fields
+    }
+  }
+}
+```
+
+### 2.2 Update: updateMeal
+
+```graphql
+mutation updateMeal($id: ID!, $input: LogMealInput!) {
+  updateMeal(id: $id, input: $input) {
+    mealEntryId
+    updatedAt
+    snapshot {
+      energyKcal
+      proteinG
+      carbsG
+      fatG
+      fiberG
+      sugarG
+      sodiumMg
+    }
+  }
+}
+```
+
+### 2.3 Delete: deleteMeal
+
+```graphql
+mutation deleteMeal($id: ID!) {
+  deleteMeal(id: $id) {
+    success
+    deletedAt
+    recalculatedStats {
+      energyKcal
+      proteinG
+      carbsG
+      fatG
+      fiberG
+      sugarG
+      sodiumMg
     }
   }
 }
@@ -96,15 +138,17 @@ Regole:
 
 ## 5. Errori Standard (GraphQL Codes)
 
-| Codice | Descrizione | HTTP |
-|--------|-------------|------|
-| `IdempotencyConflict` | Chiave riusata con payload diverso | 409 |
-| `InvalidQuantity` | Quantità fuori range | 400 |
-| `InvalidBarcode` | Barcode non valido | 400 |
-| `ProductNotFound` | OFF non ritorna prodotto / mismatch | 404 |
-| `AIItemMismatch` | Item inference non appartiene a utente | 400 |
-| `RateLimited` | Superato rate limite mutation | 429 |
-| `ServerError` | Errore interno generico | 500 |
+| Codice | Descrizione | HTTP | Operazioni |
+|--------|-------------|------|------------|
+| `IdempotencyConflict` | Chiave riusata con payload diverso | 409 | logMeal |
+| `InvalidQuantity` | Quantità fuori range | 400 | logMeal, updateMeal |
+| `InvalidBarcode` | Barcode non valido | 400 | logMeal, updateMeal |
+| `ProductNotFound` | OFF non ritorna prodotto / mismatch | 404 | logMeal, updateMeal |
+| `AIItemMismatch` | Item inference non appartiene a utente | 400 | logMeal, updateMeal |
+| `MealNotFound` | ID pasto non esiste o non appartiene a utente | 404 | updateMeal, deleteMeal |
+| `MealAlreadyDeleted` | Tentativo operazione su pasto già eliminato | 410 | updateMeal, deleteMeal |
+| `RateLimited` | Superato rate limite mutation | 429 | Tutte |
+| `ServerError` | Errore interno generico | 500 | Tutte |
 
 ## 6. Estensioni Future (Backward Compatible)
 
@@ -127,14 +171,28 @@ Event Log (append-only) genererà eventi:
 |--------|--------|----------|
 | `logMeal` | 120 | 1h per utente |
 | `logMeal` | 600 | 24h per utente |
+| `updateMeal` | 60 | 1h per utente |
+| `updateMeal` | 300 | 24h per utente |
+| `deleteMeal` | 30 | 1h per utente |
+| `deleteMeal` | 150 | 24h per utente |
 
 Superamento produce errore `RateLimited` con header `Retry-After`.
 
 ## 9. Test Contractuali
 
+### 9.1 Test CRUD Operations
+- **Create (logMeal)**: Test idempotenza: ripetere stessa mutation 2 volte → una sola row
+- **Create Conflict**: Test conflitto: stessa chiave con macro diverse → errore
+- **Update**: Test update di pasto esistente → snapshot nutrients aggiornato correttamente
+- **Update Not Found**: Test update di pasto inesistente → errore `MealNotFound`
+- **Delete**: Test delete di pasto esistente → success=true e stats ricalcolate
+- **Delete Not Found**: Test delete di pasto inesistente → errore `MealNotFound`
+- **Delete Idempotence**: Test delete ripetuto → errore `MealAlreadyDeleted`
+
+### 9.2 Schema Validation
 - Snapshot SDL GraphQL aggiornato per ogni aggiunta di campo
-- Test idempotenza: ripetere stessa mutation 2 volte → una sola row
-- Test conflitto: stessa chiave con macro diverse → errore
+- Retrocompatibilità: campi aggiunti sempre opzionali
+- Response structure: updateMeal e deleteMeal mantengono struttura coerente
 
 ## 10. Open Questions
 
