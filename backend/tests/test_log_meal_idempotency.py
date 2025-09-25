@@ -141,3 +141,37 @@ async def test_snapshot_present_only_with_barcode() -> None:
             "sodium",
         ]:
             assert field in parsed
+
+
+@pytest.mark.asyncio
+async def test_multiple_entries_with_different_idempotency_keys() -> None:
+    """Due pasti identici ma con idempotencyKey diverso devono creare
+    due record distinti e risultare nella lista."""
+    _reset()
+    q1 = """
+    mutation {
+      logMeal(input:{name:"Apple", quantityG:80, idempotencyKey:"A1"}) {
+        id idempotencyKey
+      }
+    }
+    """
+    q2 = """
+    mutation {
+      logMeal(input:{name:"Apple", quantityG:80, idempotencyKey:"A2"}) {
+        id idempotencyKey
+      }
+    }
+    """
+    list_query = """
+    { mealEntries(limit:10){ id idempotencyKey name quantityG } }
+    """
+    async with AsyncClient(app=app, base_url="http://test") as ac:
+        r1 = await ac.post("/graphql", json={"query": q1})
+        r2 = await ac.post("/graphql", json={"query": q2})
+        rl = await ac.post("/graphql", json={"query": list_query})
+    id1 = r1.json()["data"]["logMeal"]["id"]
+    id2 = r2.json()["data"]["logMeal"]["id"]
+    assert id1 != id2
+    entries = rl.json()["data"]["mealEntries"]
+    keys = {e["idempotencyKey"] for e in entries}
+    assert "A1" in keys and "A2" in keys

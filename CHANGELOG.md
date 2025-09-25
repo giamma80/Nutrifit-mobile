@@ -6,6 +6,9 @@ Formato ispirato a [Keep a Changelog](https://keepachangelog.com/it-IT/1.1.0/) e
 
 ## [Unreleased]
 
+## [0.3.1] - 2025-09-25
+
+
 ### Fixed
 - add repository package __init__ to resolve ModuleNotFoundError on Render
 - include repository and graphql dirs to resolve ModuleNotFoundError in container

@@ -19,14 +19,19 @@ class _Entry:
 class SimpleCache:
     def __init__(self) -> None:
         self._data: Dict[str, _Entry] = {}
+        self._hits: int = 0
+        self._misses: int = 0
 
     def get(self, key: str) -> Optional[Any]:
         e = self._data.get(key)
         if not e:
+            self._misses += 1
             return None
         if e.expires_at < time.time():  # scaduto
             self._data.pop(key, None)
+            self._misses += 1
             return None
+        self._hits += 1
         return e.value
 
     def set(self, key: str, value: Any, ttl: float) -> None:
@@ -37,6 +42,13 @@ class SimpleCache:
         for k, e in list(self._data.items()):
             if e.expires_at < now:
                 self._data.pop(k, None)
+
+    def stats(self) -> dict[str, int]:
+        return {
+            "keys": len(self._data),
+            "hits": self._hits,
+            "misses": self._misses,
+        }
 
 
 cache = SimpleCache()

@@ -5,7 +5,7 @@ Obiettivo: isolare accesso e futura migrazione a storage persistente.
 
 from __future__ import annotations
 from dataclasses import dataclass
-from typing import List, Optional, Iterable
+from typing import List, Optional, Iterable, Any
 import bisect
 
 
@@ -63,6 +63,17 @@ class MealRepository:
         """
         raise NotImplementedError
 
+    def get(self, meal_id: str) -> Optional[MealRecord]:  # pragma: no cover
+        raise NotImplementedError
+
+    def update(self, meal_id: str, **fields: Any) -> Optional[MealRecord]:  # pragma: no cover
+        """Aggiorna i campi indicati e restituisce il record aggiornato."""
+        raise NotImplementedError
+
+    def delete(self, meal_id: str) -> bool:  # pragma: no cover
+        """Rimuove un record. Ritorna True se esisteva."""
+        raise NotImplementedError
+
 
 class InMemoryMealRepository(MealRepository):
     def __init__(self) -> None:
@@ -106,6 +117,35 @@ class InMemoryMealRepository(MealRepository):
 
     def list_all(self, user_id: str) -> List[MealRecord]:
         return [m for m in self._data if m.user_id == user_id]
+
+    def get(self, meal_id: str) -> Optional[MealRecord]:
+        return self._by_id.get(meal_id)
+
+    def update(self, meal_id: str, **fields: Any) -> Optional[MealRecord]:
+        rec = self._by_id.get(meal_id)
+        if not rec:
+            return None
+        # Aggiorna campi semplicemente (riordino solo se timestamp cambia)
+        old_ts = rec.timestamp
+        for k, v in fields.items():
+            if hasattr(rec, k):
+                setattr(rec, k, v)
+        if rec.timestamp != old_ts:
+            # Rimuovi e reinserisci per mantenere ordinamento
+            self._data = [m for m in self._data if m.id != meal_id]
+            ts_list = [m.timestamp for m in self._data]
+            idx = bisect.bisect_left(ts_list, rec.timestamp)
+            self._data.insert(idx, rec)
+        return rec
+
+    def delete(self, meal_id: str) -> bool:
+        rec = self._by_id.pop(meal_id, None)
+        if not rec:
+            return False
+        self._data = [m for m in self._data if m.id != meal_id]
+        if rec.idempotency_key:
+            self._idemp.pop((rec.user_id, rec.idempotency_key), None)
+        return True
 
 
 # Istanza condivisa (per semplice uso)

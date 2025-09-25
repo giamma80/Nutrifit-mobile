@@ -23,6 +23,7 @@ from graphql import GraphQLError
 from cache import cache
 from openfoodfacts import adapter
 from repository.meals import meal_repo, MealRecord  # NEW
+from nutrients import NUTRIENT_FIELDS
 
 # TTL in secondi per la cache del prodotto (default 10 minuti)
 PRODUCT_CACHE_TTL_S = float(os.getenv("PRODUCT_CACHE_TTL_S", "600"))
@@ -118,22 +119,23 @@ class LogMealInput:
     user_id: Optional[str] = None  # NEW (default handled in mutation)
 
 
+@strawberry.input
+class UpdateMealInput:
+    id: str
+    name: Optional[str] = None
+    quantity_g: Optional[float] = None
+    timestamp: Optional[str] = None
+    barcode: Optional[str] = None
+    user_id: Optional[str] = None
+
+
 DEFAULT_USER_ID = "default"
 
 
 def _enrich_from_product(prod: Product, quantity_g: float) -> Dict[str, Optional[float]]:
     factor = quantity_g / 100.0 if quantity_g else 1.0
     enriched: Dict[str, Optional[float]] = {}
-    fields = [
-        "calories",
-        "protein",
-        "carbs",
-        "fat",
-        "fiber",
-        "sugar",
-        "sodium",
-    ]
-    for field in fields:
+    for field in NUTRIENT_FIELDS:
         value = getattr(prod, field)
         if value is not None:
             if field == "calories":
@@ -238,6 +240,23 @@ class Query:
             sodium=_opt("sodium"),
         )
 
+    @strawberry.field(description="Statistiche cache prodotto")  # type: ignore[misc]
+    def cache_stats(self, info: Info[Any, Any]) -> "CacheStats":  # noqa: ARG002
+        s = cache.stats()
+        return CacheStats(
+            keys=s["keys"],
+            hits=s["hits"],
+            misses=s["misses"],
+        )
+
+
+@strawberry.type
+@dataclasses.dataclass
+class CacheStats:
+    keys: int
+    hits: int
+    misses: int
+
 
 @strawberry.type
 class Mutation:
@@ -253,7 +272,8 @@ class Mutation:
         user_id = input.user_id or DEFAULT_USER_ID
         # Idempotency key non deve dipendere da timestamp server; se timestamp
         # non è fornito dall'utente non lo includiamo nella chiave.
-        base_ts_for_key = input.timestamp or ""  # se utente non specifica, non includere ts
+        # se utente non specifica timestamp non includerlo nella chiave
+        base_ts_for_key = input.timestamp or ""
         idempotency_key = input.idempotency_key or (
             f"{input.name.lower()}|{round(input.quantity_g, 3)}|"
             f"{base_ts_for_key}|{input.barcode or ''}|{user_id}"
@@ -262,16 +282,7 @@ class Mutation:
         if existing:
             return MealEntry(**dataclasses.asdict(existing))
 
-        nutrient_keys = [
-            "calories",
-            "protein",
-            "carbs",
-            "fat",
-            "fiber",
-            "sugar",
-            "sodium",
-        ]
-        nutrients: Dict[str, Optional[float]] = {k: None for k in nutrient_keys}
+        nutrients: Dict[str, Optional[float]] = {k: None for k in NUTRIENT_FIELDS}
 
         prod: Optional[Product] = None
         if input.barcode:
@@ -301,18 +312,7 @@ class Mutation:
             idempotency_key=idempotency_key,
             nutrient_snapshot_json=(
                 __import__("json").dumps(
-                    {
-                        k: nutrients[k]
-                        for k in [
-                            "calories",
-                            "protein",
-                            "carbs",
-                            "fat",
-                            "fiber",
-                            "sugar",
-                            "sodium",
-                        ]
-                    },
+                    {k: nutrients[k] for k in NUTRIENT_FIELDS},
                     sort_keys=True,
                 )
                 if prod
@@ -332,6 +332,82 @@ class Mutation:
         )
         meal_repo.add(meal)
         return MealEntry(**dataclasses.asdict(meal))
+
+    @strawberry.mutation(description="Aggiorna un pasto esistente")  # type: ignore[misc]
+    async def update_meal(
+        self, info: Info[Any, Any], input: UpdateMealInput
+    ) -> MealEntry:  # noqa: ARG002
+        rec = meal_repo.get(input.id)
+        if not rec:
+            raise GraphQLError("NOT_FOUND: meal id inesistente")
+        # user isolation (se specificato user_id deve combaciare)
+        if input.user_id and input.user_id != rec.user_id:
+            raise GraphQLError("FORBIDDEN: user mismatch")
+        # Decide se serve ricalcolo nutrienti (se barcode o quantity cambiano)
+        new_barcode = input.barcode if input.barcode is not None else rec.barcode
+        new_quantity = input.quantity_g if input.quantity_g is not None else rec.quantity_g
+        nutrients: Dict[str, Optional[float]] = {k: getattr(rec, k) for k in NUTRIENT_FIELDS}
+        prod: Optional[Product] = None
+        recalc = False
+        if new_barcode != rec.barcode or (
+            input.quantity_g is not None and input.quantity_g != rec.quantity_g
+        ):
+            recalc = True
+        if recalc and new_barcode:
+            key = f"product:{new_barcode}"
+            cached = cache.get(key)
+            if cached:
+                prod = cast(Product, cached)
+            else:
+                try:
+                    dto = await adapter.fetch_product(new_barcode)
+                    prod = _map_product(cast("_ProductLike", dto))
+                    cache.set(key, prod, PRODUCT_CACHE_TTL_S)
+                except adapter.ProductNotFound:
+                    prod = None
+                except adapter.OpenFoodFactsError:
+                    prod = None
+            if prod:
+                nutrients = _enrich_from_product(prod, new_quantity)
+        # Costruisci campi aggiornati
+        update_fields: Dict[str, Any] = {}
+        if input.name is not None:
+            update_fields["name"] = input.name
+        if input.quantity_g is not None:
+            update_fields["quantity_g"] = input.quantity_g
+        if input.timestamp is not None:
+            update_fields["timestamp"] = input.timestamp
+        if input.barcode is not None:
+            update_fields["barcode"] = input.barcode
+        # nutrienti / snapshot se ricalcolati
+        if recalc and prod:
+            update_fields.update(
+                {
+                    "calories": (
+                        nutrients["calories"]
+                        if nutrients["calories"] is None
+                        else int(nutrients["calories"])
+                    ),
+                    "protein": nutrients["protein"],
+                    "carbs": nutrients["carbs"],
+                    "fat": nutrients["fat"],
+                    "fiber": nutrients["fiber"],
+                    "sugar": nutrients["sugar"],
+                    "sodium": nutrients["sodium"],
+                    "nutrient_snapshot_json": __import__("json").dumps(
+                        {k: nutrients[k] for k in NUTRIENT_FIELDS},
+                        sort_keys=True,
+                    ),
+                }
+            )
+        updated = meal_repo.update(input.id, **update_fields)
+        assert updated is not None  # per mypy
+        return MealEntry(**dataclasses.asdict(updated))
+
+    @strawberry.mutation(description="Cancella un pasto")  # type: ignore[misc]
+    def delete_meal(self, info: Info[Any, Any], id: str) -> bool:  # noqa: ARG002
+        ok = meal_repo.delete(id)
+        return ok
 
 
 schema = strawberry.Schema(

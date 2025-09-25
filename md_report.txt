@@ -1,4 +1,0 @@
-markdownlint-cli2 v0.18.1 (markdownlint v0.38.0)
-Finding: **/*.md backend/make.sh preflight | sed -n '1,160p'*/node_modules/** backend/make.sh preflight | sed -n '1,160p'*/.venv/** backend/make.sh preflight | sed -n '1,160p'*/build/** backend/make.sh preflight | sed -n '1,160p'*/dist/** **/*.md !flutter/** !flutter_tmp_backup/** !**/node_modules/**
-Linting: 27 file(s)
-Summary: 195 error(s)

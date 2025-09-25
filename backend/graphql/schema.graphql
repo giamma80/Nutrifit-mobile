@@ -12,6 +12,12 @@ Workflow aggiornamento:
 Modifiche manuali devono essere replicate nel mirror prima del commit.
 Qualsiasi ricomparsa di backend/backend/graphql/schema.graphql è un errore e va rimossa.
 """
+type CacheStats {
+  keys: Int!
+  hits: Int!
+  misses: Int!
+}
+
 type DailySummary {
   date: String!
   userId: String!
@@ -55,6 +61,12 @@ type MealEntry {
 type Mutation {
   """Log di un pasto con arricchimento nutrienti se barcode noto"""
   logMeal(input: LogMealInput!): MealEntry!
+
+  """Aggiorna un pasto esistente"""
+  updateMeal(input: UpdateMealInput!): MealEntry!
+
+  """Cancella un pasto"""
+  deleteMeal(id: String!): Boolean!
 }
 
 type Product {
@@ -84,4 +96,16 @@ type Query {
 
   """Riepilogo nutrienti per giorno (UTC)"""
   dailySummary(date: String!, userId: String = null): DailySummary!
+
+  """Statistiche cache prodotto"""
+  cacheStats: CacheStats!
+}
+
+input UpdateMealInput {
+  id: String!
+  name: String = null
+  quantityG: Float = null
+  timestamp: String = null
+  barcode: String = null
+  userId: String = null
 }
