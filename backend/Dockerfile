@@ -37,7 +37,7 @@ RUN uv sync --no-dev --all-extras
 
 # Copia sorgenti
 # Copia codice applicativo principale (incluso cache.py richiesto da app.py)
-COPY app.py cache.py ./
+COPY app.py cache.py nutrients.py ./
 COPY openfoodfacts ./openfoodfacts
 COPY rules ./rules
 # NUOVO: repository (in-memory meal repo) e schema GraphQL
