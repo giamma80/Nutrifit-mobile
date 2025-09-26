@@ -54,8 +54,8 @@ async def test_confirm_creates_meals_and_is_idempotent() -> None:
         analysis_id = r.json()["data"]["analyzeMealPhoto"]["id"]
         confirm = _q(
             f'mutation {{ confirmMealPhoto(input:{{analysisId:"{analysis_id}", '
-            'acceptedIndexes:[0,1]}}) {{ analysisId createdMeals '
-            '{{ name calories quantityG }} }} }}'
+            'acceptedIndexes:[0,1]}) { analysisId createdMeals '
+            '{ name calories quantityG } } }'
         )
         first = await ac.post("/graphql", json={"query": confirm})
         second = await ac.post("/graphql", json={"query": confirm})
@@ -79,7 +79,7 @@ async def test_confirm_invalid_index() -> None:
         analysis_id = r.json()["data"]["analyzeMealPhoto"]["id"]
         bad = _q(
             f'mutation {{ confirmMealPhoto(input:{{analysisId:"{analysis_id}", '
-            'acceptedIndexes:[5]}}) {{ analysisId }} }}'
+            'acceptedIndexes:[5]}) { analysisId } }'
         )
         resp = await ac.post("/graphql", json={"query": bad})
     errs = resp.json().get("errors")
