@@ -149,6 +149,7 @@ class IngestActivityResult:
     accepted: int
     duplicates: int
     rejected: List[RejectedActivityEvent]
+    idempotency_key_used: Optional[str] = None
 
 
 @strawberry.input
@@ -473,7 +474,7 @@ class Mutation:
         self,
         info: Info[Any, Any],  # noqa: ARG002
         input: List[ActivityMinuteInput],
-        idempotency_key: str,
+        idempotency_key: Optional[str] = None,
         user_id: Optional[str] = None,
     ) -> IngestActivityResult:
         uid = user_id or DEFAULT_USER_ID
@@ -505,6 +506,11 @@ class Mutation:
         ]
         canonical = _json.dumps(sig_payload, sort_keys=True, separators=(",", ":"))
         signature = _hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+        # Se la chiave non è fornita generiamo deterministico da signature
+        auto_key = None
+        if idempotency_key is None:
+            auto_key = "auto-" + signature[:16]
+            idempotency_key = auto_key
         idem_key = (uid, idempotency_key)
         cached = getattr(activity_repo, "_batch_idempo", {}).get(idem_key)
         if cached:
@@ -518,6 +524,7 @@ class Mutation:
                         RejectedActivityEvent(index=idx, reason=reason)
                         for idx, reason in result_dict["rejected"]
                     ],
+                    idempotency_key_used=idempotency_key,
                 )
             raise GraphQLError("IdempotencyConflict: key re-used with different payload")
         # Ingest via repository (normalization & dedup inside repo)
@@ -535,6 +542,7 @@ class Mutation:
             accepted=accepted,
             duplicates=duplicates,
             rejected=[RejectedActivityEvent(index=i, reason=r) for i, r in rejected],
+            idempotency_key_used=idempotency_key,
         )
 
 

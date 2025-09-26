@@ -76,8 +76,10 @@ async def test_activity_ingest_duplicates_second_batch() -> None:
         d1 = r1.json()["data"]["ingestActivityEvents"]
         assert d1["accepted"] == 1 and d1["duplicates"] == 0
         r2 = await ac.post("/graphql", json={"query": m2})
-        d2 = r2.json()["data"]["ingestActivityEvents"]
-    assert d2["accepted"] == 0 and d2["duplicates"] == 1 and d2["rejected"] == []
+    d2 = r2.json()["data"]["ingestActivityEvents"]
+    assert d2["accepted"] == 0
+    assert d2["duplicates"] == 1
+    assert d2["rejected"] == []
 
 
 @pytest.mark.asyncio
@@ -221,6 +223,60 @@ async def test_activity_ingest_idempotency_cache_and_conflict() -> None:
         d2 = r2.json()["data"]["ingestActivityEvents"]
         assert d2["accepted"] == 1 and d2["duplicates"] == 0
         r3 = await ac.post("/graphql", json={"query": batch_conflict})
+    body3 = r3.json()
+    assert body3.get("errors"), body3
+    assert any("IdempotencyConflict" in err.get("message", "") for err in body3["errors"])
+
+
+@pytest.mark.asyncio
+async def test_activity_ingest_auto_idempotency_key() -> None:
+    """Auto-generate and reuse deterministic idempotency key.
+
+    Omit idempotencyKey -> server derives auto-<hash>. Two identical batches:
+    first accepted inserts; second returns cached result with same key.
+    A third call with changed payload must raise IdempotencyConflict.
+    """
+    _reset_activity_repo()
+    mutation_first = _q(
+        """
+        mutation {
+          ingestActivityEvents(
+            userId: "u1"
+            input:[
+              { ts:"2025-01-07T07:00:15Z" steps:10 source:MANUAL }
+              { ts:"2025-01-07T07:01:45Z" steps:5 source:MANUAL }
+            ]
+          ){ accepted duplicates rejected { index reason } idempotencyKeyUsed }
+        }
+        """
+    )
+    # Identical batch (same seconds) -> same signature -> cache hit
+    mutation_second_same = mutation_first
+    mutation_conflict = _q(
+        """
+        mutation {
+          ingestActivityEvents(
+            userId: "u1"
+            input:[
+              { ts:"2025-01-07T07:00:15Z" steps:11 source:MANUAL }
+              { ts:"2025-01-07T07:01:45Z" steps:5 source:MANUAL }
+            ]
+          ){ accepted duplicates rejected { index reason } idempotencyKeyUsed }
+        }
+        """
+    )
+    async with AsyncClient(app=app, base_url="http://test") as ac:
+        r1 = await ac.post("/graphql", json={"query": mutation_first})
+        d1 = r1.json()["data"]["ingestActivityEvents"]
+        assert d1["accepted"] == 2 and d1["duplicates"] == 0
+        auto_key = d1["idempotencyKeyUsed"]
+        assert auto_key and auto_key.startswith("auto-") and len(auto_key) > 5
+        r2 = await ac.post("/graphql", json={"query": mutation_second_same})
+        d2 = r2.json()["data"]["ingestActivityEvents"]
+        assert d2["accepted"] == 2 and d2["duplicates"] == 0
+        assert d2["idempotencyKeyUsed"] == auto_key
+        # Third call: changed payload -> different signature -> conflict
+        r3 = await ac.post("/graphql", json={"query": mutation_conflict})
     body3 = r3.json()
     assert body3.get("errors"), body3
     assert any("IdempotencyConflict" in err.get("message", "") for err in body3["errors"])

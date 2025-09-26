@@ -8,6 +8,7 @@ Formato ispirato a [Keep a Changelog](https://keepachangelog.com/it-IT/1.1.0/) e
 
 ### Added
 - ingestActivityEvents mutation + dailySummary activity metrics (#B3)
+- optional auto-generated deterministic idempotencyKey for ingestActivityEvents (returns idempotencyKeyUsed)
 
 ### Fixed
 - corretto errore sintassi diagramma Mermaid nel README

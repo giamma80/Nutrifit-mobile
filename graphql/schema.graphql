@@ -52,6 +52,7 @@ type IngestActivityResult {
   accepted: Int!
   duplicates: Int!
   rejected: [RejectedActivityEvent!]!
+  idempotencyKeyUsed: String
 }
 
 input LogMealInput {
@@ -92,7 +93,7 @@ type Mutation {
   deleteMeal(id: String!): Boolean!
 
   """Ingest batch minute activity events (idempotent)"""
-  ingestActivityEvents(input: [ActivityMinuteInput!]!, idempotencyKey: String!, userId: String = null): IngestActivityResult!
+  ingestActivityEvents(input: [ActivityMinuteInput!]!, idempotencyKey: String = null, userId: String = null): IngestActivityResult!
 }
 
 type Product {
