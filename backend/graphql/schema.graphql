@@ -46,6 +46,8 @@ type DailySummary {
   activitySteps: Int!
   activityCaloriesOut: Float!
   activityEvents: Int!
+  caloriesDeficit: Int!
+  caloriesReplenishedPercent: Int!
 }
 
 type IngestActivityResult {

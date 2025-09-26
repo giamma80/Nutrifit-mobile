@@ -73,6 +73,11 @@ type DailySummary {
   fiber: Float
   sugar: Float
   sodium: Float
+  activitySteps: Int!
+  activityCaloriesOut: Float!
+  activityEvents: Int!
+  caloriesDeficit: Int!                 # activityCaloriesOut - calories (>=0 deficit, <0 surplus)
+  caloriesReplenishedPercent: Int!      # (calories / activityCaloriesOut * 100) arrotondato, clamp 0..999
 }
 ```
 
@@ -100,6 +105,32 @@ Log con enrichment nutrienti via barcode (scaling per quantità /100g):
 curl -s -H 'Content-Type: application/json' \
   -d '{"query":"mutation { logMeal(input:{name: \"Bar\", quantityG:50, barcode: \"123456\"}) { id name quantityG calories protein } }"}' \
   http://localhost:8080/graphql | jq
+```
+
+Daily summary (con nuovi campi energetici):
+
+```bash
+curl -s -H 'Content-Type: application/json' \
+  -d '{"query":"{ dailySummary(date: \"2025-09-26\") { date meals calories activitySteps activityCaloriesOut caloriesDeficit caloriesReplenishedPercent } }"}' \
+  http://localhost:8080/graphql | jq
+```
+
+Esempio risposta (valori indicativi):
+
+```jsonc
+{
+  "data": {
+    "dailySummary": {
+      "date": "2025-09-26",
+      "meals": 3,
+      "calories": 1450,
+      "activitySteps": 7200,
+      "activityCaloriesOut": 510.5,
+      "caloriesDeficit": -939,                // surplus (hai introdotto più di quanto speso)
+      "caloriesReplenishedPercent": 284       // >100% indica surplus; clamp non attivato (<999)
+    }
+  }
+}
 ```
 
 Idempotenza: la chiave è calcolata così (se non fornisci `idempotencyKey` esplicito):
@@ -152,6 +183,81 @@ lower(name) | round(quantityG,3) | (timestamp se fornito) | barcode | userId
 ```
 Differenze chiave rispetto al passato: se il timestamp NON è fornito dal client non viene incluso → due chiamate identiche senza timestamp condividono la chiave (evita duplicati accidentali quando il client non genera un timestamp deterministico).
 Se passi un `idempotencyKey` esplicito, qualunque differenza nel payload (es. quantity) viene ignorata e il primo record rimane autorevole.
+
+###   Ingestion Attività (Auto Idempotency & Conflitti)
+
+La mutation (forma sintetica):
+
+```graphql
+mutation {
+  ingestActivityEvents(
+    userId: "u1"
+    idempotencyKey: String
+    input: [ActivityEventInput!]!
+  ): ActivityIngestResult!
+}
+```
+
+Concetti chiave:
+1. Normalizzazione minuto: tutti i timestamp vengono ridotti al minuto (secondi/millisecondi ignorati) per definire un bucket logico.
+2. Firma batch: eventi (normalizzati) vengono ordinati e serializzati in modo deterministico → SHA256 → primi 16 char → `auto-<hash>` se non fornisci `idempotencyKey`.
+3. Replay idempotente: stesso batch (stesso set eventi dopo normalizzazione) → stessa chiave auto e stesso risultato (accepted/duplicates/rejected) dal cache idempotency.
+4. Mutazione batch: se cambi anche un solo campo di un evento, la firma cambia → nuova chiave auto generata.
+5. Conflitti: se un evento punta ad un minuto già esistente con dati diversi (es. `steps` diverso) viene rifiutato con `reason = CONFLICT_DIFFERENT_DATA` (NON è duplicate).
+6. Duplicati: evento identico (stesso minuto + stessi dati) già persistito → conteggiato in `duplicates`.
+
+Esempio evolutivo (semplificato):
+
+1. Primo batch (10 passi @ 07:00, 5 passi @ 07:01) → `accepted=2`, `duplicates=0`, `rejected=[]`, chiave `auto-aaaa...`.
+2. Secondo batch identico → stessa chiave `auto-aaaa...`, risultato identico via cache (replay idempotente, non reinserisce dati).
+3. Terzo batch modifica passi del primo evento a 11 → nuova chiave `auto-bbbb...`, `accepted=0`, `duplicates=1` (secondo evento identico), `rejected=[CONFLICT_DIFFERENT_DATA]` per il primo evento.
+
+Motivazione: mantenere evento minuto immutabile dopo la prima accettazione, separando chiaramente (a) retry identici (cache) da (b) tentativi di modifica (conflitto esplicito) evitando overwrite silenziosi.
+
+Suggerimenti client:
+- Consolidare i conteggi per minuto prima di inviare il batch.
+- Evitare di usare la mutation come meccanismo di update: introdurre in futuro un endpoint di correzione esplicito.
+- Loggare la chiave `idempotencyKeyUsed` per correlare eventuali retry.
+
+Codici `reason` principali (parziale): `CONFLICT_DIFFERENT_DATA`, `NEGATIVE_VALUE`.
+
+
+
+###   DailySummary – Calorie Deficit & Percentuale Refill
+
+Nuovi campi (additivi, retro‑compatibili):
+
+| Campo | Tipo | Descrizione |
+|-------|------|-------------|
+| `caloriesDeficit` | `Int!` | `activityCaloriesOut - calories`. Valore > 0 indica ancora deficit (non hai reintegrato tutte le calorie consumate). Valore < 0 indica surplus (hai introdotto più calorie di quante ne hai speso). |
+| `caloriesReplenishedPercent` | `Int!` | Percentuale (approssimata a intero) di calorie reintegrate: `(calories / activityCaloriesOut) * 100`. Se `activityCaloriesOut == 0` ⇒ 0. Clamp massimo 999 per evitare outlier estremi (es. errori di import). Può superare 100 in caso di surplus. |
+
+Formula e logica:
+```
+caloriesDeficit = activityCaloriesOut - calories
+if activityCaloriesOut <= 0:
+  caloriesReplenishedPercent = 0
+else:
+  pct = round((calories / activityCaloriesOut) * 100)
+  caloriesReplenishedPercent = min(max(pct, 0), 999)
+```
+
+Esempi rapidi:
+```
+activityCaloriesOut=500, calories=400  -> deficit=100,  percent=80
+activityCaloriesOut=500, calories=500  -> deficit=0,    percent=100
+activityCaloriesOut=500, calories=650  -> deficit=-150, percent=130 (surplus)
+activityCaloriesOut=200, calories=1200 -> deficit=-1000,percent=600 (<999 nessun clamp)
+activityCaloriesOut=50,  calories=6000 -> raw percent=12000 -> clamp a 999
+```
+
+Uso suggerito lato client:
+* Evidenziare `caloriesDeficit > 0` come progress bar verso 0 (target di refill energetico).
+* `caloriesDeficit == 0`: stato “neutral” (equilibrio energetico giornaliero).
+* `caloriesDeficit < 0`: segnalare surplus (badge o colore differente) senza considerarlo errore.
+* `caloriesReplenishedPercent == 999`: mostrare indicatore di valore fuori scala (es. `> 999%`).
+
+Backward compatibility: i client precedenti che non richiedono i nuovi campi non subiscono rotture (schema solo esteso).
 
 ###   Stato attuale vs Schema Draft
 

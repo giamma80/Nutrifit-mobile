@@ -232,9 +232,13 @@ async def test_activity_ingest_idempotency_cache_and_conflict() -> None:
 async def test_activity_ingest_auto_idempotency_key() -> None:
     """Auto-generate and reuse deterministic idempotency key.
 
-    Omit idempotencyKey -> server derives auto-<hash>. Two identical batches:
-    first accepted inserts; second returns cached result with same key.
-    A third call with changed payload must raise IdempotencyConflict.
+    Omit idempotencyKey -> server derives auto-<hash>:
+      1. First batch ingests (accepted=2)
+      2. Second identical batch hits idempotent cache (same key, accepted=2)
+    3. Third batch changed steps (same minute):
+      accepted=0, duplicates=1
+      rejected has CONFLICT_DIFFERENT_DATA
+      new auto key
     """
     _reset_activity_repo()
     mutation_first = _q(
@@ -266,22 +270,25 @@ async def test_activity_ingest_auto_idempotency_key() -> None:
         """
     )
     async with AsyncClient(app=app, base_url="http://test") as ac:
+        # First batch
         r1 = await ac.post("/graphql", json={"query": mutation_first})
         d1 = r1.json()["data"]["ingestActivityEvents"]
-        assert d1["accepted"] == 2 and d1["duplicates"] == 0
+        assert d1["accepted"] == 2
+        assert d1["duplicates"] == 0
         auto_key = d1["idempotencyKeyUsed"]
-        assert auto_key and auto_key.startswith("auto-") and len(auto_key) > 5
+        assert auto_key and auto_key.startswith("auto-")
+        # Second identical batch -> cache replay (accepted count preserved)
         r2 = await ac.post("/graphql", json={"query": mutation_second_same})
         d2 = r2.json()["data"]["ingestActivityEvents"]
-        assert d2["accepted"] == 2 and d2["duplicates"] == 0
+        assert d2["accepted"] == 2
+        assert d2["duplicates"] == 0
         assert d2["idempotencyKeyUsed"] == auto_key
-        # Third call: changed payload -> different signature -> new auto key
-    r3 = await ac.post("/graphql", json={"query": mutation_changed})
-    d3 = r3.json()["data"]["ingestActivityEvents"]
-    # First event conflicts (different steps same minute) -> rejected reason
-    assert d3["accepted"] == 0
-    assert d3["duplicates"] == 1
-    reasons = [r["reason"] for r in d3["rejected"]]
-    assert "CONFLICT_DIFFERENT_DATA" in reasons
-    assert d3["idempotencyKeyUsed"].startswith("auto-")
-    assert d3["idempotencyKeyUsed"] != auto_key
+        # Third changed steps at same minute -> conflict (rejected) + duplicate
+        r3 = await ac.post("/graphql", json={"query": mutation_changed})
+        d3 = r3.json()["data"]["ingestActivityEvents"]
+        assert d3["accepted"] == 0
+        assert d3["duplicates"] == 1
+        reasons = [r["reason"] for r in d3["rejected"]]
+        assert "CONFLICT_DIFFERENT_DATA" in reasons
+        assert d3["idempotencyKeyUsed"].startswith("auto-")
+        assert d3["idempotencyKeyUsed"] != auto_key

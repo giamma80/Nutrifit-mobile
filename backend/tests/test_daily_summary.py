@@ -45,6 +45,8 @@ async def test_daily_summary_empty_day() -> None:
             activitySteps
             activityCaloriesOut
             activityEvents
+            caloriesDeficit
+            caloriesReplenishedPercent
         } }
         """
     )
@@ -59,6 +61,8 @@ async def test_daily_summary_empty_day() -> None:
     assert data["activitySteps"] == 0
     assert data["activityCaloriesOut"] == 0.0
     assert data["activityEvents"] == 0
+    assert data["caloriesDeficit"] == 0
+    assert data["caloriesReplenishedPercent"] == 0
 
 
 @pytest.mark.asyncio
@@ -115,7 +119,13 @@ async def test_daily_summary_aggregation() -> None:
         query = _q(
             """
             { dailySummary(date: \"2025-02-01\") {
-                meals calories activitySteps activityCaloriesOut activityEvents
+                meals
+                calories
+                activitySteps
+                activityCaloriesOut
+                activityEvents
+                caloriesDeficit
+                caloriesReplenishedPercent
             } }
             """
         )
@@ -129,6 +139,9 @@ async def test_daily_summary_aggregation() -> None:
     assert ds["activitySteps"] == 50
     assert ds["activityCaloriesOut"] == 3.2
     assert ds["activityEvents"] == 2
+    # deficit = caloriesOut - caloriesIn (può essere negativo se surplus)
+    assert isinstance(ds["caloriesDeficit"], int)
+    assert isinstance(ds["caloriesReplenishedPercent"], int)
 
 
 @pytest.mark.asyncio
@@ -197,14 +210,22 @@ async def test_daily_summary_user_isolation() -> None:
         q_default = _q(
             """
             { dailySummary(date: \"2025-03-01\") {
-                userId meals activitySteps
+                userId
+                meals
+                activitySteps
+                caloriesDeficit
+                caloriesReplenishedPercent
             } }
             """
         )
         q_u2 = _q(
             """
             { dailySummary(date: \"2025-03-01\", userId: \"u2\") {
-                userId meals activitySteps
+                userId
+                meals
+                activitySteps
+                caloriesDeficit
+                caloriesReplenishedPercent
             } }
             """
         )
@@ -216,3 +237,60 @@ async def test_daily_summary_user_isolation() -> None:
     assert d_u2["userId"] == "u2" and d_u2["meals"] == 1
     assert d_def["activitySteps"] == 10
     assert d_u2["activitySteps"] == 5
+    # Percentuali coerenti (0 o >0 se intake/out presenti)
+    assert "caloriesDeficit" in d_def and "caloriesReplenishedPercent" in d_def
+    assert "caloriesDeficit" in d_u2 and "caloriesReplenishedPercent" in d_u2
+
+
+@pytest.mark.asyncio
+async def test_daily_summary_surplus_and_clamp() -> None:
+    """Percentuale >100 (surplus) e clamp <= 999."""
+    _reset_repo()
+    async with AsyncClient(app=app, base_url="http://test") as ac:
+        ingest = _q(
+            """
+            mutation {
+              ingestActivityEvents(
+                input:[
+                  { ts: \"2025-04-01T07:00:00Z\" caloriesOut: 2.0 }
+                ]
+                idempotencyKey: \"act-low\"
+              ) { accepted }
+            }
+            """
+        )
+        await ac.post("/graphql", json={"query": ingest})
+        meal = _q(
+            """
+            mutation {
+              logMeal(
+                input:{
+                  name: \"Mega\"
+                  quantityG:300
+                  timestamp: \"2025-04-01T08:00:00Z\"
+                  barcode: \"123\"
+                }
+              ) { id }
+            }
+            """
+        )
+        await ac.post("/graphql", json={"query": meal})
+        query = _q(
+            """
+            { dailySummary(date: \"2025-04-01\") {
+                calories
+                activityCaloriesOut
+                caloriesDeficit
+                caloriesReplenishedPercent
+            } }
+            """
+        )
+        resp = await ac.post("/graphql", json={"query": query})
+    ds = resp.json()["data"]["dailySummary"]
+    assert ds["activityCaloriesOut"] == 2.0
+    assert isinstance(ds["calories"], int)
+    assert ds["caloriesDeficit"] == (
+        ds["activityCaloriesOut"] - ds["calories"]
+    )
+    assert ds["caloriesReplenishedPercent"] >= 100
+    assert ds["caloriesReplenishedPercent"] <= 999

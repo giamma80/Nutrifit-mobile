@@ -118,6 +118,9 @@ class DailySummary:
     activity_steps: int = 0
     activity_calories_out: float = 0.0
     activity_events: int = 0
+    # Calorie balance snapshot (deficit positivo = più consumate che ingerite)
+    calories_deficit: int = 0
+    calories_replenished_percent: int = 0  # 0-100 (o >100 se surplus)
 
 
 # ----------------- Activity Ingestion (B3) -----------------
@@ -282,6 +285,18 @@ class Query:
         # Activity stats: usiamo inizio giornata per get_daily_stats richiede datetime
         # Passiamo date + "T00:00:00Z" (accetta iso). Se implementazione cambia, adattare.
         act_stats = activity_repo.get_daily_stats(uid, date + "T00:00:00Z")
+        activity_calories_out = act_stats.get("total_calories_out", 0.0)
+        calories_deficit = int(round(activity_calories_out - calories_total))
+        if activity_calories_out > 0:
+            pct = (calories_total / activity_calories_out) * 100
+            # Clamp per evitare valori esplosivi (retry / dati anomali)
+            if pct < 0:
+                pct = 0
+            if pct > 999:
+                pct = 999
+            calories_replenished_percent = int(round(pct))
+        else:
+            calories_replenished_percent = 0
         return DailySummary(
             date=date,
             user_id=uid,
@@ -294,8 +309,10 @@ class Query:
             sugar=_opt("sugar"),
             sodium=_opt("sodium"),
             activity_steps=act_stats.get("total_steps", 0),
-            activity_calories_out=act_stats.get("total_calories_out", 0.0),
+            activity_calories_out=activity_calories_out,
             activity_events=act_stats.get("events_count", 0),
+            calories_deficit=calories_deficit,
+            calories_replenished_percent=calories_replenished_percent,
         )
 
     @strawberry.field(description="Statistiche cache prodotto")  # type: ignore[misc]

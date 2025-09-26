@@ -6,5 +6,10 @@
         "**/.DS_Store": true,
         "**/Thumbs.db": true,
         ".mule": true
-    }
+    },
+    "python.testing.pytestArgs": [
+        "backend"
+    ],
+    "python.testing.unittestEnabled": false,
+    "python.testing.pytestEnabled": true
 }

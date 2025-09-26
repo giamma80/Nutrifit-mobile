@@ -6,7 +6,7 @@ Ultimo aggiornamento: 2025-09-24
 ## Stato Runtime Attuale (Slice Implementato)
 Al momento il backend espone un sottoinsieme ampliato del draft completo:
 
-Implemented oggi:
+Implemented oggi (runtime slice):
 ```
 type Query {
   product(barcode: String!): Product
@@ -17,25 +17,47 @@ type Query {
 
 type Mutation {
   logMeal(input: LogMealInput!): MealEntry!
-  updateMeal(id: ID!, input: LogMealInput!): MealEntry!
-  deleteMeal(id: ID!): DeleteMealResult!
+  updateMeal(id: ID!, input: LogMealInput!): MealEntry!        # placeholder (non ancora implementato runtime)
+  deleteMeal(id: ID!): DeleteMealResult!                       # placeholder (non ancora implementato runtime)
+  ingestActivityEvents(input: [ActivityMinuteInput!]!, idempotencyKey: ID, userId: ID): IngestActivityResult!
 }
 
 type MealEntry { id: ID! name: String! quantityG: Int! timestamp: DateTime! userId: ID! }
-type DailySummary { date: Date! userId: ID! meals: Int! calories: Int! protein: Float! }
+type DailySummary {
+  date: Date!
+  userId: ID!
+  meals: Int!
+  calories: Int!
+  protein: Float
+  carbs: Float
+  fat: Float
+  fiber: Float
+  sugar: Float
+  sodium: Float
+  activitySteps: Int!
+  activityCaloriesOut: Float!
+  activityEvents: Int!
+  caloriesDeficit: Int!
+  caloriesReplenishedPercent: Int!
+}
 type CacheStats { hits: Int! misses: Int! keys: Int! }
-type DeleteMealResult { success: Boolean! deletedAt: DateTime! recalculatedStats: DailySummary! }
 
-input LogMealInput { name: String! quantityG: Int! timestamp: DateTime! barcode: String userId: ID }
+type IngestActivityResult { accepted: Int! duplicates: Int! rejected: [RejectedActivityEvent!]! idempotencyKeyUsed: ID }
+type RejectedActivityEvent { index: Int! reason: String! }
+
+input LogMealInput { name: String! quantityG: Int! timestamp: DateTime barcode: String userId: ID }
+input ActivityMinuteInput { ts: DateTime! steps: Int caloriesOut: Float hrAvg: Float source: ActivitySource! }
+enum ActivitySource { APPLE_HEALTH GOOGLE_FIT MANUAL }
 ```
 
 Differenze principali vs draft:
 - Nessun connection pattern per `mealEntries` (lista semplice + filtri base).
-- `dailySummary` minimizzato (solo conteggio pasti + calorie/protein placeholder).
-- Assenti tutte le query activity / recommendation / trend.
-- CRUD completo: `logMeal`, `updateMeal`, `deleteMeal` con nutrient recalculation.
-- Cache observability: `cacheStats` query per monitoring diagnostico.
-- Nutrient constants: centralizzati in `nutrients.py` per coerenza cross-operation.
+- `dailySummary` ora include anche bilancio energetico (deficit & percentuale reintegro) e metriche attività aggregate ma resta privo di target giornalieri / forecast.
+- Assenti tutte le query recommendation / trend / energyBalance avanzata.
+- Ingestion attività implementata solo come batch minute → no timeline query granulari.
+- CRUD esteso (update/delete) pianificato ma non ancora attivo runtime (placeholder nello slice sopra indicato).
+- Cache observability: `cacheStats` per monitoring diagnostico.
+- Nutrient constants: centralizzati in `nutrients.py` per coerenza.
 
 Le sezioni successive restano il target evolutivo.
 
@@ -80,7 +102,7 @@ type Subscription {
 ```graphql
 type MealEntry { id: ID! occurredAt: DateTime! mealType: MealType! energyKcal: Float proteinG: Float carbG: Float sugarsG: Float fatG: Float fiberG: Float sodiumMg: Float completenessScore: Int qualityScore: Int flags: [String!]! }
 
-type DailyIntakeSummary { date: Date! energyKcalTotal: Float energyKcalTarget: Float energyKcalRemaining: Float predictedEveningConsumptionKcal: Float macroSplit: MacroSplit proteinGapG: Float sugarSpike: Boolean flags: [String!]! }
+type DailyIntakeSummary { date: Date! energyKcalTotal: Float energyKcalTarget: Float energyKcalRemaining: Float predictedEveningConsumptionKcal: Float macroSplit: MacroSplit proteinGapG: Float sugarSpike: Boolean flags: [String!]! energyDeficitKcal: Float energyReplenishedPct: Int }
 
 type MealTypeTrend { mealType: MealType! avgEnergyKcal: Float avgProteinG: Float avgCarbG: Float avgSugarsG: Float deltaSugarsPct: Float deltaProteinPct: Float deltaEnergyPct: Float sampleSize: Int }
 
@@ -112,3 +134,4 @@ type MealEntryEdge { node: MealEntry cursor: String! }
 ## Note Evolutive
 - Le subscriptions vengono introdotte solo a B6 quando il bridge realtime è stabile.
 - `qualityScore` rimane null fino a milestone B5.
+- Il bilancio energetico (runtime: `caloriesDeficit` / `caloriesReplenishedPercent`) verrà evoluto in `DailyIntakeSummary` come `energyDeficitKcal` e `energyReplenishedPct` con possibili campi extra (target, forecast) in milestone C.
