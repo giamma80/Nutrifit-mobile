@@ -3,6 +3,9 @@
 Versione: 0.1 (Draft evolutivo)
 Ultimo aggiornamento: 2025-09-24
 
+<!-- AGGIUNTA: Sezione anticipazione syncHealthTotals (minor 0.5.0) -->
+> Nota (design approvato – non ancora runtime): la prossima minor introdurrà `syncHealthTotals` come fonte primaria dei totali attività. Le minute events ingerite via `ingestActivityEvents` rimarranno per analisi granulare ma non alimenteranno più i totali `dailySummary`.
+
 ## Stato Runtime Attuale (Slice Implementato)
 Al momento il backend espone un sottoinsieme ampliato del draft completo:
 
@@ -135,3 +138,71 @@ type MealEntryEdge { node: MealEntry cursor: String! }
 - Le subscriptions vengono introdotte solo a B6 quando il bridge realtime è stabile.
 - `qualityScore` rimane null fino a milestone B5.
 - Il bilancio energetico (runtime: `caloriesDeficit` / `caloriesReplenishedPercent`) verrà evoluto in `DailyIntakeSummary` come `energyDeficitKcal` e `energyReplenishedPct` con possibili campi extra (target, forecast) in milestone C.
+
+## Estensione Pianificata Attività (Draft Additivo)
+```graphql
+extend type Mutation {
+  syncHealthTotals(input: HealthTotalsInput!, idempotencyKey: ID): SyncHealthTotalsResult!
+}
+
+input HealthTotalsInput {
+  timestamp: DateTime!
+  date: Date!
+  steps: Int!
+  caloriesOut: Float!
+  hrAvgSession: Float
+  userId: ID
+}
+
+type SyncHealthTotalsResult {
+  accepted: Boolean!
+  duplicate: Boolean!
+  reset: Boolean!
+  idempotencyKeyUsed: ID!
+  idempotencyConflict: Boolean!
+  delta: HealthTotalsDelta
+}
+
+type HealthTotalsDelta {
+  id: ID!
+  date: Date!
+  timestamp: DateTime!
+  stepsDelta: Int!
+  caloriesOutDelta: Float!
+  stepsTotal: Int!
+  caloriesOutTotal: Float!
+  hrAvgSession: Float
+  userId: ID!
+}
+
+extend type Query {
+  activityEntries(after: String, before: String, limit: Int=100, userId: ID): [ActivityEntry!]!
+  syncEntries(date: Date!, after: String, limit: Int=200, userId: ID): [HealthTotalsDelta!]!
+}
+```
+
+### Semantica
+- Primo snapshot del giorno → delta = valori snapshot, `reset=false`.
+- Reset (snapshot con contatori inferiori a precedente) → delta = snapshot, `reset=true`.
+- Duplicate (snapshot identico) → `duplicate=true`, nessun nuovo delta.
+- Conflitto idempotenza (stessa chiave ma payload differente) → `idempotencyConflict=true`, nessun delta applicato.
+- `hrAvgSession` escluso dalla firma idempotenza.
+
+### Impatto su `dailySummary`
+| Campo | Prima | Dopo (post 0.5.0) |
+|-------|-------|-------------------|
+| activitySteps | Somma steps da minute events | Somma `stepsDelta` |
+| activityCaloriesOut | Somma calories_out minute events | Somma `caloriesOutDelta` |
+| activityEvents | Conteggio minute events | Invariato (solo diagnostico) |
+
+I campi energetici (`caloriesDeficit`, `caloriesReplenishedPercent`) continueranno a usare i totali aggiornati.
+
+### Edge Cases
+| Scenario | Effetto |
+|----------|---------|
+| Nessun snapshot inviato nel giorno | Totali = 0 | 
+| Solo snapshot identici ripetuti | Un solo delta (primo), duplication nei successivi |
+| Reset dopo mezzanotte mancato (ritardo invio) | Primo snapshot ricevuto vale come reset giorno corrente |
+
+### Migrazione Client
+I client devono inviare periodicamente snapshot (polling o push aggregator OS). In assenza di snapshot i totali resteranno 0 → suggerito rollout con feature flag server (facoltativo per MVP interno).

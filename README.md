@@ -20,6 +20,104 @@
 
 > **Nutrifit** è una piattaforma end-to-end per nutrizione intelligente e fitness: un backend GraphQL centralizzato (backend‑centric) che astrae sorgenti esterne (OpenFoodFacts oggi, Robotoff/AI domani) servendo app Mobile Flutter e un Web Sandbox di validazione, con pipeline AI e automazione nutrizionale coerenti.
 
+## ⚠️ Anteprima Evoluzione Attività (Prossima Minor 0.5.0)
+Questa sezione documenta in anticipo (design approvato, NON ancora live a runtime) l’introduzione della mutation `syncHealthTotals` che diventerà la fonte primaria delle metriche attività per `dailySummary`, sostituendo le aggregazioni derivate da `ingestActivityEvents`.
+
+Motivazione:
+- I provider salute (Apple Health / Google Fit) espongono snapshot cumulativi giornalieri robusti.
+- Le minute events possono essere incomplete / duplicate / arrivate fuori ordine.
+- Normalizzare a snapshot + delta permette recupero resiliente dopo offline e resync riducendo drift.
+
+### Nuovi Concetti
+| Concetto | Descrizione |
+|----------|-------------|
+| Snapshot | Stato cumulativo (steps, caloriesOut, hrAvgSession opzionale) in un istante. |
+| Delta | Differenza tra snapshot corrente e precedente (o identico se primo / reset). |
+| Reset | Rilevato quando un contatore cumulativo torna a un valore minore del precedente (es. rollover giorno / clear device). Nel reset il delta = snapshot (come primo evento). |
+| Idempotenza | Signature costruita su (date, steps, caloriesOut, userId) – hrAvgSession escluso; snapshot identico ripetuto → `duplicate=true`. Signature diversa con stessa chiave → `idempotencyConflict=true` nel payload. |
+
+### API Pianificate (Draft SDL Additivo)
+```graphql
+extend type Mutation {
+  syncHealthTotals(input: HealthTotalsInput!, idempotencyKey: ID): SyncHealthTotalsResult!
+}
+
+input HealthTotalsInput {
+  timestamp: DateTime!      # istante raccolta snapshot
+  date: Date!               # giorno a cui i contatori appartengono (timezone-normalized lato client)
+  steps: Int!
+  caloriesOut: Float!
+  hrAvgSession: Float       # opzionale, NON parte della firma idempotenza
+  userId: ID
+}
+
+type SyncHealthTotalsResult {
+  accepted: Boolean!        # true se delta registrato
+  duplicate: Boolean!       # true se snapshot identico già registrato
+  reset: Boolean!           # true se rilevato reset contatori
+  idempotencyKeyUsed: ID!
+  idempotencyConflict: Boolean!  # true se chiave riusata con payload diverso
+  delta: HealthTotalsDelta  # valorizzato se accepted o duplicate
+}
+
+type HealthTotalsDelta {
+  id: ID!
+  date: Date!
+  timestamp: DateTime!
+  stepsDelta: Int!
+  caloriesOutDelta: Float!
+  stepsTotal: Int!
+  caloriesOutTotal: Float!
+  hrAvgSession: Float
+  userId: ID!
+}
+
+extend type Query {
+  activityEntries(after: String, before: String, limit: Int=100, userId: ID): [ActivityEntry!]!
+  syncEntries(date: Date!, after: String, limit: Int=200, userId: ID): [HealthTotalsDelta!]!
+}
+
+# Esistente (immutato nella prima fase)
+type ActivityEntry { ts: DateTime!, steps: Int!, caloriesOut: Float, hrAvg: Float, source: ActivitySource! }
+```
+
+### Comportamento `dailySummary` (Post-Migrazione)
+- `activitySteps` = somma `stepsDelta` del giorno.
+- `activityCaloriesOut` = somma `caloriesOutDelta` del giorno.
+- `activityEvents` continuerà a contare le minute events (`ingestActivityEvents`) per diagnosi, ma NON influenzerà i totali.
+- I campi energetici già introdotti (`caloriesDeficit`, `caloriesReplenishedPercent`) restano invariati, usando i nuovi totali per il bilancio.
+
+### Stati & Edge Cases
+| Scenario | Delta Calcolato | Flag Result |
+|----------|-----------------|-------------|
+| Primo snapshot giornata | stepsDelta=steps, caloriesOutDelta=caloriesOut | accepted=true, reset=false |
+| Incremento normale | differenza positiva vs precedente | accepted=true |
+| Snapshot identico | 0 & 0 | duplicate=true, accepted=false |
+| Reset (contatori più bassi) | delta = nuovi valori | reset=true, accepted=true |
+| Idempotency conflict (chiave diversa payload) | nessun delta nuovo | idempotencyConflict=true, accepted=false |
+
+### Motivazione Esclusione `hrAvgSession` dalla Firma
+L’average HR di sessione può subire micro‑ricalcoli retroattivi; mantenerlo fuori dalla signature evita conflitti spurii preservando idempotenza basata sui contatori monotoni principali.
+
+### Migrazione & Versioning
+Questa modifica cambia la fonte dei totali attività: classificata come MINOR → prevista release `0.5.0`.
+Steps futuri:
+1. Implementazione repository in‑memory (`HealthTotalsRepository`).
+2. Mutation + queries + adattamento resolver `dailySummary`.
+3. Test integrazione (delta chain, reset, duplicate, conflict, dailySummary). 
+4. Aggiornamento schema + mirror + changelog (sezione Added + Changed). 
+5. Release minor dopo verifica backward compatibility lato client.
+
+### Backward Compatibility
+I client che non chiamano `syncHealthTotals` vedranno `activitySteps` e `activityCaloriesOut` a 0 (non più riempiti da minute events) → requisito: aggiornare app a inviare snapshot entro rollout. Periodo di transizione consigliato: gating feature flag temporaneo lato server (non pianificato per MVP interno).
+
+### Esempio Flusso Client
+1. Ottieni snapshot attuale da HealthKit (steps=4200, caloriesOut=310.5) → chiama `syncHealthTotals` (delta=4200 / 310.5).
+2. Dopo 10 minuti: nuovo snapshot (steps=4700, caloriesOut=323.1) → delta=500 / 12.6.
+3. Reset giorno seguente (steps=350, caloriesOut=5.2) → delta=350 / 5.2 con `reset=true`.
+
+---
+````markdown
 ## 📚 Indice Rapido
 
 1. [Componenti del Monorepo](#-componenti-del-monorepo)
