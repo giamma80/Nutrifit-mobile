@@ -7,6 +7,22 @@ Formato ispirato a [Keep a Changelog](https://keepachangelog.com/it-IT/1.1.0/) e
 ## [Unreleased]
 
 ### Added
+- add energy deficit & replenished percent docs and schema
+- auto deterministic idempotencyKey + expose idempotencyKeyUsed
+
+### Tests
+- adjust auto idempotency changed-payload expectation
+- correct expectations for auto idempotency changed batch
+- fix surplus clamp test and restore file integrity
+- normalize surplus test formatting before release
+
+### Chore
+- remove duplicate dailySummary tests and fix lint W391
+
+## [0.4.1] - 2025-09-26
+
+
+### Added
 - ingestActivityEvents mutation + dailySummary activity metrics (#B3)
 - optional auto-generated deterministic idempotencyKey for ingestActivityEvents (returns idempotencyKeyUsed)
 
