@@ -276,8 +276,12 @@ async def test_activity_ingest_auto_idempotency_key() -> None:
         assert d2["accepted"] == 2 and d2["duplicates"] == 0
         assert d2["idempotencyKeyUsed"] == auto_key
         # Third call: changed payload -> different signature -> new auto key
-        r3 = await ac.post("/graphql", json={"query": mutation_changed})
-        d3 = r3.json()["data"]["ingestActivityEvents"]
-        assert d3["accepted"] == 2 and d3["duplicates"] == 0
-        assert d3["idempotencyKeyUsed"].startswith("auto-")
-        assert d3["idempotencyKeyUsed"] != auto_key
+    r3 = await ac.post("/graphql", json={"query": mutation_changed})
+    d3 = r3.json()["data"]["ingestActivityEvents"]
+    # First event conflicts (different steps same minute) -> rejected reason
+    assert d3["accepted"] == 0
+    assert d3["duplicates"] == 1
+    reasons = [r["reason"] for r in d3["rejected"]]
+    assert "CONFLICT_DIFFERENT_DATA" in reasons
+    assert d3["idempotencyKeyUsed"].startswith("auto-")
+    assert d3["idempotencyKeyUsed"] != auto_key
