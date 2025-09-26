@@ -129,6 +129,12 @@ type Mutation {
 
   """Sincronizza snapshot cumulativi attività"""
   syncHealthTotals(input: HealthTotalsInput!, idempotencyKey: String = null, userId: String = null): SyncHealthTotalsResult!
+
+  """Analizza una foto di un pasto (stub AI Fase 0: risposta deterministica)"""
+  analyzeMealPhoto(input: AnalyzeMealPhotoInput!): MealPhotoAnalysis!
+
+  """Conferma elementi analisi foto e crea MealEntry corrispondenti"""
+  confirmMealPhoto(input: ConfirmMealPhotoInput!): ConfirmMealPhotoResult!
 }
 
 type Product {
@@ -190,4 +196,53 @@ input UpdateMealInput {
   timestamp: String = null
   barcode: String = null
   userId: String = null
+}
+
+"""Stato elaborazione analisi foto pasto"""
+enum MealPhotoAnalysisStatus {
+  PENDING
+  COMPLETED
+  FAILED
+}
+
+type MealPhotoItemPrediction {
+  label: String!
+  confidence: Float!
+  quantityG: Float
+  calories: Int
+  protein: Float
+  carbs: Float
+  fat: Float
+  fiber: Float
+  sugar: Float
+  sodium: Float
+}
+
+type MealPhotoAnalysis {
+  id: String!
+  userId: String!
+  status: MealPhotoAnalysisStatus!
+  createdAt: String!
+  items: [MealPhotoItemPrediction!]!
+  rawJson: String
+  idempotencyKeyUsed: String
+}
+
+input AnalyzeMealPhotoInput {
+  photoId: String = null
+  photoUrl: String = null
+  userId: String = null
+  idempotencyKey: String = null
+}
+
+input ConfirmMealPhotoInput {
+  analysisId: String!
+  acceptedIndexes: [Int!]!
+  userId: String = null
+  idempotencyKey: String = null
+}
+
+type ConfirmMealPhotoResult {
+  analysisId: String!
+  createdMeals: [MealEntry!]!
 }
