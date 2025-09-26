@@ -17,6 +17,7 @@ from typing import (
     Mapping,
     cast,
 )
+from enum import Enum
 from strawberry.types import Info
 from graphql import GraphQLError
 
@@ -189,7 +190,7 @@ class SyncHealthTotalsResult:
 
 
 @strawberry.enum
-class MealPhotoAnalysisStatus(str):
+class MealPhotoAnalysisStatus(Enum):
     PENDING = "PENDING"
     COMPLETED = "COMPLETED"
     FAILED = "FAILED"
