@@ -9,6 +9,14 @@ Formato ispirato a [Keep a Changelog](https://keepachangelog.com/it-IT/1.1.0/) e
 ### Added
 - add energy deficit & replenished percent docs and schema
 - auto deterministic idempotencyKey + expose idempotencyKeyUsed
+- syncHealthTotals mutation (cumulative activity snapshot ingest)
+- activityEntries & syncEntries diagnostic queries
+
+### Changed
+- dailySummary activitySteps/activityCaloriesOut ora derivati da delta cumulativi health totals (non più da minute events aggregati)
+
+### Upcoming (0.5.0 target)
+- Bump minor previsto a 0.5.0 per cambio fonte dati activity nel dailySummary (semantica diversa ma compatibile a monte). Nessuna release effettuata finché non richiesto.
 
 ### Tests
 - adjust auto idempotency changed-payload expectation

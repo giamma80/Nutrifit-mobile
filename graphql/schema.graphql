@@ -12,6 +12,15 @@ Workflow aggiornamento:
 Modifiche manuali devono essere replicate nel mirror prima del commit.
 Qualsiasi ricomparsa di backend/backend/graphql/schema.graphql è un errore e va rimossa.
 """
+type ActivityEvent {
+  userId: String!
+  ts: String!
+  steps: Int
+  caloriesOut: Float
+  hrAvg: Float
+  source: ActivitySource!
+}
+
 input ActivityMinuteInput {
   ts: String!
   steps: Int = 0
@@ -48,6 +57,27 @@ type DailySummary {
   activityEvents: Int!
   caloriesDeficit: Int!
   caloriesReplenishedPercent: Int!
+}
+
+type HealthTotalsDelta {
+  id: String!
+  userId: String!
+  date: String!
+  timestamp: String!
+  stepsDelta: Int!
+  caloriesOutDelta: Float!
+  stepsTotal: Int!
+  caloriesOutTotal: Float!
+  hrAvgSession: Float
+}
+
+input HealthTotalsInput {
+  timestamp: String!
+  date: String!
+  steps: Int!
+  caloriesOut: Float!
+  hrAvgSession: Float = null
+  userId: String = null
 }
 
 type IngestActivityResult {
@@ -96,6 +126,9 @@ type Mutation {
 
   """Ingest batch minute activity events (idempotent)"""
   ingestActivityEvents(input: [ActivityMinuteInput!]!, idempotencyKey: String = null, userId: String = null): IngestActivityResult!
+
+  """Sincronizza snapshot cumulativi attività"""
+  syncHealthTotals(input: HealthTotalsInput!, idempotencyKey: String = null, userId: String = null): SyncHealthTotalsResult!
 }
 
 type Product {
@@ -126,6 +159,12 @@ type Query {
   """Riepilogo nutrienti per giorno (UTC)"""
   dailySummary(date: String!, userId: String = null): DailySummary!
 
+  """Lista eventi activity minuto (diagnostica)"""
+  activityEntries(limit: Int! = 100, after: String = null, before: String = null, userId: String = null): [ActivityEvent!]!
+
+  """Lista delta sync health totals per giorno"""
+  syncEntries(date: String!, userId: String = null, after: String = null, limit: Int! = 200): [HealthTotalsDelta!]!
+
   """Statistiche cache prodotto"""
   cacheStats: CacheStats!
 }
@@ -133,6 +172,15 @@ type Query {
 type RejectedActivityEvent {
   index: Int!
   reason: String!
+}
+
+type SyncHealthTotalsResult {
+  accepted: Boolean!
+  duplicate: Boolean!
+  reset: Boolean!
+  idempotencyKeyUsed: String
+  idempotencyConflict: Boolean!
+  delta: HealthTotalsDelta
 }
 
 input UpdateMealInput {

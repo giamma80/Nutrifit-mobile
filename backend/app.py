@@ -28,6 +28,7 @@ from repository.activities import (
     ActivityEventRecord as _ActivityEventRecord,
     ActivitySource as _RepoActivitySource,
 )  # NEW
+from repository.health_totals import health_totals_repo  # NEW
 import hashlib as _hashlib  # NEW
 import json as _json  # NEW
 from nutrients import NUTRIENT_FIELDS
@@ -136,6 +137,8 @@ class ActivityEvent:
     steps: Optional[int] = None
     calories_out: Optional[float] = None
     hr_avg: Optional[float] = None
+    # Default diretto enum (evita strawberry.enum_value)
+    # e potenziali warning su default mutabile
     source: ActivitySource = ActivitySource.MANUAL
 
 
@@ -153,6 +156,44 @@ class IngestActivityResult:
     duplicates: int
     rejected: List[RejectedActivityEvent]
     idempotency_key_used: Optional[str] = None
+
+
+# ----------------- Health Totals Sync (B4) -----------------
+
+
+@strawberry.type
+@dataclasses.dataclass
+class HealthTotalsDelta:
+    id: str
+    user_id: str
+    date: str
+    timestamp: str
+    steps_delta: int
+    calories_out_delta: float
+    steps_total: int
+    calories_out_total: float
+    hr_avg_session: Optional[float] = None
+
+
+@strawberry.type
+@dataclasses.dataclass
+class SyncHealthTotalsResult:
+    accepted: bool
+    duplicate: bool
+    reset: bool
+    idempotency_key_used: Optional[str]
+    idempotency_conflict: bool
+    delta: Optional[HealthTotalsDelta]
+
+
+@strawberry.input
+class HealthTotalsInput:
+    timestamp: str
+    date: str
+    steps: int
+    calories_out: float
+    hr_avg_session: Optional[float] = None
+    user_id: Optional[str] = None
 
 
 @strawberry.input
@@ -282,13 +323,14 @@ class Query:
             val = _acc(field)
             return round(val, 2)
 
-        # Activity stats: usiamo inizio giornata per get_daily_stats richiede datetime
-        # Passiamo date + "T00:00:00Z" (accetta iso). Se implementazione cambia, adattare.
+        # Nuova fonte totals: health_totals_repo (snapshot delta aggregation)
+        steps_tot, cal_out_tot = health_totals_repo.daily_totals(user_id=uid, date=date)
+        # Per diagnosi manteniamo events_count dalle minute events
         act_stats = activity_repo.get_daily_stats(uid, date + "T00:00:00Z")
-        activity_calories_out = act_stats.get("total_calories_out", 0.0)
-        calories_deficit = int(round(activity_calories_out - calories_total))
-        if activity_calories_out > 0:
-            pct = (calories_total / activity_calories_out) * 100
+        events_count = act_stats.get("events_count", 0)
+        calories_deficit = int(round(cal_out_tot - calories_total))
+        if cal_out_tot > 0:
+            pct = (calories_total / cal_out_tot) * 100
             # Clamp per evitare valori esplosivi (retry / dati anomali)
             if pct < 0:
                 pct = 0
@@ -308,15 +350,58 @@ class Query:
             fiber=_opt("fiber"),
             sugar=_opt("sugar"),
             sodium=_opt("sodium"),
-            activity_steps=act_stats.get("total_steps", 0),
-            activity_calories_out=activity_calories_out,
-            activity_events=act_stats.get("events_count", 0),
+            activity_steps=steps_tot,
+            activity_calories_out=cal_out_tot,
+            activity_events=events_count,
             calories_deficit=calories_deficit,
             calories_replenished_percent=calories_replenished_percent,
         )
 
+    @strawberry.field(  # type: ignore[misc]
+        description="Lista eventi activity minuto (diagnostica)"
+    )
+    def activity_entries(
+        self,
+        info: Info[Any, Any],  # noqa: ARG002
+        limit: int = 100,
+        after: Optional[str] = None,
+        before: Optional[str] = None,
+        user_id: Optional[str] = None,
+    ) -> List[ActivityEvent]:
+        if limit <= 0:
+            limit = 100
+        if limit > 500:
+            limit = 500
+        uid = user_id or DEFAULT_USER_ID
+        events = activity_repo.list(
+            uid,
+            start_ts=after,
+            end_ts=before,
+            limit=limit,
+        )
+        return [ActivityEvent(**dataclasses.asdict(e)) for e in events]
+
+    @strawberry.field(description="Lista delta sync health totals per giorno")  # type: ignore[misc]
+    def sync_entries(
+        self,
+        info: Info[Any, Any],  # noqa: ARG002
+        date: str,
+        user_id: Optional[str] = None,
+        after: Optional[str] = None,
+        limit: int = 200,
+    ) -> List[HealthTotalsDelta]:
+        if limit <= 0:
+            limit = 50
+        if limit > 500:
+            limit = 500
+        uid = user_id or DEFAULT_USER_ID
+        records = health_totals_repo.list_deltas(
+            user_id=uid, date=date, after_ts=after, limit=limit
+        )
+        return [HealthTotalsDelta(**dataclasses.asdict(r)) for r in records]
+
     @strawberry.field(description="Statistiche cache prodotto")  # type: ignore[misc]
-    def cache_stats(self, info: Info[Any, Any]) -> "CacheStats":  # noqa: ARG002
+    def cache_stats(self, info: Info[Any, Any]) -> "CacheStats":  # noqa: ARG002,E501
         s = cache.stats()
         return CacheStats(
             keys=s["keys"],
@@ -560,6 +645,39 @@ class Mutation:
             duplicates=duplicates,
             rejected=[RejectedActivityEvent(index=i, reason=r) for i, r in rejected],
             idempotency_key_used=idempotency_key,
+        )
+
+    @strawberry.mutation(  # type: ignore[misc]
+        description="Sincronizza snapshot cumulativi attività"
+    )
+    def sync_health_totals(
+        self,
+        info: Info[Any, Any],  # noqa: ARG002
+        input: HealthTotalsInput,
+        idempotency_key: Optional[str] = None,
+        user_id: Optional[str] = None,
+    ) -> SyncHealthTotalsResult:
+        uid = user_id or input.user_id or DEFAULT_USER_ID
+        res = health_totals_repo.record_snapshot(
+            user_id=uid,
+            date=input.date,
+            timestamp=input.timestamp,
+            steps=input.steps,
+            calories_out=input.calories_out,
+            hr_avg_session=input.hr_avg_session,
+            idempotency_key=idempotency_key,
+        )
+        delta_rec = res["delta_record"]
+        delta_obj = None
+        if delta_rec:
+            delta_obj = HealthTotalsDelta(**dataclasses.asdict(delta_rec))
+        return SyncHealthTotalsResult(
+            accepted=res["accepted"],
+            duplicate=res["duplicate"],
+            reset=res["reset"],
+            idempotency_key_used=res["idempotency_key_used"],
+            idempotency_conflict=res["idempotency_conflict"],
+            delta=delta_obj,
         )
 
 

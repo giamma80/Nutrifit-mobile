@@ -98,21 +98,22 @@ async def test_daily_summary_aggregation() -> None:
         )
         await ac.post("/graphql", json={"query": m1})
         await ac.post("/graphql", json={"query": m2})
-        ingest = _q(
+        # Impostiamo i totali activity tramite nuova mutation syncHealthTotals
+        sync = _q(
             """
             mutation {
-              ingestActivityEvents(
-                input:[
-                  { ts: \"2025-02-01T08:00:15Z\", steps: 50 }
-                  { ts: \"2025-02-01T08:00:45Z\", steps: 50 }
-                  { ts: \"2025-02-01T09:10:00Z\", caloriesOut: 3.2 }
-                ]
-                idempotencyKey: \"k1\"
-              ) { accepted duplicates rejected { index reason } }
+                syncHealthTotals(
+                    input:{
+                        timestamp: \"2025-02-01T09:15:00Z\"
+                        date: \"2025-02-01\"
+                        steps: 50
+                        caloriesOut: 3.2
+                    }
+                ) { accepted duplicate reset }
             }
             """
         )
-        await ac.post("/graphql", json={"query": ingest})
+        await ac.post("/graphql", json={"query": sync})
         query = _q(
             """
             { dailySummary(date: \"2025-02-01\") {
@@ -132,7 +133,9 @@ async def test_daily_summary_aggregation() -> None:
     assert isinstance(ds["calories"], int)
     assert ds["activitySteps"] == 50
     assert ds["activityCaloriesOut"] == 3.2
-    assert ds["activityEvents"] == 2
+    # Con la nuova fonte i totali provengono da syncHealthTotals; non abbiamo
+    # inserito minute events quindi gli eventi risultano 0.
+    assert ds["activityEvents"] == 0
     assert isinstance(ds["caloriesDeficit"], int)
     assert isinstance(ds["caloriesReplenishedPercent"], int)
 
@@ -170,29 +173,38 @@ async def test_daily_summary_user_isolation() -> None:
         )
         await ac.post("/graphql", json={"query": m1})
         await ac.post("/graphql", json={"query": m2})
-        ingest_def = _q(
+        # Impostiamo snapshot distinti per due utenti
+        sync_def = _q(
             """
             mutation {
-                ingestActivityEvents(
-                    input:[{ ts: \"2025-03-01T10:00:00Z\", steps:10 }]
-                    idempotencyKey: \"kk1\"
+                syncHealthTotals(
+                    input:{
+                        timestamp: \"2025-03-01T10:10:00Z\"
+                        date: \"2025-03-01\"
+                        steps: 10
+                        caloriesOut: 1.0
+                    }
                 ) { accepted }
             }
             """
         )
-        ingest_u2 = _q(
+        sync_u2 = _q(
             """
             mutation {
-                ingestActivityEvents(
+                syncHealthTotals(
                     userId: \"u2\"
-                    input:[{ ts: \"2025-03-01T11:05:00Z\", steps:5 }]
-                    idempotencyKey: \"kk2\"
+                    input:{
+                        timestamp: \"2025-03-01T11:10:00Z\"
+                        date: \"2025-03-01\"
+                        steps: 5
+                        caloriesOut: 0.5
+                    }
                 ) { accepted }
             }
             """
         )
-        await ac.post("/graphql", json={"query": ingest_def})
-        await ac.post("/graphql", json={"query": ingest_u2})
+        await ac.post("/graphql", json={"query": sync_def})
+        await ac.post("/graphql", json={"query": sync_u2})
         q_default = _q(
             """
             { dailySummary(date: \"2025-03-01\") {
@@ -245,17 +257,21 @@ async def test_daily_summary_surplus_and_clamp() -> None:
     )
     cache.set("product:SURPLUS1", synthetic, 600)
     async with AsyncClient(app=app, base_url="http://test") as ac:
-        ingest = _q(
+        sync = _q(
             """
             mutation {
-                ingestActivityEvents(
-                    input:[{ ts: \"2025-04-01T07:00:00Z\", caloriesOut: 2.0 }]
-                    idempotencyKey: \"act-low\"
+                syncHealthTotals(
+                    input:{
+                        timestamp: \"2025-04-01T07:05:00Z\"
+                        date: \"2025-04-01\"
+                        steps: 0
+                        caloriesOut: 2.0
+                    }
                 ) { accepted }
             }
             """
         )
-        await ac.post("/graphql", json={"query": ingest})
+        await ac.post("/graphql", json={"query": sync})
         meal = _q(
             """
             mutation {
