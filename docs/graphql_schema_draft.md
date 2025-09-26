@@ -3,13 +3,12 @@
 Versione: 0.1 (Draft evolutivo)
 Ultimo aggiornamento: 2025-09-24
 
-<!-- AGGIUNTA: Sezione anticipazione syncHealthTotals (minor 0.5.0) -->
-> Nota (design approvato – non ancora runtime): la prossima minor introdurrà `syncHealthTotals` come fonte primaria dei totali attività. Le minute events ingerite via `ingestActivityEvents` rimarranno per analisi granulare ma non alimenteranno più i totali `dailySummary`.
+> Nota: `syncHealthTotals` è ora implementata ed è la fonte primaria dei totali attività per `dailySummary`; le minute events restano per analisi granulare / diagnostica.
 
 ## Stato Runtime Attuale (Slice Implementato)
 Al momento il backend espone un sottoinsieme ampliato del draft completo:
 
-Implemented oggi (runtime slice):
+Implemented oggi (runtime slice aggiornato):
 ```
 type Query {
   product(barcode: String!): Product
@@ -20,9 +19,10 @@ type Query {
 
 type Mutation {
   logMeal(input: LogMealInput!): MealEntry!
-  updateMeal(id: ID!, input: LogMealInput!): MealEntry!        # placeholder (non ancora implementato runtime)
-  deleteMeal(id: ID!): DeleteMealResult!                       # placeholder (non ancora implementato runtime)
+  updateMeal(id: ID!, input: LogMealInput!): MealEntry!
+  deleteMeal(id: ID!): DeleteMealResult!
   ingestActivityEvents(input: [ActivityMinuteInput!]!, idempotencyKey: ID, userId: ID): IngestActivityResult!
+  syncHealthTotals(input: HealthTotalsInput!, idempotencyKey: ID, userId: ID): SyncHealthTotalsResult!
 }
 
 type MealEntry { id: ID! name: String! quantityG: Int! timestamp: DateTime! userId: ID! }
@@ -55,10 +55,10 @@ enum ActivitySource { APPLE_HEALTH GOOGLE_FIT MANUAL }
 
 Differenze principali vs draft:
 - Nessun connection pattern per `mealEntries` (lista semplice + filtri base).
-- `dailySummary` ora include anche bilancio energetico (deficit & percentuale reintegro) e metriche attività aggregate ma resta privo di target giornalieri / forecast.
+- `dailySummary` include bilancio energetico (deficit & percentuale reintegro) e metriche attività aggregate derivate dai delta health totals; resta privo di target giornalieri / forecast.
 - Assenti tutte le query recommendation / trend / energyBalance avanzata.
-- Ingestion attività implementata solo come batch minute → no timeline query granulari.
-- CRUD esteso (update/delete) pianificato ma non ancora attivo runtime (placeholder nello slice sopra indicato).
+- Attività: minute ingestion + sync snapshot (totali derivati da quest'ultima); no timeline query granulare.
+- CRUD esteso (update/delete) implementato.
 - Cache observability: `cacheStats` per monitoring diagnostico.
 - Nutrient constants: centralizzati in `nutrients.py` per coerenza.
 
@@ -139,46 +139,13 @@ type MealEntryEdge { node: MealEntry cursor: String! }
 - `qualityScore` rimane null fino a milestone B5.
 - Il bilancio energetico (runtime: `caloriesDeficit` / `caloriesReplenishedPercent`) verrà evoluto in `DailyIntakeSummary` come `energyDeficitKcal` e `energyReplenishedPct` con possibili campi extra (target, forecast) in milestone C.
 
-## Estensione Pianificata Attività (Draft Additivo)
+## Estensione Attività (Implementata)
 ```graphql
-extend type Mutation {
-  syncHealthTotals(input: HealthTotalsInput!, idempotencyKey: ID): SyncHealthTotalsResult!
-}
-
-input HealthTotalsInput {
-  timestamp: DateTime!
-  date: Date!
-  steps: Int!
-  caloriesOut: Float!
-  hrAvgSession: Float
-  userId: ID
-}
-
-type SyncHealthTotalsResult {
-  accepted: Boolean!
-  duplicate: Boolean!
-  reset: Boolean!
-  idempotencyKeyUsed: ID!
-  idempotencyConflict: Boolean!
-  delta: HealthTotalsDelta
-}
-
-type HealthTotalsDelta {
-  id: ID!
-  date: Date!
-  timestamp: DateTime!
-  stepsDelta: Int!
-  caloriesOutDelta: Float!
-  stepsTotal: Int!
-  caloriesOutTotal: Float!
-  hrAvgSession: Float
-  userId: ID!
-}
-
-extend type Query {
-  activityEntries(after: String, before: String, limit: Int=100, userId: ID): [ActivityEntry!]!
-  syncEntries(date: Date!, after: String, limit: Int=200, userId: ID): [HealthTotalsDelta!]!
-}
+input HealthTotalsInput { timestamp: DateTime! date: Date! steps: Int! caloriesOut: Float! hrAvgSession: Float userId: ID }
+type SyncHealthTotalsResult { accepted: Boolean! duplicate: Boolean! reset: Boolean! idempotencyKeyUsed: ID! idempotencyConflict: Boolean! delta: HealthTotalsDelta }
+type HealthTotalsDelta { id: ID! date: Date! timestamp: DateTime! stepsDelta: Int! caloriesOutDelta: Float! stepsTotal: Int! caloriesOutTotal: Float! hrAvgSession: Float userId: ID! }
+extend type Query { activityEntries(after: String, before: String, limit: Int=100, userId: ID): [ActivityEntry!]! syncEntries(date: Date!, after: String, limit: Int=200, userId: ID): [HealthTotalsDelta!]! }
+extend type Mutation { syncHealthTotals(input: HealthTotalsInput!, idempotencyKey: ID): SyncHealthTotalsResult! }
 ```
 
 ### Semantica

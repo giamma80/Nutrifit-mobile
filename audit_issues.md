@@ -1,39 +1,33 @@
-# Audit Issues
+## Audit Issues (Consolidated)
 
-Separazion| 13 | Low | High | Licenza: README vs pyproject | Badge/README "TBD" vs license Proprietary | Ambiguità legale / contributi | Definita licenza e uniformata doc | DONE | DOC |
-| 15 | Low | Medium | Nutrient keys hard‑coded | Lista nutrienti duplicata/dispersa | Errori se si estendono nutrienti | Centralizzare in costante/enum condivisa | DONE |  |
-| 16 | Low | Medium | `verify_schema_breaking.py` exit codes | Precedente sempre exit 0 | CI non reagiva | Exit code implementati (0 aligned/additive, 1 breaking/mixed/error) | DONE |  |
-| 18 | Low | Low | Assenza `CODEOWNERS` | Review ownership non formalizzata | Merge non revisionati | Aggiunto file CODEOWNERS | DONE | DOC |
-| 6 | High | Medium | Cache in-memory | Nessuna metrica hit/miss / dimensione | Difficile tuning & debug performance | Strumentare cache con counters + log / resolver diagnostico | DONE |  |
-| 19 | Medium | High | CRUD incompleto | Solo logMeal disponibile, mancano update/delete | Gestione errori utente limitata | Aggiunte mutation updateMeal e deleteMeal con ricalcolo nutrienti | DONE |  |
-| 20 | Medium | Medium | Repository pattern limitato | InMemoryMealRepository solo add/list | Estensioni future difficili | Esteso con get/update/delete + test completi | DONE |  |
-| 21 | Low | Medium | Docker deploy nutrients.py | ModuleNotFoundError in produzione | Deploy fallito | Aggiunto nutrients.py al COPY nel Dockerfile | DONE |  |ra problemi APERTI (TODO/WIP) e COMPLETATI (DONE) per chiarezza operativa.
-
-## Open Issues
+Questo file sostituisce `ussues.md` (rimandare qui e rimuovere duplicazioni). Struttura tabellare unica per tracciamento stato.
 
 | ID | Severity | Confidence | Scope / Files | Description | Impact | Remediation | Status | Tags |
 |----|----------|------------|---------------|-------------|--------|------------|--------|------|
-| 5 | High | Medium | CI tooling assente | Mancano scans vulnerabilità | Rischio vulnerabilità non gestite | Aggiungere step security scan (Trivy / pip-audit) | TODO |  |
-| 7 | Medium | High | `mobile/`, `web/`, root `pubspec.yaml` | Scaffolding frontend assente / manifest fuori posto | Onboarding confuso, CI parziale | Creare progetti reali e spostare manifest nei path corretti | TODO |  |
-| 11 | Medium | Medium | `sync_schema_from_backend.sh` | Script introspection placeholder, copia file senza validazione | Percezione falsa di sync attivo | Semplificare: rimuovere introspection fittizia o usare export formale | TODO |  |
-| 14 | Low | Medium | `backend/cache.py` test coverage | TTL/expiry non testati direttamente | Regressioni TTL non rilevate | Aggiungere test su expirazione e purge | TODO |  |
-| 17 | Low | Medium | `mobile-ci.yml` path filter | Filtra `lib/**` root (in futuro non corretto) | CI non scatta dopo scaffold mobile | Aggiornare pattern a `mobile/lib/**` + `mobile/pubspec.yaml` | TODO |  |
+| 1 | Critical | High | backend/app.py, docs | `logMeal` non esponeva `idempotencyKey` | Idempotenza fragile / duplicati | Aggiunta chiave + doc aggiornata | DONE | DOC |
+| 2 | Critical | High | workflows backend-* | Workflow placeholder vuoti | Copertura CI falsa | Popolati pipeline minime | DONE |  |
+| 3 | High | High | README badge vs pyproject | Version mismatch | Confusione versioni | Sincronizzazione badge automatica | DONE | DOC |
+| 4 | High | High | verify_schema_breaking.py | Diff non semantico | Breaking non rilevati | AST diff + exit codes | DONE |  |
+| 5 | High | Medium | CI security | Nessun vulnerability scan | Rischio CVE latenti | Integrare Trivy + pip-audit | TODO | SEC |
+| 6 | High | Medium | cache.py | Nessuna metrica iniziale | Difficile tuning | Aggiunta stats + resolver cacheStats | DONE |  |
+| 7 | Medium | High | mobile/, web/ | Mancato scaffolding | Onboarding lento | Creare scaffold reali | TODO |  |
+| 8 | Medium | High | backend_architecture_plan.md | Doc pipeline non allineata | Governance confusa | Allineata doc | DONE | DOC |
+| 9 | Medium | Medium | Schema runtime | Mancanza nutrientSnapshotJson | Refactor futuro oneroso | Campo opzionale introdotto | DONE | DOC |
+| 10 | Medium | Medium | Idempotency derivata | Timestamp nella firma | Duplicati potenziali | Escluso timestamp server | DONE |  |
+| 11 | Medium | Medium | sync_schema_from_backend.sh | Script placeholder | Falsa percezione sync | Rimuovere o sostituire con schema-sync | TODO |  |
+| 12 | Medium | Medium | Badge schema status | Statico non validato | Drift invisibile | Hash + check workflow | DONE | DOC |
+| 13 | Low | High | Licenza | Incongruenza README/pyproject | Ambiguità legale | Uniformata licenza Proprietary | DONE | DOC |
+| 14 | Low | Medium | cache TTL tests | Expiry non testato | Regressioni TTL invisibili | Aggiungere test scadenze | TODO | TEST |
+| 15 | Low | Medium | Nutrient keys | Hard-coded duplicati | Incoerenze estensioni | Centralizzate in constants | DONE |  |
+| 16 | Low | Medium | exit codes diff | exit sempre 0 | CI non reagiva | Exit codes implementati | DONE |  |
+| 17 | Low | Medium | mobile-ci.yml pattern | Filtri generici root | CI skip dopo scaffold | Aggiornare pattern path | TODO | CI |
+| 18 | Low | Low | CODEOWNERS assente | Ownership informale | Review mancanti | Aggiunto CODEOWNERS | DONE | DOC |
+| 19 | Medium | High | CRUD pasti | Mancavano update/delete | Funzioni incomplete | Aggiunte mutation CRUD | DONE |  |
+| 20 | Medium | Medium | Meal repo pattern | Solo add/list | Estensione complessa | Estesi metodi + test | DONE |  |
+| 21 | Low | Medium | Dockerfile copy nutrients.py | File escluso build | Errore runtime | Aggiunto al COPY | DONE |  |
+| 22 | Medium | High | Attività totalizzazione | Totali da minute events | Drift / incompletezza | Introdotto syncHealthTotals delta source | DONE | ARCH |
+| 23 | Medium | Medium | Idempotency conflitti attività | Approccio differenziato ingest vs sync | Incoerenza flag | Unificata semantica flag (duplicate/conflict/reset) | DONE | ARCH |
 
-## Completed Issues
+Legenda Tags: DOC=documentazione, SEC=sicurezza, ARCH=architettura, TEST=test coverage, CI=continuous integration.
 
-| ID | Severity | Confidence | Scope / Files | Description | Impact | Remediation | Status | Tags |
-|----|----------|------------|---------------|-------------|--------|------------|--------|------|
-| 1 | Critical | High | `backend/app.py`, docs divergenza | `logMeal` non espone `idempotencyKey` come da piani | Idempotenza fragile futura (dupliche dopo persistenza) | Aggiunto argomento `idempotencyKey` + aggiornate doc contratto | DONE | DOC |
-| 2 | Critical | High | Empty workflows (`backend-*`) | Workflow placeholder vuoti danno falsa copertura | Controlli di release potenzialmente mancanti | Popolati placeholder minimi (preflight/changelog/release/schema-status) | DONE |  |
-| 3 | High | High | `README.md` badge vs `pyproject.toml` | Version badge 0.1.4 ≠ codice 0.2.0 | Confusione versioni, changelog incoerente | Sincronizzato badge (script CI o update manuale) | DONE | DOC |
-| 4 | High | High | `verify_schema_breaking.py`, `schema-diff.yml` | Diff schema solo testuale ora semantica (campi, enum, union, deprecazioni) | Prima breaking non rilevati | Implementato AST diff + classificazione + workflow che fallisce su breaking/mixed | DONE |  |
-| 8 | Medium | High | `docs/backend_architecture_plan.md`, pipeline reali | Documentazione pipeline non allineata | Onboarding e governance poco chiari | Aggiornata doc o pipeline coerenti | DONE | DOC |
-| 9 | Medium | Medium | Schema futuro vs attuale | Campo `nutrientSnapshotJson` previsto ma assente | Refactor più oneroso futuro | Aggiunto campo opzionale snapshot + doc aggiornate | DONE | DOC |
-| 10 | Medium | Medium | Idempotency derivata (timestamp) | Chiave include timestamp server → retry differente | Duplicazioni potenziali post‑DB | Passato a chiave fornita dal client | DONE |  |
-| 12 | Medium | Medium | Badge schema status (`README.md`) | Badge statico “synced” non validato | Drift di schema non visibile | Automazione hash (`schema_hash.sh`) + aggiornamento badge CI | DONE | DOC |
-| 13 | Low | High | Licenza: README vs pyproject | Badge/README “TBD” vs license Proprietary | Ambiguità legale / contributi | Definita licenza e uniformata doc | DONE | DOC |
-| 16 | Low | Medium | `verify_schema_breaking.py` exit codes | Precedente sempre exit 0 | CI non reagiva | Exit code implementati (0 aligned/additive, 1 breaking/mixed/error) | DONE |  |
-| 18 | Low | Low | Assenza `CODEOWNERS` | Review ownership non formalizzata | Merge non revisionati | Aggiunto file CODEOWNERS | DONE | DOC |
-
----
-Aggiorna questa lista quando cambia lo stato di un issue. Preferire PR che aggiornano contestualmente questa tabella.
+Indicazioni aggiornamento: ogni PR che chiude o crea un finding aggiorna questa tabella nello stesso commit.

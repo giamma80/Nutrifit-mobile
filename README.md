@@ -11,8 +11,8 @@
 <img src="https://img.shields.io/badge/flutter-ready-blue" alt="Flutter" />
 <img src="https://img.shields.io/badge/graphql-modular-purple" alt="GraphQL" />
 <img src="https://img.shields.io/badge/ai-food%20vision-orange" alt="AI" />
-<img src="https://img.shields.io/badge/license-TBD-lightgrey" alt="License" />
- <img src="https://img.shields.io/badge/backend_version-0.2.8-green" alt="Backend Version" />
+<img src="https://img.shields.io/badge/license-Proprietary-lightgrey" alt="License" />
+ <img src="https://img.shields.io/badge/backend_version-0.4.2-green" alt="Backend Version" />
  <img src="https://img.shields.io/badge/schema_status-synced-brightgreen" alt="Schema Status" />
 <a href="https://github.com/giamma80/Nutrifit-mobile/actions/workflows/backend-ci.yml"><img src="https://github.com/giamma80/Nutrifit-mobile/actions/workflows/backend-ci.yml/badge.svg" alt="Backend CI" /></a>
 <a href="https://github.com/giamma80/Nutrifit-mobile/actions/workflows/mobile-ci.yml"><img src="https://img.shields.io/badge/mobile_ci-pending-lightgrey" alt="Mobile CI (stub)" /></a>
@@ -20,8 +20,8 @@
 
 > **Nutrifit** è una piattaforma end-to-end per nutrizione intelligente e fitness: un backend GraphQL centralizzato (backend‑centric) che astrae sorgenti esterne (OpenFoodFacts oggi, Robotoff/AI domani) servendo app Mobile Flutter e un Web Sandbox di validazione, con pipeline AI e automazione nutrizionale coerenti.
 
-## ⚠️ Anteprima Evoluzione Attività (Prossima Minor 0.5.0)
-Questa sezione documenta in anticipo (design approvato, NON ancora live a runtime) l’introduzione della mutation `syncHealthTotals` che diventerà la fonte primaria delle metriche attività per `dailySummary`, sostituendo le aggregazioni derivate da `ingestActivityEvents`.
+## 🔄 Activity Sync (Health Totals)
+La mutation `syncHealthTotals` è ora implementata (in sviluppo su main) ed è la fonte primaria dei totali attività per `dailySummary`, sostituendo le aggregazioni dirette delle minute events. La release minor che consoliderà ufficialmente il cambio fonte è pianificata come `0.5.0`.
 
 Motivazione:
 - I provider salute (Apple Health / Google Fit) espongono snapshot cumulativi giornalieri robusti.
@@ -36,7 +36,7 @@ Motivazione:
 | Reset | Rilevato quando un contatore cumulativo torna a un valore minore del precedente (es. rollover giorno / clear device). Nel reset il delta = snapshot (come primo evento). |
 | Idempotenza | Signature costruita su (date, steps, caloriesOut, userId) – hrAvgSession escluso; snapshot identico ripetuto → `duplicate=true`. Signature diversa con stessa chiave → `idempotencyConflict=true` nel payload. |
 
-### API Pianificate (Draft SDL Additivo)
+### API Principali
 ```graphql
 extend type Mutation {
   syncHealthTotals(input: HealthTotalsInput!, idempotencyKey: ID): SyncHealthTotalsResult!
@@ -81,7 +81,7 @@ extend type Query {
 type ActivityEntry { ts: DateTime!, steps: Int!, caloriesOut: Float, hrAvg: Float, source: ActivitySource! }
 ```
 
-### Comportamento `dailySummary` (Post-Migrazione)
+### Comportamento `dailySummary` (Attuale)
 - `activitySteps` = somma `stepsDelta` del giorno.
 - `activityCaloriesOut` = somma `caloriesOutDelta` del giorno.
 - `activityEvents` continuerà a contare le minute events (`ingestActivityEvents`) per diagnosi, ma NON influenzerà i totali.
@@ -99,8 +99,8 @@ type ActivityEntry { ts: DateTime!, steps: Int!, caloriesOut: Float, hrAvg: Floa
 ### Motivazione Esclusione `hrAvgSession` dalla Firma
 L’average HR di sessione può subire micro‑ricalcoli retroattivi; mantenerlo fuori dalla signature evita conflitti spurii preservando idempotenza basata sui contatori monotoni principali.
 
-### Migrazione & Versioning
-Questa modifica cambia la fonte dei totali attività: classificata come MINOR → prevista release `0.5.0`.
+### Versioning
+Il cambio fonte è classificato MINOR: sarà incluso nella release `0.5.0`. Fino al tag ufficiale eventuali client legacy che non inviano snapshot vedranno `activitySteps` e `activityCaloriesOut` = 0.
 Steps futuri:
 1. Implementazione repository in‑memory (`HealthTotalsRepository`).
 2. Mutation + queries + adattamento resolver `dailySummary`.
@@ -274,6 +274,20 @@ AI       POC ███░░░░ (15%)   → Baseline → Autofill
 ```
 
 Dettagli granulari nelle rispettive roadmap dei documenti.
+
+### Roadmap Sintetica (Prossime Iniziative)
+| Area | Obiettivo | Stato |
+|------|-----------|-------|
+| Security | Integrare scans (Trivy container, pip-audit deps) | Planned |
+| Persistence | Portare MealEntry + HealthTotals su Postgres con snapshot immutabili | Planned |
+| Activity Timeline | Query `activityTimeline` da minute events + downsampling | Planned |
+| Recommendations | Engine trigger sugar/protein + storage `recommendations` | Planned |
+| Schema Governance | Diff semantico completo (additive/deprecation/breaking) + comment PR | In Progress |
+| Mobile Scaffold | Creare progetto Flutter reale + codegen schema | Planned |
+| Web Sandbox | Dashboard schema e query explorer con Apollo | Planned |
+| Cache Testing | Test TTL/expiry cache prodotto + metriche avanzate | Planned |
+| Nutrient Targets | Introduzione target dinamici in dailySummary | Planned |
+| Offline Sync | Strategia queue offline per meal log + health totals | Planned |
 
 ---
 

@@ -61,10 +61,7 @@ mutation deleteMeal($id: ID!) {
     deletedAt
     recalculatedStats {
       energyKcal
-      proteinG
-      carbsG
       fatG
-      fiberG
       sugarG
       sodiumMg
     }
@@ -90,7 +87,6 @@ type ProductBarcodeRef { barcode: String! }
 type ManualEntryRef { name: String!, nutrients: ManualNutrientsInput! }
 type AIInferenceRef { inferenceId: ID!, itemId: ID! }
 ```
-
 `ManualNutrientsInput` campi minimi: `energyKcal`, `proteinG`, `carbsG`, `fatG` (opzionali micronutrienti estensibili).
 
 ### 2.2 Idempotency Key

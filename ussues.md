@@ -1,4 +1,15 @@
-## Audit Issues Summary
+## Audit Issues (Deprecated File)
+
+Questo file è stato consolidato in `audit_issues.md` nella root del repository.
+
+Usare SOLO `audit_issues.md` per aggiornare o aggiungere nuovi finding.
+
+Motivo: eliminare duplicazioni e desync tra liste. Questo file rimane temporaneamente per compatibilità con link storici e verrà rimosso in una futura minor.
+
+Redirect manuale: vedere `audit_issues.md`.
+
+---
+Contenuto precedente rimosso.
 
 Legenda colonne:
 - ID: identificatore finding

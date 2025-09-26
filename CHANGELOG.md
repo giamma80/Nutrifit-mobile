@@ -9,6 +9,18 @@ Formato ispirato a [Keep a Changelog](https://keepachangelog.com/it-IT/1.1.0/) e
 ### Added
 - add syncHealthTotals mutation and activity delta queries
 
+### Docs
+- aggiornata sezione Activity Sync nel README root (fonte primaria dailySummary)
+- aggiornato backend README con endpoint delta + confronto ingest vs sync
+- aggiornato ingestion contract con snapshot syncHealthTotals e tabella confronto
+- aggiornato schema draft rimuovendo nota futura e marcando sync implementata
+- aggiornato architecture plan (milestone B3 completata + Health Totals Delta Layer)
+- consolidati audit issues (`audit_issues.md`) e deprecato `ussues.md`
+- aggiunta roadmap sintetica nel README root
+
+### Upcoming
+- Minor bump a 0.5.0 quando il cambio fonte activity (health totals) verrà rilasciato esternamente; attualmente in staging su main.
+
 ## [0.4.2] - 2025-09-26
 
 

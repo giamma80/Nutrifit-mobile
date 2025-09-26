@@ -15,25 +15,33 @@
     - `health`
     - `product(barcode: String!)`
     - `mealEntries(limit: Int = 20, after: String, before: String, userId: String): [MealEntry!]!`
-  - `dailySummary(date: String!, userId: String): DailySummary!`
+    - `dailySummary(date: String!, userId: String): DailySummary!`
+    - `activityEntries(limit: Int = 100, after: String, before: String, userId: String): [ActivityEvent!]!` (diagnostica minute events)
+    - `syncEntries(date: String!, userId: String, after: String, limit: Int = 200): [HealthTotalsDelta!]!` (delta health totals per giorno)
+    - `cacheStats: CacheStats!`
   - Mutation:
     - `logMeal(input: LogMealInput!): MealEntry!`
+    - `updateMeal(input: UpdateMealInput!): MealEntry!`
+    - `deleteMeal(id: String!): Boolean!`
+    - `ingestActivityEvents(input: [ActivityMinuteInput!]!, idempotencyKey: String, userId: String): IngestActivityResult!`
+    - `syncHealthTotals(input: HealthTotalsInput!, idempotencyKey: String, userId: String): SyncHealthTotalsResult!`
 
 ##   Tipi GraphQL Principali
 
 ```graphql
-# Estratto sintetico (schema runtime attuale)
+# Estratto sintetico (schema runtime attuale – vedere `backend/graphql/schema.graphql` per versione completa)
 
 type Product { barcode name brand category calories protein carbs fat fiber sugar sodium }
 
 type MealEntry {
   id: ID!
-  userId: String!      # Multi-tenant placeholder (attualmente default fisso "default")
+  userId: String!
   name: String!
   quantityG: Float!
   timestamp: String!
   barcode: String
   idempotencyKey: String
+  nutrientSnapshotJson: String
   calories: Int
   protein: Float
   carbs: Float
@@ -43,25 +51,34 @@ type MealEntry {
   sodium: Float
 }
 
-input LogMealInput {
-  name: String!
-  quantityG: Float!
-  timestamp: String
-  barcode: String
-  idempotencyKey: String
-  userId: String
+input LogMealInput { name: String! quantityG: Float! timestamp: String barcode: String idempotencyKey: String userId: String }
+input UpdateMealInput { id: String! name: String quantityG: Float timestamp: String barcode: String userId: String }
+
+type ActivityEvent { userId: String! ts: String! steps: Int caloriesOut: Float hrAvg: Float source: ActivitySource! }
+input ActivityMinuteInput { ts: String! steps: Int=0 caloriesOut: Float hrAvg: Float hrAvg: Float source: ActivitySource! = MANUAL }
+enum ActivitySource { APPLE_HEALTH GOOGLE_FIT MANUAL }
+
+input HealthTotalsInput { timestamp: String! date: String! steps: Int! caloriesOut: Float! hrAvgSession: Float userId: String }
+type HealthTotalsDelta {
+  id: String!
+  userId: String!
+  date: String!
+  timestamp: String!
+  stepsDelta: Int!
+  caloriesOutDelta: Float!
+  stepsTotal: Int!
+  caloriesOutTotal: Float!
+  hrAvgSession: Float
+}
+type SyncHealthTotalsResult {
+  accepted: Boolean!
+  duplicate: Boolean!
+  reset: Boolean!
+  idempotencyKeyUsed: String
+  idempotencyConflict: Boolean!
+  delta: HealthTotalsDelta
 }
 
-type Query {
-  # ... altri campi
-  mealEntries(limit: Int = 20, after: String, before: String, userId: String): [MealEntry!]!
-  dailySummary(date: String!, userId: String): DailySummary!
-}
-
-type Mutation {
-  """Log di un pasto con arricchimento nutrienti se barcode noto"""
-  logMeal(input: LogMealInput!): MealEntry!
-}
 type DailySummary {
   date: String!
   userId: String!
@@ -75,9 +92,26 @@ type DailySummary {
   sodium: Float
   activitySteps: Int!
   activityCaloriesOut: Float!
-  activityEvents: Int!
-  caloriesDeficit: Int!                 # activityCaloriesOut - calories (>=0 deficit, <0 surplus)
-  caloriesReplenishedPercent: Int!      # (calories / activityCaloriesOut * 100) arrotondato, clamp 0..999
+  activityEvents: Int!          # solo diagnostico (minute events ingestati)
+  caloriesDeficit: Int!
+  caloriesReplenishedPercent: Int!
+}
+
+type Query {
+  product(barcode: String!): Product
+  mealEntries(limit: Int=20, after: String, before: String, userId: String): [MealEntry!]!
+  dailySummary(date: String!, userId: String): DailySummary!
+  activityEntries(limit: Int=100, after: String, before: String, userId: String): [ActivityEvent!]!
+  syncEntries(date: String!, userId: String, after: String, limit: Int=200): [HealthTotalsDelta!]!
+  cacheStats: CacheStats!
+}
+
+type Mutation {
+  logMeal(input: LogMealInput!): MealEntry!
+  updateMeal(input: UpdateMealInput!): MealEntry!
+  deleteMeal(id: String!): Boolean!
+  ingestActivityEvents(input: [ActivityMinuteInput!]!, idempotencyKey: String, userId: String): IngestActivityResult!
+  syncHealthTotals(input: HealthTotalsInput!, idempotencyKey: String, userId: String): SyncHealthTotalsResult!
 }
 ```
 
@@ -184,7 +218,33 @@ lower(name) | round(quantityG,3) | (timestamp se fornito) | barcode | userId
 Differenze chiave rispetto al passato: se il timestamp NON è fornito dal client non viene incluso → due chiamate identiche senza timestamp condividono la chiave (evita duplicati accidentali quando il client non genera un timestamp deterministico).
 Se passi un `idempotencyKey` esplicito, qualunque differenza nel payload (es. quantity) viene ignorata e il primo record rimane autorevole.
 
-###   Ingestion Attività (Auto Idempotency & Conflitti)
+###   Attività: Minute Ingestion vs Health Totals Sync
+
+La piattaforma espone DUE modalità complementari:
+
+1. `ingestActivityEvents` (batch minute events) – scopo diagnostico / granularità timeline
+2. `syncHealthTotals` (snapshot cumulativi) – fonte AUTORITATIVA per i totali di `dailySummary`
+
+Razionale migrazione: i provider OS espongono contatori cumulativi affidabili; ricostruire i totali da minute events soffre di drift (eventi mancanti, ordine, duplicati). Per questo i campi `activitySteps` e `activityCaloriesOut` ora sommano i delta derivati dai snapshot registrati (HealthTotalsRepository).
+
+Tabella confronto rapida:
+
+| Caratteristica | ingestActivityEvents | syncHealthTotals |
+|----------------|----------------------|------------------|
+| Fonte Totali dailySummary | (DEPRECATA) | ✅ primaria |
+| Idempotenza | Firma batch SHA256 eventi normalizzati | Chiave esplicita o firma (date|steps|caloriesOut|user) |
+| Duplicate detection | Per evento minuto identico | Snapshot identico (stessi contatori) |
+| Conflict semantic | Evento minuto diverso stesso minuto → rejected | Stessa chiave diversa payload → `idempotencyConflict=true` |
+| Reset handling | N/A (eventi monotoni richiesti) | `reset=true` se contatori scendono |
+| Uso consigliato | Debug / timeline dettagliata | Totali affidabili / recupero dopo offline |
+
+Edge cases sync:
+* Primo snapshot giorno: delta = snapshot
+* Duplicate: nessun nuovo delta, `duplicate=true`
+* Reset (contatori diminuiscono): delta = snapshot, `reset=true`
+* Conflitto chiave: nessun delta, `idempotencyConflict=true`
+
+NOTA: `activityEvents` nel `DailySummary` rimane il conteggio degli eventi minuto ingestati (diagnostica), non più correlato ai totali.
 
 La mutation (forma sintetica):
 
@@ -223,7 +283,7 @@ Codici `reason` principali (parziale): `CONFLICT_DIFFERENT_DATA`, `NEGATIVE_VALU
 
 
 
-###   DailySummary – Calorie Deficit & Percentuale Refill
+###   DailySummary – Calorie Deficit, Percentuale Refill & Fonte Attività
 
 Nuovi campi (additivi, retro‑compatibili):
 
@@ -257,24 +317,30 @@ Uso suggerito lato client:
 * `caloriesDeficit < 0`: segnalare surplus (badge o colore differente) senza considerarlo errore.
 * `caloriesReplenishedPercent == 999`: mostrare indicatore di valore fuori scala (es. `> 999%`).
 
-Backward compatibility: i client precedenti che non richiedono i nuovi campi non subiscono rotture (schema solo esteso).
+Fonte attività attuale:
+* `activitySteps` = somma `stepsDelta` dei delta health totals del giorno
+* `activityCaloriesOut` = somma `caloriesOutDelta`
+* Se nessun snapshot inviato → entrambi 0 (anche se minute events esistono)
 
-###   Stato attuale vs Schema Draft
+Backward compatibility: i client precedenti che non richiedono i nuovi campi non subiscono rotture (schema solo esteso). Tuttavia per vedere valori attività > 0 devono implementare la chiamata `syncHealthTotals`.
 
-Il file `docs/graphql_schema_draft.md` contiene una versione estesa (future
-milestone) con: meal entries connection, daily summary, timeline attività,
-recommendations, ecc. Lo schema runtime attuale implementa solo un
-sottoinsieme:
+###   Stato attuale vs Schema Draft (Aggiornato)
+
+Il file `docs/graphql_schema_draft.md` contiene una versione estesa per milestone future. Stato implementazione runtime aggiornato:
 
 | Funzione Draft | Stato Runtime | Note |
 |----------------|--------------|------|
-| `product` | ✅ | Basic fetch + cache in-memory TTL |
-| `logMeal` (base) | ✅ | Idempotenza semplice + enrichment nutrienti |
-| `mealEntries` | ✅ | In-memory repository (limite 20 default, max 200, filtri after/before) |
-| `dailySummary` | ✅ | Aggregazione in-memory (conteggio + calorie/protein placeholder) |
-| `activityTimeline` | ❌ | Richiede ingestion attività minuto |
-| `recommendations` | ❌ | Dipende da engine & triggers |
-| Subscriptions | ❌ | Rimandate a milestone B6 |
+| `product` | ✅ | Fetch + cache TTL |
+| `logMeal` | ✅ | Idempotenza fallback + snapshot nutrienti |
+| `updateMeal` | ✅ | Ricalcolo nutrienti se cambia barcode/quantity |
+| `deleteMeal` | ✅ | Rimozione entry (ritorna Boolean) |
+| `mealEntries` | ✅ | Lista semplice + cursori after/before |
+| `dailySummary` | ✅ | Usa delta health totals + calorie balance |
+| `ingestActivityEvents` | ✅ | Minute events diagnostici (non più fonte totali) |
+| `syncHealthTotals` | ✅ | Fonte primaria totali passi / calorie out |
+| `activityTimeline` | ❌ | Pianificato (deriverà da minute events) |
+| `recommendations` | ❌ | Engine non ancora attivo |
+| Subscriptions | ❌ | Milestone B6 |
 
 ---
 

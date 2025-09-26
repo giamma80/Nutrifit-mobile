@@ -49,7 +49,7 @@ Prime fasi mirate a fornire subito la query prodotto (barcode) centralizzata, mu
 | B2 | Meal Logging v1 | `logMeal` + snapshot nutrienti | FATTO (in-memory store, enrichment da Product cache, idempotenza base) |
 | B2.5 | Meal Listing & Daily | `mealEntries` (filtri after/before/limit) + `dailySummary` (conteggio/calorie base) | FATTO (in-memory aggregate; valori nutrienti avanzati deferred) |
 | B2.8 | CRUD Completo Pasti | `updateMeal`, `deleteMeal` + `cacheStats` diagnostiche + nutrient constants | FATTO (ricalcolo automatico nutrienti, repository esteso, metriche cache) |
-| B3 | Activity Ingestion v1 | `ingestActivityEvents` (minuti) + estensione `dailySummary` activity aware | Pianificato |
+| B3 | Activity Layer v1 | `ingestActivityEvents` (minute, diagnostica) + `syncHealthTotals` (snapshot) + dailySummary via delta | FATTO |
 | B4 | Rolling Baselines & Triggers | `rolling_intake_window` + triggers: sugar, protein, carb/activity | Pianificato |
 | B5 | Meal Intelligence | `quality_score`, mealType agg, nuovi trend queries | Pianificato |
 | B6 | Realtime & Subscriptions | `mealAdded`, `activityMinuteTick`, `recommendationIssued`, energy balance | Pianificato |
@@ -57,9 +57,9 @@ Prime fasi mirate a fornire subito la query prodotto (barcode) centralizzata, mu
 | B8 | Web Sandbox | Dashboard trend & ring dinamico | Pianificato |
 | B9 | Hardening & Scale | Partitioning, metriche avanzate, valutazione decomposizione AI | Pianificato |
 
-### 4.1 Stato Runtime vs Draft
+### 4.1 Stato Runtime vs Draft (Aggiornato)
 
-Lo schema runtime espone attualmente: `product`, `logMeal`, `updateMeal`, `deleteMeal`, `mealEntries`, `dailySummary`, `cacheStats` (versione minimale: campi core, protein/calories con enrichment completo). Le altre query/mutation del draft rimangono deferred.
+Lo schema runtime espone attualmente: `product`, `logMeal`, `updateMeal`, `deleteMeal`, `mealEntries`, `dailySummary` (totali attività da health totals delta), `cacheStats`, `ingestActivityEvents`, `syncHealthTotals`. Le altre query/mutation del draft rimangono deferred.
 
 **Aggiornamenti recenti (v0.2.8+):**
 1. **CRUD Completo Pasti**: `updateMeal` permette aggiornamento nome/quantità/timestamp/barcode con ricalcolo automatico nutrienti quando cambiano barcode o quantità. `deleteMeal` per rimozione pasti.
@@ -67,11 +67,13 @@ Lo schema runtime espone attualmente: `product`, `logMeal`, `updateMeal`, `delet
 3. **Cache Observability**: query `cacheStats` espone keys/hits/misses per diagnostiche performance OpenFoodFacts.
 4. **Repository Pattern Esteso**: `InMemoryMealRepository` con `get`, `update`, `delete` oltre ai precedenti `add`/`list`.
 
-Aggiornamenti pianificati (prossima milestone):
-1. Evoluzione `dailySummary`: includere breakdown macro, target derivati e gap (B3+).
-2. Aggiunta campo opzionale `nutrientSnapshotJson` in `MealEntry` (inizialmente `null` — verrà popolato quando la persistenza Postgres sarà attiva). Successivamente potrà diventare non‑null.
-3. Classificazione semantica schema integrata in CI (script diff AST) per enforcement additive/breaking.
-4. Consolidare idempotenza: oggi è supportata via input opzionale `idempotencyKey`; se assente si deriva una chiave deterministica (escludendo timestamp server) — futura deprecazione della derivazione implicita.
+Aggiornamenti pianificati (prossime milestone):
+1. Evoluzione `dailySummary`: breakdown macro avanzato, target dinamici e gap (B4+).
+2. Persistenza Postgres: transizione repository in-memory → storage reale incl. `nutrientSnapshotJson` non nullo.
+3. Classificazione semantica schema integrata in CI (script diff AST) per enforcement additive/deprecation/breaking.
+4. Deprecazione derivazione implicita chiave idempotenza pasti (richiedere chiave esplicita lato client) – avviso in changelog prima.
+5. Timeline attività granulare (`activityTimeline`) basata su minute events con downsampling.
+6. Engine raccomandazioni baseline (trigger sugar/protein). 
 
 ### 4.2 Convenzione Naming
 
@@ -95,17 +97,34 @@ Tabelle principali (Postgres):
 ### 5.1 Activity Time-Series & Aggregation Layer
 
 Obiettivi:
-- Ingestione minuto (steps, calories_out, heart rate) → query granulari e insight trend.
-- Aggregazioni incrementali (hourly, daily) per pannelli riepilogo.
-- Downsampling >180 giorni (compressione in hourly/daily, drop raw minuti).
+1. Ingestione minuto (steps, calories_out, heart rate) → query granulari e insight trend.
+2. Snapshot cumulativi (`syncHealthTotals`) → derivazione delta affidabili (fonte dailySummary).
+3. Aggregazioni incrementali (hourly, daily) per pannelli riepilogo.
+4. Downsampling >180 giorni (compressione hourly/daily, drop raw minuti).
 
 Indici: BRIN su `activity_event_minute.ts` + composite `(user_id, ts)`.
 
-### 5.2 Rolling Baselines
+### 5.2 Health Totals Delta Layer
+
+Componenti:
+| Elemento | Funzione |
+|----------|----------|
+| Snapshot Store | Registra snapshot cumulativi (steps, caloriesOut, hrAvgSession opzionale) |
+| Delta Computation | Calcola differenza vs precedente snapshot o prende valori raw per primo/reset |
+| Reset Detection | Se contatori calano: mark reset + delta=nuovi valori |
+| Idempotency Guard | Firma (date|steps|caloriesOut|user) o chiave esplicita -> duplicate/conflict |
+| Summation API | Fornisce somma delta per `dailySummary` |
+
+Proprietà:
+* Idempotente: snapshot identico non genera doppio delta.
+* Resiliente: offline gap → invio snapshot successivo ripristina cumulativi corretti (nessuna ricostruzione minute).
+* Estensibile: aggiunta future metriche (distanceMeters) senza impattare firma esistente (se escluse).
+
+### 5.3 Rolling Baselines
 
 Tabelle `rolling_intake_window` (7/14d) calcolano medie mobili per comparare andamento corrente (sugar spike, macro pacing). Refresh giornaliero (cron) + caching in-memory TTL 5m.
 
-### 5.3 Meal Intelligence Layer
+### 5.4 Meal Intelligence Layer
 
 Estende `meal_entry` con denormalizzazione macro (protein_g, sugars_g...) e campi analitici:
 - `completeness_score`: copertura nutrienti base.
@@ -114,11 +133,11 @@ Estende `meal_entry` con denormalizzazione macro (protein_g, sugars_g...) e camp
 
 Aggregato `meal_type_daily_agg` fornisce macro trend per meal_type → alimenta queries `mealTypeTrends`.
 
-### 5.4 Recommendation Persistence
+### 5.5 Recommendation Persistence
 
 Tabella `recommendations` append-only, con debounce (unique logico per trigger/day). Worker di delivery aggiorna `delivery_status`. Subscription pubblica nuovi record.
 
-### 5.5 Energy Balance View
+### 5.6 Energy Balance View
 
 Vista (o materialized) `energy_balance_timeslice` calcola cumulativi intake vs burn → curva netta usata per grafico ring dinamico e forecast budget cena.
 
@@ -282,20 +301,23 @@ Alerting (Prometheus rules):
 
 ## 20. TODO & Backlog (Aggiornato)
 
-- [ ] Product query resolver + tests (B1)
+- [x] Product query resolver + tests (B1)
+- [x] Mutation logMeal + snapshot + idempotency (B2)
+- [x] Meal listing + daily summary base (B2.5)
+- [x] CRUD pasti completo (B2.8)
+- [x] Health totals sync + delta summary (B3)
 - [ ] Cache layer service TTL + SWR (B4)
-- [ ] Mutation logMeal + snapshot + idempotency (B2)
-- [ ] Ingestion activity minute + summary (B3)
 - [ ] Rolling baselines + triggers core (B4)
+- [ ] Timeline attività (`activityTimeline`) + downsampling (B4)
 - [ ] Meal intelligence (quality_score, flags) (B5)
 - [ ] Trend & insights queries (B5)
+- [ ] AI inference baseline (B5)
+- [ ] Rate limit analyzeMealPhoto (B5)
 - [ ] Realtime subscriptions (B6)
 - [ ] Forecast & reinforcement triggers (B7)
-- [ ] AI inference baseline (B5)
-- [ ] Metrics & tracing (continuous)
-- [ ] Rate limit analyzeMealPhoto (B5)
-- [ ] RLS policies meal_entry/activity (B3-B4)
-- [ ] Materialized view adherence 7d (post B3)
+- [ ] Metrics & tracing hardening (continuous)
+- [ ] RLS policies meal_entry/activity (B4)
+- [ ] Materialized view adherence 7d (post B4)
 
 ## 21. Appendice: Eventi Principali
 
