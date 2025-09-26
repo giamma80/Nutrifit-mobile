@@ -7,6 +7,12 @@ Formato ispirato a [Keep a Changelog](https://keepachangelog.com/it-IT/1.1.0/) e
 ## [Unreleased]
 
 ### Added
+- add syncHealthTotals mutation and activity delta queries
+
+## [0.4.2] - 2025-09-26
+
+
+### Added
 - add energy deficit & replenished percent docs and schema
 - auto deterministic idempotencyKey + expose idempotencyKeyUsed
 - syncHealthTotals mutation (cumulative activity snapshot ingest)
