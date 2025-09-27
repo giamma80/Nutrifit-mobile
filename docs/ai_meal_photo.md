@@ -85,3 +85,84 @@ Quando si introdurrà Postgres:
 
 ---
 Revision: Fase 0 (stub) – data iniziale merge.
+
+## Analisi Costi & Rischi (Fasi 1→2)
+Questa sezione dettaglia ipotesi economiche e tecniche per passare da stub a inference remota.
+
+### Ipotesi Volume (mese 1 post lancio AI vera)
+- Utenti attivi feature: 2.000
+- Foto/giorno per utente attivo: 1.2 (media)
+- Foto totali mese: ~72.000
+
+### Modelli di Costo (esempi)
+| Voce | Ipotesi | Costo unitario | Costo mensile stimato | Note |
+|------|---------|----------------|-----------------------|------|
+| Vision API (label + nutrition heuristic) | 72k chiamate | $0.0025 | ~$180 | Prezzo indicativo low-end |
+| GPT multimodale (prompt breve) | 20% richieste escalate (14.4k) | $0.01 | ~$144 | Escalation solo casi Low Confidence |
+| Storage immagini (media 250KB) | 72k * 0.25MB = 18GB | $0.02/GB | ~$0.36 | Se conserviamo 30 giorni |
+| Telemetry / Logging | 72k eventi | $0.0001 | ~$7 | Se log strutturato esterno |
+| Totale stimato |  |  | ~$331 | Margine ±30% |
+
+### Sensibilità
+- Se adozione raddoppia (4.000 utenti) ⇒ costo ~ +85% (economia di scala solo logging).
+- Se confidenza bassa porta escalation 50% ⇒ GPT costo ~ $360 (+$216 delta).
+
+### Rischi Economici
+| Rischio | Trigger | Mitigazione | Soglia Action |
+|---------|--------|-------------|---------------|
+| Escalation eccessiva | Confidence < threshold spesso | Dynamic threshold + caching embed | Escalation >35% per 3 giorni |
+| Chiamate duplicate | Retry client | Idempotency per photo hash | Dup call rate >3% |
+| Foto non confermate (spreco) | UX bassa | Misurare conversione foto→confirm | Conversione <40% |
+
+### Rischi Tecnici Addizionali
+| Rischio | Impatto | Mitigazione Tecnica |
+|---------|---------|--------------------|
+| Latenza >3s media | Drop utilizzo | Pipeline parallela + prefetch nutrienti |
+| Formato output modello instabile | Error parsing | JSON schema enforced + validatore |
+| Saturazione rate limit provider | Fail hard UX | Circuit breaker + fallback heuristic |
+| Drift reputazione calorie | Fiducia bassa | Ricalibrazione con dataset validato periodico |
+
+## Piano Rollout Incrementale
+| Fase | Ambiente | Gate Metriche | % Utenti | Azioni se Fallisce |
+|------|----------|---------------|----------|--------------------|
+| 0 (Stub) | Prod | Test tutti verdi | 100% | Rollback rapido (feature innocua) |
+| 1 (Heuristic) | Prod (feature flag) | Conversione foto→confirm ≥55%, Errori index <1% | 10% → 50% | Se <55%: iterazione regole, copy UX |
+| 2 (Remote Inference) | Prod (flag separato) | Latenza p95 <2500ms, Escalation <35% | 5% → 30% | Se p95 >2500ms: caching / batching |
+| 3 (Post-processing nutrizionale) | Prod | Accuratezza stima kcal ±25% vs manuale | Subset 10% | Se >25% errore: retrain mapping |
+| 4 (Feedback loop) | Prod | Retention feature +5pp | Graduale | Se neutra: rivalutare costo loop |
+
+### Gating Operativo
+- Promozione Fase 1 → 2 solo dopo 7 giorni di metriche stabili.
+- Ogni aumento percentuale utenti avviene in step (10pp) con verifica 24h.
+
+## Acceptance Criteria Estesi (Fasi Future)
+### Fase 1 (Heuristic)
+1. Items generati dinamicamente da regole (≥3 classi alimenti).
+2. Campi opzionali: `confidence` variabile, `confidenceExplanation` presente se confidence <0.7.
+3. Degradazione: se parsing fallisce ritorna fallback 2 item statici + flag `fallbackUsed`.
+4. Metriche loggate: analyze.request, analyze.cached, confirm.accepted con latenza.
+
+### Fase 2 (Remote Inference)
+1. Adapter con timeout configurabile (default 2.5s) e fallback heuristico.
+2. Circuit breaker (apre dopo 5 errori consecutivi per 60s).
+3. Normalizzazione nutrienti: calorie stimate sempre presenti, macro se fornite.
+4. Logging differenzia source: `source: heuristic|model|fallback`.
+5. Tests coprono: timeout fallback, breaker open, caching per stesso hash foto.
+
+## Raccomandazioni Operative Immediate
+Priorità (prossimi 2-3 giorni):
+1. Instrumentazione: aggiungere logging strutturato analyze/confirm (user, analysisId, duration, fallbackUsed).
+2. Definire interfaccia `InferenceAdapter` + implementazione `StubAdapter` (attuale) per ridurre refactor futuro.
+3. Aggiungere hashing foto (placeholder funzione) per preparare dedup + caching.
+4. Preparare feature flag semplice environment variable per Fase 1 (enable heuristic).
+5. Dashboard metriche basilare (esportare in log → successivo ingest su console / BigQuery). 
+
+### Checklist Tecnica
+- [ ] Creare modulo `inference/adapter.py` con Protocol.
+- [ ] Spostare logica static predictions nell'adapter.
+- [ ] Aggiungere wrapper timing.
+- [ ] Introdurre funzione `hash_photo_reference(photoId, photoUrl)`.
+- [ ] Estendere schema con campo `source` (additivo).
+
+## Aggiornamento Revision
+Revision: Fase 0 (stub) – aggiornato con piano strategico (data: 2025-09-27).
