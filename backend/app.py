@@ -218,6 +218,7 @@ class MealPhotoAnalysis:
     user_id: str
     status: MealPhotoAnalysisStatus
     created_at: str
+    source: str  # 'STUB' per fase 0
     items: List[MealPhotoItemPrediction]
     raw_json: Optional[str] = None
     idempotency_key_used: Optional[str] = None
@@ -252,6 +253,7 @@ def _map_analysis(rec) -> MealPhotoAnalysis:  # type: ignore[no-untyped-def]
         user_id=rec.user_id,
         status=MealPhotoAnalysisStatus(rec.status),
         created_at=rec.created_at,
+        source="STUB",
         items=[
             MealPhotoItemPrediction(
                 label=i.label,

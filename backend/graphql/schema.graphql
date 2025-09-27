@@ -223,6 +223,7 @@ type MealPhotoAnalysis {
   userId: String!
   status: MealPhotoAnalysisStatus!
   createdAt: String!
+  source: String!
   items: [MealPhotoItemPrediction!]!
   rawJson: String
   idempotencyKeyUsed: String
