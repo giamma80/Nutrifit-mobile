@@ -135,9 +135,7 @@ def get_active_adapter() -> InferenceAdapter:
     return StubAdapter()
 
 
-def hash_photo_reference(
-    photo_id: Optional[str], photo_url: Optional[str]
-) -> str:
+def hash_photo_reference(photo_id: Optional[str], photo_url: Optional[str]) -> str:
     """Hash stabile (sha256 trunc) di riferimenti foto per caching/idempotenza.
     Non usato ancora per la chiave principale (compat mantenuta) ma pronto.
     """

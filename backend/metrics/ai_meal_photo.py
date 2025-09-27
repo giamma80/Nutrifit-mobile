@@ -1,16 +1,16 @@
-"""Instrumentation helpers per AI Meal Photo (Issue 29).
+"""Instrumentation helpers per AI Meal Photo.
 
-Uso previsto prima della Fase 1 heuristica per ottenere baseline stub.
+Metriche attuali (tutte con label opzionale `source` se fornita):
+* Counter ai_meal_photo_requests_total{phase,status,source?}
+* Counter ai_meal_photo_fallback_total{reason,source?}
+* Histogram ai_meal_photo_latency_ms{source?}
+* Counter ai_meal_photo_errors_total{code,source?}
+* Counter ai_meal_photo_failed_total{code,source?}
 
-Metriche definite:
-* Counter ai_meal_photo_requests_total{phase, status}
-* Counter ai_meal_photo_fallback_total{reason}
-* Histogram ai_meal_photo_latency_ms{}
-* Counter ai_meal_photo_errors_total{code}
-* Counter ai_meal_photo_failed_total{code} (solo errori terminali / failureReason)
-
-Fase 1 aggiungerà tag source=STUB|HEURISTIC e codici errore
-(Issue 33) separati.
+NOTE:
+`phase` distingue eventuali sotto-fasi (es. "heuristic_pre", "model").
+`source` identifica l'adapter principale (stub|heuristic|model|fallback).
+Per ora `phase` e `source` coincidono (adapter.name()).
 """
 
 from __future__ import annotations
@@ -22,40 +22,71 @@ from typing import Optional, Iterator
 from .core import registry, RegistrySnapshot
 
 
-def record_request(phase: str, status: str) -> None:
-    registry.counter("ai_meal_photo_requests_total", phase=phase, status=status).inc()
+def record_request(
+    phase: str,
+    status: str,
+    *,
+    source: Optional[str] = None,
+) -> None:
+    tags = {"phase": phase, "status": status}
+    if source:
+        tags["source"] = source
+    registry.counter("ai_meal_photo_requests_total", **tags).inc()
 
 
-def record_fallback(reason: str) -> None:
-    registry.counter("ai_meal_photo_fallback_total", reason=reason).inc()
+def record_fallback(reason: str, *, source: Optional[str] = None) -> None:
+    tags = {"reason": reason}
+    if source:
+        tags["source"] = source
+    registry.counter("ai_meal_photo_fallback_total", **tags).inc()
 
 
-def record_latency_ms(ms: float) -> None:
-    registry.histogram("ai_meal_photo_latency_ms").observe(ms)
+def record_latency_ms(ms: float, *, source: Optional[str] = None) -> None:
+    if source:
+        registry.histogram(
+            "ai_meal_photo_latency_ms", source=source
+        ).observe(ms)
+    else:
+        registry.histogram("ai_meal_photo_latency_ms").observe(ms)
 
 
-def record_error(code: str) -> None:
+def record_error(code: str, *, source: Optional[str] = None) -> None:
     """Conta qualsiasi errore individuale (analisiErrors)."""
-    registry.counter("ai_meal_photo_errors_total", code=code).inc()
+    tags = {"code": code}
+    if source:
+        tags["source"] = source
+    registry.counter("ai_meal_photo_errors_total", **tags).inc()
 
 
-def record_failed(code: str) -> None:
+def record_failed(code: str, *, source: Optional[str] = None) -> None:
     """Conta failureReason finale (bloccante)."""
-    registry.counter("ai_meal_photo_failed_total", code=code).inc()
+    tags = {"code": code}
+    if source:
+        tags["source"] = source
+    registry.counter("ai_meal_photo_failed_total", **tags).inc()
 
 
 @contextmanager
-def time_analysis(phase: str, status_on_exit: Optional[str] = None) -> Iterator[None]:
+def time_analysis(
+    phase: str,
+    *,
+    source: Optional[str] = None,
+    status_on_exit: Optional[str] = None,
+) -> Iterator[None]:
     start = time.perf_counter()
     try:
         yield
-        record_request(phase=phase, status=status_on_exit or "completed")
+        record_request(
+            phase=phase,
+            status=status_on_exit or "completed",
+            source=source,
+        )
     except Exception:
-        record_request(phase=phase, status="failed")
+        record_request(phase=phase, status="failed", source=source)
         raise
     finally:
         elapsed_ms = (time.perf_counter() - start) * 1000.0
-        record_latency_ms(elapsed_ms)
+        record_latency_ms(elapsed_ms, source=source)
 
 
 def snapshot() -> RegistrySnapshot:  # pragma: no cover - passthrough

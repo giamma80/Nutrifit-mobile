@@ -56,7 +56,10 @@ class InMemoryMealPhotoAnalysisRepository:
         if existing_id:
             return self._analyses[(user_id, existing_id)]
         adapter = get_active_adapter()
-        with time_analysis(phase=adapter.name()):
+    # phase e source coincidono (adapter). In futuro phase
+        # sotto-fasi (es. heuristic_pre, model_call, post_process) mantenendo
+        # source come adapter principale.
+        with time_analysis(phase=adapter.name(), source=adapter.name()):
             items = adapter.analyze(
                 user_id=user_id,
                 photo_id=photo_id,
