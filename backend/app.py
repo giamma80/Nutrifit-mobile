@@ -128,7 +128,8 @@ class DailySummary:
 
 # ----------------- Activity Ingestion (B3) -----------------
 # Riutilizziamo l'enum del repository per evitare duplicazione incoerente
-ActivitySource = strawberry.enum(_RepoActivitySource, name="ActivitySource")
+# Enum repository esposto come GraphQL enum (annotato Any per mypy)
+ActivitySource: Any = strawberry.enum(_RepoActivitySource, name="ActivitySource")
 
 
 @strawberry.type
@@ -139,7 +140,7 @@ class ActivityEvent:
     steps: Optional[int] = None
     calories_out: Optional[float] = None
     hr_avg: Optional[float] = None
-    source: ActivitySource = ActivitySource.MANUAL
+    source = ActivitySource.MANUAL
 
 
 @strawberry.type
@@ -222,6 +223,38 @@ class MealPhotoAnalysis:
     items: List[MealPhotoItemPrediction]
     raw_json: Optional[str] = None
     idempotency_key_used: Optional[str] = None
+    # Campi errori esposti in GraphQL (camelCase)
+    # Manteniamo snake_case interno per Python
+    analysis_errors: List["MealPhotoAnalysisError"] = dataclasses.field(default_factory=list)
+    failure_reason: Optional["MealPhotoAnalysisErrorCode"] = None
+
+
+@strawberry.enum
+class MealPhotoErrorSeverity(Enum):
+    ERROR = "ERROR"
+    WARNING = "WARNING"
+
+
+@strawberry.enum
+class MealPhotoAnalysisErrorCode(Enum):
+    INVALID_IMAGE = "INVALID_IMAGE"
+    UNSUPPORTED_FORMAT = "UNSUPPORTED_FORMAT"
+    IMAGE_TOO_LARGE = "IMAGE_TOO_LARGE"
+    BARCODE_DETECTION_FAILED = "BARCODE_DETECTION_FAILED"
+    PARSE_EMPTY = "PARSE_EMPTY"
+    PORTION_INFERENCE_FAILED = "PORTION_INFERENCE_FAILED"
+    RATE_LIMITED = "RATE_LIMITED"
+    INTERNAL_ERROR = "INTERNAL_ERROR"
+
+
+@strawberry.type
+@dataclasses.dataclass
+class MealPhotoAnalysisError:
+    code: MealPhotoAnalysisErrorCode
+    message: str
+    severity: MealPhotoErrorSeverity
+    debug_id: Optional[str] = None
+    fallback_applied: bool = False
 
 
 @strawberry.type
@@ -271,6 +304,8 @@ def _map_analysis(rec) -> MealPhotoAnalysis:  # type: ignore[no-untyped-def]
         ],
         raw_json=rec.raw_json,
         idempotency_key_used=rec.idempotency_key_used,
+        analysis_errors=[],  # exposed as analysisErrors
+        failure_reason=None,  # exposed as failureReason
     )
 
 

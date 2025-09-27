@@ -36,7 +36,7 @@ Questo file sostituisce `ussues.md` (rimandare qui e rimuovere duplicazioni). St
 | 30 | High | Medium | Futuro modello visione | Mancano rate limiting & cost guard | Rischio costi / abuso | Implementare rate limit per utente/IP + budget giornaliero | TODO | SEC |
 | 31 | Medium | Medium | Meal idempotency logging | Nessun evento esplicito su dedupe pasti | Diagnosi dedupe difficile | Log evento con reason=IDEMPOTENT_DUPLICATE | TODO | OBS |
 | 32 | Medium | Medium | health_totals_delta storage | Stato solo in-memory | Perdita dati su restart | Persistenza (es. tabella Postgres) + migrazione | TODO | ARCH |
-| 33 | Low | Low | AI error taxonomy | Codici errore non definiti (INVALID_IMAGE, PARSE_FALLBACK_USED) | Gestione client incoerente | Definire enum e surface nel payload GraphQL | TODO | DOC |
+| 33 | Low | Low | AI error taxonomy | Codici errore non definiti (INVALID_IMAGE, PARSE_FALLBACK_USED) | Gestione client incoerente | Enum definito + campi analysisErrors/failureReason esposti + metrics base | DONE | DOC |
 
 Legenda Tags: DOC=documentazione, SEC=sicurezza, ARCH=architettura, TEST=test coverage, CI=continuous integration, OBS=observability.
 
@@ -65,7 +65,7 @@ Checklist esecuzione (da creare come issues separati collegati a ID audit corris
 - [ ] Barcode detection hook (stub se mobile non pronto)
 - [ ] Dizionario sinonimi + nutrient mapping seed
 - [ ] Portion heuristics + test unitari
-- [ ] Error enum + schema GraphQL update (Issue 33)
+- [x] Error enum + schema GraphQL update (Issue 33)
 - [ ] Structured logging + metrics (Issue 29)
 - [ ] Rate limit baseline (Issue 30)
 - [ ] Aggiornamento documentazione e prompt note

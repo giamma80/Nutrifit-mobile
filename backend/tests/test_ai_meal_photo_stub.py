@@ -11,12 +11,16 @@ def _q(s: str) -> str:
 async def test_analyze_meal_photo_basic() -> None:
     mutation = _q(
         """
-        mutation {
-          analyzeMealPhoto(input:{photoId:"ph1"}) {
-            id status items { label confidence quantityG calories }
-            idempotencyKeyUsed
-          }
-        }
+                mutation {
+                    analyzeMealPhoto(input:{photoId:"ph1"}) {
+                        id
+                        status
+                        items { label confidence quantityG calories }
+                        idempotencyKeyUsed
+                        analysisErrors { code severity }
+                        failureReason
+                    }
+                }
         """
     )
     async with AsyncClient(app=app, base_url="http://test") as ac:
@@ -24,6 +28,9 @@ async def test_analyze_meal_photo_basic() -> None:
     data = r.json()["data"]["analyzeMealPhoto"]
     assert data["status"] == "COMPLETED"
     assert len(data["items"]) == 2
+    # Nuovi campi errori presenti e vuoti
+    assert data["analysisErrors"] == []
+    assert data["failureReason"] is None
     labels = {it["label"] for it in data["items"]}
     assert {"Insalata mista", "Petto di pollo"} == labels
 
@@ -32,7 +39,8 @@ async def test_analyze_meal_photo_basic() -> None:
 async def test_analyze_idempotent_same_key() -> None:
     mutation = _q(
         'mutation { analyzeMealPhoto(input:{photoId:"same", '
-        'idempotencyKey:"AIK1"}) { id items { label } } }'
+        'idempotencyKey:"AIK1"}) { id items { label } '
+        "analysisErrors { code } failureReason } }"
     )
     async with AsyncClient(app=app, base_url="http://test") as ac:
         r1 = await ac.post("/graphql", json={"query": mutation})
@@ -47,15 +55,18 @@ async def test_analyze_idempotent_same_key() -> None:
 async def test_confirm_creates_meals_and_is_idempotent() -> None:
     analyze = _q(
         'mutation { analyzeMealPhoto(input:{photoId:"conf1", '
-        'idempotencyKey:"AKCONF"}) { id items { label } } }'
+        'idempotencyKey:"AKCONF"}) { id items { label } '
+        "analysisErrors { code } } }"
     )
     async with AsyncClient(app=app, base_url="http://test") as ac:
         r = await ac.post("/graphql", json={"query": analyze})
         analysis_id = r.json()["data"]["analyzeMealPhoto"]["id"]
         confirm = _q(
-            f'mutation {{ confirmMealPhoto(input:{{analysisId:"{analysis_id}", '
-            "acceptedIndexes:[0,1]}) { analysisId createdMeals "
-            "{ name calories quantityG } } }"
+            "mutation { "
+            f'confirmMealPhoto(input:{{analysisId:"{analysis_id}",'
+            " acceptedIndexes:[0,1]}) { analysisId createdMeals { name "  # noqa: E501
+            "calories quantityG } }"
+            " }"
         )
         first = await ac.post("/graphql", json={"query": confirm})
         second = await ac.post("/graphql", json={"query": confirm})
@@ -74,8 +85,10 @@ async def test_confirm_invalid_index() -> None:
         r = await ac.post("/graphql", json={"query": analyze})
         analysis_id = r.json()["data"]["analyzeMealPhoto"]["id"]
         bad = _q(
-            f'mutation {{ confirmMealPhoto(input:{{analysisId:"{analysis_id}", '
-            "acceptedIndexes:[5]}) { analysisId } }"
+            "mutation { "
+            f'confirmMealPhoto(input:{{analysisId:"{analysis_id}",'
+            " acceptedIndexes:[5]}) { analysisId }"
+            " }"
         )
         resp = await ac.post("/graphql", json={"query": bad})
     errs = resp.json().get("errors")

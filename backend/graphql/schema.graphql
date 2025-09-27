@@ -18,7 +18,6 @@ type ActivityEvent {
   steps: Int
   caloriesOut: Float
   hrAvg: Float
-  source: ActivitySource!
 }
 
 input ActivityMinuteInput {
@@ -142,12 +141,38 @@ type MealPhotoAnalysis {
   items: [MealPhotoItemPrediction!]!
   rawJson: String
   idempotencyKeyUsed: String
+  analysisErrors: [MealPhotoAnalysisError!]!
+  failureReason: MealPhotoAnalysisErrorCode
+}
+
+type MealPhotoAnalysisError {
+  code: MealPhotoAnalysisErrorCode!
+  message: String!
+  severity: MealPhotoErrorSeverity!
+  debugId: String
+  fallbackApplied: Boolean!
+}
+
+enum MealPhotoAnalysisErrorCode {
+  INVALID_IMAGE
+  UNSUPPORTED_FORMAT
+  IMAGE_TOO_LARGE
+  BARCODE_DETECTION_FAILED
+  PARSE_EMPTY
+  PORTION_INFERENCE_FAILED
+  RATE_LIMITED
+  INTERNAL_ERROR
 }
 
 enum MealPhotoAnalysisStatus {
   PENDING
   COMPLETED
   FAILED
+}
+
+enum MealPhotoErrorSeverity {
+  ERROR
+  WARNING
 }
 
 type MealPhotoItemPrediction {
