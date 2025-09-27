@@ -56,9 +56,7 @@ class InMemoryMealPhotoAnalysisRepository:
         if existing_id:
             return self._analyses[(user_id, existing_id)]
         adapter = get_active_adapter()
-    # phase e source coincidono (adapter). In futuro phase
-        # sotto-fasi (es. heuristic_pre, model_call, post_process) mantenendo
-        # source come adapter principale.
+        # Usa sia phase che source per metriche (per ora coincidono)
         with time_analysis(phase=adapter.name(), source=adapter.name()):
             items = adapter.analyze(
                 user_id=user_id,
@@ -91,7 +89,9 @@ class InMemoryMealPhotoAnalysisRepository:
         return rec
 
     def get(
-        self, user_id: str, analysis_id: str
+        self,
+        user_id: str,
+        analysis_id: str,
     ) -> Optional[MealPhotoAnalysisRecord]:
         return self._analyses.get((user_id, analysis_id))
 

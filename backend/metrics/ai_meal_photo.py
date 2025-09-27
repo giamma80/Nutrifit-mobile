@@ -43,9 +43,7 @@ def record_fallback(reason: str, *, source: Optional[str] = None) -> None:
 
 def record_latency_ms(ms: float, *, source: Optional[str] = None) -> None:
     if source:
-        registry.histogram(
-            "ai_meal_photo_latency_ms", source=source
-        ).observe(ms)
+        registry.histogram("ai_meal_photo_latency_ms", source=source).observe(ms)
     else:
         registry.histogram("ai_meal_photo_latency_ms").observe(ms)
 
