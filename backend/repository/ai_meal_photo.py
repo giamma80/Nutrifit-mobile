@@ -12,35 +12,12 @@ Fasi future potranno introdurre stati PENDING/FAILED e aggiornamenti asincroni.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import List, Optional, Dict, Tuple
+from typing import Optional, Dict, Tuple
 import hashlib
 import uuid
-
-
-@dataclass(slots=True)
-class MealPhotoItemPredictionRecord:
-    label: str
-    confidence: float
-    quantity_g: Optional[float] = None
-    calories: Optional[int] = None
-    protein: Optional[float] = None
-    carbs: Optional[float] = None
-    fat: Optional[float] = None
-    fiber: Optional[float] = None
-    sugar: Optional[float] = None
-    sodium: Optional[float] = None
-
-
-@dataclass(slots=True)
-class MealPhotoAnalysisRecord:
-    id: str
-    user_id: str
-    status: str  # PENDING | COMPLETED | FAILED
-    created_at: str
-    items: List[MealPhotoItemPredictionRecord]
-    raw_json: Optional[str] = None
-    idempotency_key_used: Optional[str] = None
+import logging
+from ai_models.meal_photo_models import MealPhotoAnalysisRecord
+from inference.adapter import get_active_adapter
 
 
 class InMemoryMealPhotoAnalysisRepository:
@@ -70,32 +47,20 @@ class InMemoryMealPhotoAnalysisRepository:
     ) -> MealPhotoAnalysisRecord:
         if idempotency_key is None:
             idempotency_key = self._auto_key(user_id, photo_id, photo_url)
+            # In futuro potremmo sostituire _auto_key con
+            # hash_photo_reference(photo_id, photo_url) per rendere evidente
+            # la derivazione e riusare la funzione comune.
         key = (user_id, idempotency_key)
         existing_id = self._idemp.get(key)
         if existing_id:
             return self._analyses[(user_id, existing_id)]
-        # Stub predictions statiche (2 items)
-        items = [
-            MealPhotoItemPredictionRecord(
-                label="Insalata mista",
-                confidence=0.92,
-                quantity_g=150.0,
-                calories=60,
-                protein=2.0,
-                carbs=8.0,
-                fat=2.0,
-                fiber=3.0,
-            ),
-            MealPhotoItemPredictionRecord(
-                label="Petto di pollo",
-                confidence=0.88,
-                quantity_g=120.0,
-                calories=198,
-                protein=35.0,
-                carbs=0.0,
-                fat=4.0,
-            ),
-        ]
+        adapter = get_active_adapter()
+        items = adapter.analyze(
+            user_id=user_id,
+            photo_id=photo_id,
+            photo_url=photo_url,
+            now_iso=now_iso,
+        )
         analysis_id = uuid.uuid4().hex
         rec = MealPhotoAnalysisRecord(
             id=analysis_id,
@@ -108,9 +73,20 @@ class InMemoryMealPhotoAnalysisRepository:
         )
         self._analyses[(user_id, analysis_id)] = rec
         self._idemp[key] = analysis_id
+        logging.getLogger("ai.meal_photo").info(
+            "analysis.created",
+            extra={
+                "user_id": user_id,
+                "analysis_id": analysis_id,
+                "items_count": len(items),
+                "adapter": adapter.name(),
+            },
+        )
         return rec
 
-    def get(self, user_id: str, analysis_id: str) -> Optional[MealPhotoAnalysisRecord]:
+    def get(
+        self, user_id: str, analysis_id: str
+    ) -> Optional[MealPhotoAnalysisRecord]:
         return self._analyses.get((user_id, analysis_id))
 
 
