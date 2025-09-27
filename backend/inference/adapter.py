@@ -213,8 +213,9 @@ class RemoteModelAdapter:
         )
         # Piccola variazione: +5% quantity se presente
         for it in base_items:
-            if it.quantity_g:  # type: ignore[truthy-bool]
-                it.quantity_g = it.quantity_g * 1.05
+            q = it.quantity_g
+            if q is not None and q > 0:
+                it.quantity_g = q * 1.05
                 it.confidence = min(1.0, it.confidence + 0.04)
         return base_items
 

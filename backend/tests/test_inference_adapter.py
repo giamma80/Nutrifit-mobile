@@ -1,9 +1,7 @@
 from inference.adapter import StubAdapter, hash_photo_reference
 
 
-
-
-def test_stub_adapter_items():
+def test_stub_adapter_items() -> None:
     adapter = StubAdapter()
     items = adapter.analyze(
         user_id="u1",
@@ -19,8 +17,7 @@ def test_stub_adapter_items():
     assert 0.0 < items[1].confidence <= 1.0
 
 
-
-def test_hash_photo_reference_deterministic():
+def test_hash_photo_reference_deterministic() -> None:
     h1 = hash_photo_reference("p1", "url1")
     h2 = hash_photo_reference("p1", "url1")
     h3 = hash_photo_reference("p2", "url1")

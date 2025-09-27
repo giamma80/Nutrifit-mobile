@@ -1,5 +1,6 @@
 from repository.ai_meal_photo import meal_photo_repo
 from metrics.ai_meal_photo import snapshot
+from pytest import MonkeyPatch  # type: ignore
 import os
 
 
@@ -9,7 +10,7 @@ def _clear_env() -> None:
             del os.environ[var]
 
 
-def test_metrics_source_label_stub(monkeypatch) -> None:
+def test_metrics_source_label_stub(monkeypatch: MonkeyPatch) -> None:
     _clear_env()
     monkeypatch.delenv("AI_HEURISTIC_ENABLED", raising=False)
     monkeypatch.delenv("AI_REMOTE_ENABLED", raising=False)
@@ -33,7 +34,7 @@ def test_metrics_source_label_stub(monkeypatch) -> None:
     assert any(c["tags"].get("source") == "stub" for c in req)
 
 
-def test_metrics_source_label_heuristic(monkeypatch) -> None:
+def test_metrics_source_label_heuristic(monkeypatch: MonkeyPatch) -> None:
     _clear_env()
     monkeypatch.setenv("AI_HEURISTIC_ENABLED", "1")
     monkeypatch.delenv("AI_REMOTE_ENABLED", raising=False)
@@ -55,7 +56,9 @@ def test_metrics_source_label_heuristic(monkeypatch) -> None:
     assert any(c["tags"].get("source") == "heuristic" for c in req)
 
 
-def test_metrics_source_label_remote_fallback(monkeypatch) -> None:
+def test_metrics_source_label_remote_fallback(
+    monkeypatch: MonkeyPatch,
+) -> None:
     _clear_env()
     # Abilita remote ma forza timeout riducendo timeout_ms
     # ed aumentando latency per forzare fallback
