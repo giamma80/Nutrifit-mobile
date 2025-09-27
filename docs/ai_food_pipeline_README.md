@@ -23,7 +23,7 @@ Obiettivo Fase 0: definire boundary chiari e semantica campi (`source=STUB`) per
 
 Subscription non ancora implementata (roadmap B6).
 
-Riferimenti correlati: [AI Meal Photo Analysis Stub](ai_meal_photo.md) · [Prompt Draft GPT-4V](ai_food_recognition_prompt.md)
+Riferimenti correlati: [AI Meal Photo Analysis Stub](ai_meal_photo.md) · [Prompt Draft GPT-4V](ai_food_recognition_prompt.md) · [Error Taxonomy](ai_meal_photo_errors.md)
 
 ## Schema (Stub Attuale – Estratto)
 

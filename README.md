@@ -102,6 +102,7 @@ Nota evolutiva imminente / stato attuale:
 | Sprint Plan | (coming soon) [docs/sprint_plan.md](docs/sprint_plan.md) | Sequenza milestone tecniche & deliverables |
 | Pipeline AI Food Recognition | [docs/ai_food_pipeline_README.md](docs/ai_food_pipeline_README.md) | Flusso inference + enrichment futuro |
 | Prompt AI Vision | [docs/ai_food_recognition_prompt.md](docs/ai_food_recognition_prompt.md) | Prompt primario e fallback GPT-4V |
+| AI Meal Photo Error Taxonomy | [docs/ai_meal_photo_errors.md](docs/ai_meal_photo_errors.md) | Codici errore analisi foto e severità |
 | Changelog Versioni | [CHANGELOG.md](CHANGELOG.md) | Cronologia modifiche & release semver |
 
 ## 🏗 Architettura High-Level (Backend‑Centric)
