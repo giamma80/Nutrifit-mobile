@@ -1,170 +1,107 @@
-# AI Meal Photo Analysis – Fase 0 Stub
+# AI Meal Photo Analysis – Fase 0→1 Evoluzione
 
 Documenti correlati: [Pipeline AI Food Recognition](ai_food_pipeline_README.md) · [Prompt GPT-4V Draft](ai_food_recognition_prompt.md) · [Error Taxonomy](ai_meal_photo_errors.md)
 
 ## Obiettivo
-Ridurre l'attrito nella registrazione dei pasti offrendo un flusso rapido foto → suggerimenti → conferma, iniziando con uno stub deterministico (nessuna AI esterna) per validare UX, schema e idempotenza.
+Ridurre l'attrito nella registrazione dei pasti offrendo un flusso rapido foto → suggerimenti → conferma, partendo da uno stub deterministico (Fase 0) e introducendo gradualmente euristiche e futura inference remota (Fase 1+).
 
-## Flusso Fase 0
-1. Client acquisisce foto (non caricata realmente – `photoId` opzionale).
-2. Mutation `analyzeMealPhoto` genera sempre due item statici:
-   - Insalata mista (150g)
-   - Petto di pollo (120g)
-3. Utente seleziona item (uno o più) → `confirmMealPhoto` → crea `MealEntry`.
-4. Idempotenza:
-   - `analyzeMealPhoto`: chiave esplicita o auto da (user|photoId|photoUrl) → stesso `analysisId`.
-   - `confirmMealPhoto`: idempotency interna tramite chiave meal `ai:<analysis_id>:<index>`.
+## Stato Attuale (27-09-2025)
+| Aspetto | Fase | Dettagli |
+|---------|------|----------|
+| Generazione predictions | Stub + Heuristic flaggata | `StubAdapter` default, `HeuristicAdapter` attivabile con env `AI_HEURISTIC_ENABLED=1` |
+| Idempotenza analisi | Attiva | Chiave esplicita o auto `user|photoId|photoUrl` (sha256 trunc) – funzione `hash_photo_reference` pronta ma non ancora usata per sostituire la chiave completa user-based |
+| Campo `source` schema | Presente | Valori attuali: `stub` o `heuristic` |
+| Metriche | Timing wrapper | `time_analysis(phase=adapter.name())` registra latenza per adapter |
+| Logging | Parziale | Evento `analysis.created` con adapter e numero items |
+| Error Taxonomy | Definita | Non ancora popolata runtime (nessun errore generato nello stub) |
 
-## Schema (estratto)
+## Flusso Base
+1. Client invoca `analyzeMealPhoto` (può passare `photoId` e/o `photoUrl`).
+2. Repository verifica idempotenza via `(user, idempotencyKey)`.
+3. Se nuova analisi: seleziona adapter attivo → genera lista di item.
+4. Ritorna record con `status=COMPLETED`, `source=<adapter>`.
+5. `confirmMealPhoto` trasforma indici accettati in `MealEntry` (logica invariata da Fase 0).
+
+## Inference Adapter Layer
+File: `backend/inference/adapter.py`
+
+### Protocol
+```python
+class InferenceAdapter(Protocol):
+    def name(self) -> str: ...
+    def analyze(self, *, user_id: str, photo_id: Optional[str], photo_url: Optional[str], now_iso: str) -> List[MealPhotoItemPredictionRecord]: ...
 ```
-mutation analyzeMealPhoto(input: AnalyzeMealPhotoInput!): MealPhotoAnalysis
-mutation confirmMealPhoto(input: ConfirmMealPhotoInput!): ConfirmMealPhotoResult
-```
-Status possibili (future fasi): `PENDING|COMPLETED|FAILED` (ora solo COMPLETED).
 
-## Repository Stub
+### Implementazioni
+- `StubAdapter`: Restituisce due item statici (insalata, petto di pollo).
+- `HeuristicAdapter`: Clona base stub e applica regole:
+  * Se ultima cifra `photoId` è pari → aumenta quantità secondo item (+15%) e leggera crescita confidence.
+  * Se `photoUrl` contiene "water" → aggiunge item "Acqua" (200g). 
+
+Selezione tramite funzione `get_active_adapter()` che legge `AI_HEURISTIC_ENABLED` (`1|true|on`).
+
+### Hash Foto
+Funzione `hash_photo_reference(photo_id, photo_url)` (sha256 trunc 16 chars) predisposta per futura sostituzione della chiave idempotente e caching layer condiviso.
+
+## Repository
 File: `backend/repository/ai_meal_photo.py`
-Memorizza in-memory:
-* Analisi: `(user, analysis_id)` → record
-* Idempotenza: `(user, idempotency_key)` → analysis_id
-Predictions generate staticamente (estendibile a pipeline reale).
 
-## Evoluzione Pianificata
-| Fase | Descrizione | Output | Dipendenze |
-|------|-------------|--------|-----------|
-| 0 | Stub deterministico | 2 item statici | Nessuna |
-| 1 | Heuristic / rule-based (es. parse testo utente) | Lista item dinamica limitata | Parser regole |
-| 2 | Inference remoto (Vision API / GPT-4o / custom) | Items + nutrienti stimati | Adapter esterno, rate limit |
-| 3 | Post-processing nutrizionale | Normalizzazione nutrienti + fonti dati | Mapping ingredienti, DB prodotti |
-| 4 | Feedback loop / correzione utente | Retraining / ranking | Storage feedback |
+Responsabilità chiave:
+- Idempotenza: mappa `(user, idempotency_key)` → `analysisId`.
+- Generazione record con `source=adapter.name()`.
+- Timing metrics attorno a `adapter.analyze` tramite `time_analysis`.
+- Logging evento `analysis.created`.
 
-## KPI Iniziali (Fase 0→1)
-| KPI | Target Iniziale | Note |
-|-----|-----------------|------|
-| Adoption feature (utenti che provano almeno 1 foto) | >25% early adopters | Misurare su base giornaliera |
-| Conversione foto → conferma (almeno 1 item) | >60% | Segnale utilità |
-| Tempo medio conferma (s) | <10s | Proxy rapidità UX |
-| Errori invalid index | <1% chiamate confirm | Indica problemi UI |
+TODO futuri:
+- Usare direttamente `hash_photo_reference` come parte della chiave (migrando in modo backward-compatible).
+- Aggiungere metriche per cache hit vs new.
+- Estendere logging con latenza e dimensione payload.
 
-## Acceptance Criteria Fase 0
-1. Mutation disponibili nello schema e additive (nessun breaking change).
-2. Idempotenza `analyzeMealPhoto`: stessa chiave → stesso `analysisId`, stesse predictions.
-3. Conferma ripetuta di stessi indici non crea duplicati pasti.
-4. Invalid index restituisce errore `INVALID_INDEX`.
-5. Test automatici coprono: analyze base, analyze idempotente, confirm (creazione 2 pasti), confirm idempotente, invalid index.
-6. Nessun impatto sulle mutation esistenti (regressioni test esistenti = 0).
+## Metriche & Telemetria
+Attuale: solo latenza per adapter (fase). Pianificato:
+| Nome | Tipo | Labels | Descrizione |
+|------|------|--------|-------------|
+| ai_meal_photo_analysis_latency_seconds | histogram | phase(source) | Latenza analyze per adapter |
+| ai_meal_photo_analysis_requests_total | counter | phase | Numero richieste (da estendere) |
+| ai_meal_photo_analysis_cache_hits_total | counter | phase | (Futuro) Idempotent reuse |
 
-## Rischi & Mitigazioni
-| Rischio | Impatto | Mitigazione |
-|---------|---------|-------------|
-| Aspettativa “vera AI” da parte utente | Delusione | Etichettare come beta / anticipare roadmap |
-| Crescita rapida complessità prima di validare UX | Over-engineering | Iterare stub → heuristic → AI con metriche gating |
-| Drift schema quando passeremo a PENDING asincrono | Client break | Aggiungere campi nuovi (es. `processingProgress`) in modo backward-compatible |
-| Duplice creazione pasti in edge case race | Dati duplicati | Idempotency meal key già in place + lock futura persistenza |
-| Costi inference futuri elevati | Margini | Budget cap + fallback heuristic |
+## Roadmap Aggiornata
+| Step | Descrizione | Stato |
+|------|-------------|-------|
+| Adapter abstraction | Protocol + stub | DONE |
+| Heuristic rules | Regole semplici + flag | DONE |
+| Source field | Esposto in schema e record | DONE |
+| Metrics timing | Wrapper attivo | DONE |
+| Hash utility | Funzione pronta | DONE |
+| Metrics estensione (cache, errori) | Counters addizionali | TODO |
+| Remote model adapter | Chiamata API esterna + fallback | TODO |
+| Circuit breaker | Protezione errori provider | TODO |
+| Nutrient enrichment | Stima nutrienti per item | TODO |
+| Confidence explanation | Dettaglio motivazione | TODO |
 
-## Next Steps (per Fase 1)
-1. Aggiungere attributo opzionale `confidenceExplanation` agli item (additivo).
-2. Introdurre un adapter base `inference_adapter.py` con interfaccia + stub corrente.
-3. Implementare semplice normalizzazione nome → canonical form (lowercase, trimming, rimozione aggettivi). 
-4. Logging strutturato per analyze/confirm (tempo, items, idempotency) → base per metriche.
-5. Definire eventi analitici (analyze.request, analyze.cached, confirm.accepted, confirm.duplicateMeal).
+## Migrazione Futuro Hash Idempotenza
+Piano proposto:
+1. Introdurre campo `photoHash` (non usato per lookup) nel record per debug.
+2. Raccogliere metriche distribuzione collisioni (attese 0).
+3. Abilitare feature flag `AI_IDEMP_HASH_ENABLED` → usa hash come parte della chiave.
+4. Rimuovere vecchia chiave dopo periodo di osservazione (7 giorni) mantenendo fallback.
 
-## Metriche Raccolta (telemetry futura)
-| Evento | Campi |
-|--------|-------|
-| analyze.request | userId, photoId|url hash, predictions_count |
-| analyze.cached | userId, analysisId |
-| confirm.accepted | userId, analysisId, accepted_count |
-| confirm.duplicateMeal | userId, mealKey |
-| confirm.error.INVALID_INDEX | userId, analysisId |
+## Estensioni Previste Error Handling
+Inserire array `analysisErrors` già nel modello schema (vuoto ora). Regole future:
+- Normalizzazione errori in codici (`MealPhotoAnalysisErrorCode`).
+- Fallback chain: heuristic → stub se errore remoto o timeout.
+- Logging con campo `fallbackApplied`.
 
-## Nota Persistenza
-Quando si introdurrà Postgres:
-* Tabella `meal_photo_analysis` (status, raw_json, created_at, idem_key)
-* Tabella `meal_photo_prediction` (fk analysis, nutrienti opzionali)
-* Migrazione semplice grazie a interfaccia repository già isolata.
+## Acceptance Criteria Attuali (Post Heuristic)
+1. `source` riflette adapter effettivo (`stub` oppure `heuristic`).
+2. Idempotenza invariata rispetto a Fase 0.
+3. Nessuna regressione dei test esistenti (repository, idempotenza, metrics base).
+4. Heuristic aggiunge al massimo 1 item extra (Acqua) e modifica solo il secondo item di base.
+
+## Dev Notes
+- Tutte le modifiche additive: nessun breaking change GraphQL.
+- Variabili ambiente centralizzano attivazione feature (nessun toggle runtime via DB ancora).
+- Preparare test di integrazione latenza una volta introdotto remote model.
 
 ---
-Revision: Fase 0 (stub) – data iniziale merge.
-
-## Analisi Costi & Rischi (Fasi 1→2)
-Questa sezione dettaglia ipotesi economiche e tecniche per passare da stub a inference remota.
-
-### Ipotesi Volume (mese 1 post lancio AI vera)
-- Utenti attivi feature: 2.000
-- Foto/giorno per utente attivo: 1.2 (media)
-- Foto totali mese: ~72.000
-
-### Modelli di Costo (esempi)
-| Voce | Ipotesi | Costo unitario | Costo mensile stimato | Note |
-|------|---------|----------------|-----------------------|------|
-| Vision API (label + nutrition heuristic) | 72k chiamate | $0.0025 | ~$180 | Prezzo indicativo low-end |
-| GPT multimodale (prompt breve) | 20% richieste escalate (14.4k) | $0.01 | ~$144 | Escalation solo casi Low Confidence |
-| Storage immagini (media 250KB) | 72k * 0.25MB = 18GB | $0.02/GB | ~$0.36 | Se conserviamo 30 giorni |
-| Telemetry / Logging | 72k eventi | $0.0001 | ~$7 | Se log strutturato esterno |
-| Totale stimato |  |  | ~$331 | Margine ±30% |
-
-### Sensibilità
-- Se adozione raddoppia (4.000 utenti) ⇒ costo ~ +85% (economia di scala solo logging).
-- Se confidenza bassa porta escalation 50% ⇒ GPT costo ~ $360 (+$216 delta).
-
-### Rischi Economici
-| Rischio | Trigger | Mitigazione | Soglia Action |
-|---------|--------|-------------|---------------|
-| Escalation eccessiva | Confidence < threshold spesso | Dynamic threshold + caching embed | Escalation >35% per 3 giorni |
-| Chiamate duplicate | Retry client | Idempotency per photo hash | Dup call rate >3% |
-| Foto non confermate (spreco) | UX bassa | Misurare conversione foto→confirm | Conversione <40% |
-
-### Rischi Tecnici Addizionali
-| Rischio | Impatto | Mitigazione Tecnica |
-|---------|---------|--------------------|
-| Latenza >3s media | Drop utilizzo | Pipeline parallela + prefetch nutrienti |
-| Formato output modello instabile | Error parsing | JSON schema enforced + validatore |
-| Saturazione rate limit provider | Fail hard UX | Circuit breaker + fallback heuristic |
-| Drift reputazione calorie | Fiducia bassa | Ricalibrazione con dataset validato periodico |
-
-## Piano Rollout Incrementale
-| Fase | Ambiente | Gate Metriche | % Utenti | Azioni se Fallisce |
-|------|----------|---------------|----------|--------------------|
-| 0 (Stub) | Prod | Test tutti verdi | 100% | Rollback rapido (feature innocua) |
-| 1 (Heuristic) | Prod (feature flag) | Conversione foto→confirm ≥55%, Errori index <1% | 10% → 50% | Se <55%: iterazione regole, copy UX |
-| 2 (Remote Inference) | Prod (flag separato) | Latenza p95 <2500ms, Escalation <35% | 5% → 30% | Se p95 >2500ms: caching / batching |
-| 3 (Post-processing nutrizionale) | Prod | Accuratezza stima kcal ±25% vs manuale | Subset 10% | Se >25% errore: retrain mapping |
-| 4 (Feedback loop) | Prod | Retention feature +5pp | Graduale | Se neutra: rivalutare costo loop |
-
-### Gating Operativo
-- Promozione Fase 1 → 2 solo dopo 7 giorni di metriche stabili.
-- Ogni aumento percentuale utenti avviene in step (10pp) con verifica 24h.
-
-## Acceptance Criteria Estesi (Fasi Future)
-### Fase 1 (Heuristic)
-1. Items generati dinamicamente da regole (≥3 classi alimenti).
-2. Campi opzionali: `confidence` variabile, `confidenceExplanation` presente se confidence <0.7.
-3. Degradazione: se parsing fallisce ritorna fallback 2 item statici + flag `fallbackUsed`.
-4. Metriche loggate: analyze.request, analyze.cached, confirm.accepted con latenza.
-
-### Fase 2 (Remote Inference)
-1. Adapter con timeout configurabile (default 2.5s) e fallback heuristico.
-2. Circuit breaker (apre dopo 5 errori consecutivi per 60s).
-3. Normalizzazione nutrienti: calorie stimate sempre presenti, macro se fornite.
-4. Logging differenzia source: `source: heuristic|model|fallback`.
-5. Tests coprono: timeout fallback, breaker open, caching per stesso hash foto.
-
-## Raccomandazioni Operative Immediate
-Priorità (prossimi 2-3 giorni):
-1. Instrumentazione: aggiungere logging strutturato analyze/confirm (user, analysisId, duration, fallbackUsed).
-2. Definire interfaccia `InferenceAdapter` + implementazione `StubAdapter` (attuale) per ridurre refactor futuro.
-3. Aggiungere hashing foto (placeholder funzione) per preparare dedup + caching.
-4. Preparare feature flag semplice environment variable per Fase 1 (enable heuristic).
-5. Dashboard metriche basilare (esportare in log → successivo ingest su console / BigQuery). 
-
-### Checklist Tecnica
-- [ ] Creare modulo `inference/adapter.py` con Protocol.
-- [ ] Spostare logica static predictions nell'adapter.
-- [ ] Aggiungere wrapper timing.
-- [ ] Introdurre funzione `hash_photo_reference(photoId, photoUrl)`.
-- [ ] Estendere schema con campo `source` (additivo).
-
-## Aggiornamento Revision
-Revision: Fase 0 (stub) – aggiornato con piano strategico (data: 2025-09-27).
+Revision: Aggiornato a Fase 1 (heuristic flag) – 2025-09-27.
