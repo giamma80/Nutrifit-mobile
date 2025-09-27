@@ -9,6 +9,7 @@ e futura orchestrazione. Permette di:
 API minimale per Fase 0→1. Potrà estendersi (portion inference, nutrient
 enrichment, fallback chain).
 """
+
 from __future__ import annotations
 
 from typing import List, Optional, Protocol
@@ -31,10 +32,10 @@ class InferenceAdapter(Protocol):
         now_iso: str,
     ) -> List[MealPhotoItemPredictionRecord]:
         """Produce lista di predictions (stub/heuristic/model).
-        Requisiti baseline:
-    * Non sollevare eccezioni per input vuoti (fallback interno)
-    * Restituire ≥1 item (se nessun rilevamento usare placeholder generico)
-        * Confidence in range [0,1]
+            Requisiti baseline:
+        * Non sollevare eccezioni per input vuoti (fallback interno)
+        * Restituire ≥1 item (se nessun rilevamento usare placeholder generico)
+            * Confidence in range [0,1]
         """
         ...
 
@@ -78,12 +79,59 @@ class StubAdapter:
         return list(self._ITEMS)
 
 
+class HeuristicAdapter:
+    """Adapter semplice heuristic (fase 1 minimale).
+
+    Regole:
+    - Se photo_id termina con numero pari → aumenta porzione del secondo item
+    - Aggiunge un terzo item "Acqua" se url contiene 'water'
+    Confidence calcolata in base a semplici pesi.
+    """
+
+    def name(self) -> str:  # pragma: no cover (semplice)
+        return "heuristic"
+
+    def analyze(
+        self,
+        *,
+        user_id: str,
+        photo_id: Optional[str],
+        photo_url: Optional[str],
+        now_iso: str,
+    ) -> List[MealPhotoItemPredictionRecord]:
+        base = StubAdapter().analyze(
+            user_id=user_id,
+            photo_id=photo_id,
+            photo_url=photo_url,
+            now_iso=now_iso,
+        )
+        items = list(base)
+        even = False
+        if photo_id and photo_id[-1].isdigit():
+            even = int(photo_id[-1]) % 2 == 0
+        if even and len(items) > 1 and items[1].quantity_g:
+            # aumenta porzione secondo item
+            items[1].quantity_g = items[1].quantity_g * 1.15  # tipo euristica
+            items[1].confidence = min(1.0, items[1].confidence + 0.03)
+        if photo_url and "water" in photo_url.lower():
+            items.append(
+                MealPhotoItemPredictionRecord(
+                    label="Acqua",
+                    confidence=0.75,
+                    quantity_g=200.0,
+                    calories=0,
+                )
+            )
+        return items
+
+
 # Feature flag (futura estensione: se definito ADAPTER=heuristic, ecc.)
 _ENV_FLAG = os.getenv("AI_HEURISTIC_ENABLED", "0")
 
 
 def get_active_adapter() -> InferenceAdapter:
-    # Sempre stub per ora; in futuro se _ENV_FLAG attivo scegliamo heuristic.
+    if _ENV_FLAG in {"1", "true", "TRUE", "on"}:
+        return HeuristicAdapter()
     return StubAdapter()
 
 

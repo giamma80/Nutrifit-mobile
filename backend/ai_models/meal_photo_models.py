@@ -1,4 +1,5 @@
 """Shared dataclasses per AI meal photo analysis to avoid circular imports."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -25,6 +26,7 @@ class MealPhotoAnalysisRecord:
     user_id: str
     status: str  # PENDING | COMPLETED | FAILED
     created_at: str
+    source: str  # stub|heuristic|model|fallback (string semplice per ora)
     items: List[MealPhotoItemPredictionRecord]
     raw_json: Optional[str] = None
     idempotency_key_used: Optional[str] = None

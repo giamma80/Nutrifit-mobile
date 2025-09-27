@@ -1,7 +1,8 @@
 from repository.ai_meal_photo import meal_photo_repo
+from typing import Any
 
 
-def test_repository_idempotent_same_auto_key(monkeypatch):
+def test_repository_idempotent_same_auto_key(monkeypatch: Any) -> None:
     # Stesso utente + stessi riferimenti -> stessa analysis
     user = "user1"
     photo_id = "ph1"
@@ -24,7 +25,7 @@ def test_repository_idempotent_same_auto_key(monkeypatch):
     assert first.idempotency_key_used == second.idempotency_key_used
 
 
-def test_repository_different_photo_changes_analysis():
+def test_repository_different_photo_changes_analysis() -> None:
     user = "user2"
     a = meal_photo_repo.create_or_get(
         user_id=user,

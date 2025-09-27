@@ -16,6 +16,7 @@ from typing import Optional, Dict, Tuple
 import hashlib
 import uuid
 import logging
+from metrics.ai_meal_photo import time_analysis
 from ai_models.meal_photo_models import MealPhotoAnalysisRecord
 from inference.adapter import get_active_adapter
 
@@ -55,18 +56,20 @@ class InMemoryMealPhotoAnalysisRepository:
         if existing_id:
             return self._analyses[(user_id, existing_id)]
         adapter = get_active_adapter()
-        items = adapter.analyze(
-            user_id=user_id,
-            photo_id=photo_id,
-            photo_url=photo_url,
-            now_iso=now_iso,
-        )
+        with time_analysis(phase=adapter.name()):
+            items = adapter.analyze(
+                user_id=user_id,
+                photo_id=photo_id,
+                photo_url=photo_url,
+                now_iso=now_iso,
+            )
         analysis_id = uuid.uuid4().hex
         rec = MealPhotoAnalysisRecord(
             id=analysis_id,
             user_id=user_id,
             status="COMPLETED",
             created_at=now_iso,
+            source=adapter.name(),
             items=items,
             raw_json=None,
             idempotency_key_used=idempotency_key,
