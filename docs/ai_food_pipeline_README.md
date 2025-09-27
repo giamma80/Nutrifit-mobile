@@ -1,56 +1,71 @@
-# AI Food Recognition Pipeline
+# AI Food Recognition Pipeline (Fase 0 Stub)
 
-Questa README descrive il flusso tecnico end-to-end del riconoscimento alimenti basato su GPT-4V + OpenFoodFacts + dizionario interno, orchestrato interamente dal backend monolitico (backend‑centric). Nessuna chiamata esterna viene eseguita direttamente dal client.
+Stato Attuale: implementato STUB iniziale con coppia di mutation `analyzeMealPhoto` e `confirmMealPhoto` che non eseguono ancora inference reale ma preparano contratto e idempotenza futura. Il client può già integrare il flusso UI (upload → analisi stub → conferma → logMeal derivato) senza dipendere da GPT.
 
-## Obiettivi
+Obiettivo Fase 0: definire boundary chiari e semantica campi (`source=STUB`) per permettere sviluppo parallelo mobile mentre la pipeline AI reale è in design.
+
+## Obiettivi (Generali)
 
 - Time-to-value rapido senza modello custom iniziale.
 - Grounding deterministico nutrienti (mai fidarsi di stime LLM dirette) via adapter OFF centralizzato.
 - Cost & Latency Control con early-exit (barcode-first) e caching profili centralizzata lato server.
 
-## Flusso Sintetico
+## Flusso Sintetico (Oggi vs Futuro)
 
-1. Upload immagine → ottieni `uploadId` (fuori scope qui).
-2. Mutation `analyzeMealPhoto(uploadId)` → avvia pipeline.
-3. Backend (monolite):
-   - Estrae eventuale barcode (ZXing) → se trovato skip GPT.
-   - Altrimenti pre-process (resize 1024, strip EXIF, optional blur volti).
-   - Prompt GPT-4V (vedi `ai_food_recognition_prompt.md`).
-   - Parsing JSON + normalizzazione label.
-  - Matching (fuzzy + embeddings) contro:
-     1. Dizionario interno (preferito)
-     2. OpenFoodFacts (nome + synonyms)
-     3. Fallback generico
-   - Calcolo uncertainty band.
-   - Costruzione `AIInferenceResult` con `items`.
-4. Client mostra UI conferma (auto-fill se condizioni soddisfatte).
-5. Mutation `confirmInference` con `selections` (uno o più item). Restituisce lista `MealEntry`.
-6. Subscription `dailyNutritionUpdated` notifica delta nutrienti per aggiornare ring.
+| Step | Fase 0 (Runtime) | Fase 1 (Baseline Vision) | Fase 2 (Enrichment & Matching) |
+|------|------------------|--------------------------|--------------------------------|
+| 1 | Upload immagine (placeholder) | Upload + basic validation | Upload + on-device preprocessing |
+| 2 | `analyzeMealPhoto` restituisce lista stub (1–2 item fissi) | Barcode detect + GPT-4V prompt | Vision model custom + fallback GPT |
+| 3 | Items hanno campi minimi (name, quantityGuess=null, confidence=1.0, source=STUB) | JSON GPT normalizzato | Fuzzy + embedding matching OFF + dizionario |
+| 4 | Nessun nutrient inference | Stima porzioni (euristiche) | Portion refinement + volume heuristics |
+| 5 | `confirmMealPhoto` crea MealEntry con `name` & `quantityG` passata | idem + snapshot nutriente via barcode se presente | idem + nutrient inference fallback |
+| 6 | — | Metriche base | Metriche avanzate + quality scoring |
 
-## Schema Esteso
+Subscription non ancora implementata (roadmap B6).
 
-Vedi `lib/graphql/schema_nutrition.graphql` (tipi: `AIInferenceItem`, `UncertaintyBand`, `InferenceSource`, `DailyNutritionDelta`).
+Riferimenti correlati: [AI Meal Photo Analysis Stub](ai_meal_photo.md) · [Prompt Draft GPT-4V](ai_food_recognition_prompt.md)
 
-## Matching Details
+## Schema (Stub Attuale – Estratto)
 
-- Fuzzy ratio (es. token set) + embedding cosine (>=0.62 soglia safe).
-- Normalizzazione heuristica: rimozione aggettivi marketing, plurali → singolare base.
-- Caricamento dizionario custom (alimentazione utente) come primo livello.
+```graphql
+type AnalyzedMealItem {
+   label: String!
+   confidence: Float!
+   source: String!   # STUB per fase 0
+}
 
-## Confidence Composition
+type AnalyzeMealPhotoResult {
+   id: ID!
+   items: [AnalyzedMealItem!]!
+   source: String!   # STUB
+}
 
-```text
-final_conf = match_confidence * portion_confidence * source_weight
+type Mutation {
+   analyzeMealPhoto(uploadId: String!): AnalyzeMealPhotoResult!
+   confirmMealPhoto(id: ID!, selection: Int!, quantityG: Float!): MealEntry!
+}
 ```
 
-Policy auto-fill: final_conf ≥ 0.70 AND items ≤2 AND kcal_totali_stimati < 800.
+## Differenze vs Design Finale
+
+| Aspetto | Stub | Futuro |
+|---------|------|--------|
+| Confidence | Fisso 1.0 | Calcolo composito (vision * matching * portion) |
+| Fonte | 'STUB' | Enum (`BARCODE_DETECT`,`VISION_MODEL`,`LLM_FALLBACK`) |
+| Matching | Nessuno | Fuzzy + embedding + ranking |
+| Porzione | Non stimata | Heuristics + ML volume |
+| Nutrienti | Non arricchiti | Snapshot via OFF / inference AI | 
+| Multi-item reale | Limitato (placeholder) | Supporto 1..5 item con ranking |
+
+## Roadmap Confidence (Indicativa)
+`final_conf = vision_conf * match_conf * portion_conf * source_weight` (clamp 0..1) — implementazione Fase 2.
 
 ## Caching
 
 - Profili nutrienti OFF (chiave: product code) TTL 24h (fase B1/B4: in-memory + SWR; eventuale Redis se eviction > soglia).
 - LRU 256 voci (target iniziale) con metriche hit/miss → decisione scaling.
 
-## Metriche Chiave
+## Metriche (Previste)
 
 | Nome | Descrizione |
 |------|-------------|
@@ -59,7 +74,8 @@ Policy auto-fill: final_conf ≥ 0.70 AND items ≤2 AND kcal_totali_stimati < 8
 | ai_portion_adjustment_ratio | % item con porzione rivista utente |
 | ai_autofill_accept_rate | % auto-fill confermati senza modifica |
 
-## Error Handling
+## Error Handling (Fase 0)
+Tutti i percorsi stub sono deterministici; principali errori futuri saranno introdotti in Fase 1 (timeout model, parsing JSON). Manteniamo già un punto di estensione per differenziare `source`.
 
 | Caso | Azione |
 |------|--------|
@@ -77,10 +93,15 @@ Policy auto-fill: final_conf ≥ 0.70 AND items ≤2 AND kcal_totali_stimati < 8
  - Source Chain Tracking: ogni inferenza confermata arricchisce `meal_entry.source_chain` (lista step: barcode→OFF normalization→AI match→portion adjust) per audit.
  - Quality Score Late Update: se enrichment tardivo modifica macro >5% ricalcolo `quality_score` (non mutiamo snapshot nutrienti originale, append step al source_chain).
 
-## TODO
+## TODO (Aggiornato)
 
-- [ ] Implementare embedding index (alimentazione utente + global foods)
-- [ ] Logging structured tracing (traceId per pipeline)
-- [ ] Rate limiting GPT per utente (abuso foto)
+- [ ] Integrare barcode detect reale (ZXing) prima di GPT
+- [ ] Prompt GPT-4V operativo + parser robusto
+- [ ] Embedding index (utente + global foods)
+- [ ] Portion heuristics (stima baseline) + feedback loop
+- [ ] Structured tracing (traceId) end-to-end
+- [ ] Rate limiting foto per utente
+- [ ] Enum source definitivo e rimozione stringa libera
+- [ ] Subscription aggiornamenti nutrizionali post conferma
 
 ---

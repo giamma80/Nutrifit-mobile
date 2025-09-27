@@ -110,9 +110,7 @@ class InMemoryMealPhotoAnalysisRepository:
         self._idemp[key] = analysis_id
         return rec
 
-    def get(
-        self, user_id: str, analysis_id: str
-    ) -> Optional[MealPhotoAnalysisRecord]:
+    def get(self, user_id: str, analysis_id: str) -> Optional[MealPhotoAnalysisRecord]:
         return self._analyses.get((user_id, analysis_id))
 
 

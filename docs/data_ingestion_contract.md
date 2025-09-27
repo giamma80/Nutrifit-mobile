@@ -1,256 +1,149 @@
-# Data Ingestion Contract – logMeal & Related Events
+# Data Ingestion Contract – Meal & Activity (Stato Runtime v0.4.x)
 
-Versione: 0.1 (Draft)
-Ultimo aggiornamento: 2025-09-20
+Versione documento: 0.2
+Ultimo aggiornamento: 2025-09-27
 
-## 1. Scopo
+Questo documento riflette lo STATO IMPLEMENTATO nel backend attuale (in‑memory persistence) e distingue chiaramente ciò che è già runtime da ciò che è pianificato.
 
-Definire il contratto stabile per l’ingestione di pasti nel backend Nutrifit, garantendo:
+## 1. Obiettivi
 
-- Idempotenza per richieste ripetute (retry client / condizioni offline)
-- Snapshot nutrienti immutabile al momento del log
-- Validazioni coerenti tra canali (manuale, barcode, AI)
-- Estensibilità futura (nuovi campi, enrichment AI, portion heuristics) senza breaking changes
+| Obiettivo | Stato | Note |
+|-----------|-------|------|
+| Idempotenza meal log | ✅ Implementata (fallback key) | Chiave derivata se non fornita esplicitamente |
+| Snapshot nutrienti immutabile | ✅ | Campo `nutrientSnapshotJson` opzionale |
+| CRUD pasti completo | ✅ | `logMeal`, `updateMeal`, `deleteMeal` |
+| Idempotenza activity minute | ✅ | Hash batch deterministico |
+| Health totals snapshot (fonte primaria) | ✅ | `syncHealthTotals` produce delta consumati da `dailySummary` |
+| Raccomandazioni inline nel log | ❌ | Pianificato, engine non attivo |
 
-## 2. Mutation Principale
-
-### 2.1 Create: logMeal
+## 2. Mutations Runtime (Estratto SDL Attuale)
 
 ```graphql
-mutation logMeal($input: LogMealInput!, $idempotencyKey: ID!) {
-  logMeal(input: $input, idempotencyKey: $idempotencyKey) {
-    mealEntryId
-    createdAt
-    snapshot {
-      energyKcal
-      proteinG
-      carbsG
-      fatG
-      ... future nutrient fields
-    }
-  }
+input LogMealInput {
+  name: String!
+  quantityG: Float!
+  timestamp: String
+  barcode: String
+  idempotencyKey: String
+  userId: String
+}
+input UpdateMealInput {
+  id: String!
+  name: String
+  quantityG: Float
+  timestamp: String
+  barcode: String
+  userId: String
+}
+
+type MealEntry {
+  id: ID!
+  userId: String!
+  name: String!
+  quantityG: Float!
+  timestamp: String!
+  barcode: String
+  idempotencyKey: String
+  nutrientSnapshotJson: String
+  calories: Int
+  protein: Float
+  carbs: Float
+  fat: Float
+  fiber: Float
+  sugar: Float
+  sodium: Float
+}
+
+type Mutation {
+  logMeal(input: LogMealInput!): MealEntry!
+  updateMeal(input: UpdateMealInput!): MealEntry!
+  deleteMeal(id: String!): Boolean!
+  ingestActivityEvents(input: [ActivityMinuteInput!]!, idempotencyKey: String, userId: String): IngestActivityResult!
+  syncHealthTotals(input: HealthTotalsInput!, idempotencyKey: String, userId: String): SyncHealthTotalsResult!
 }
 ```
 
-### 2.2 Update: updateMeal
+## 3. Idempotenza Meal Logging
 
-```graphql
-mutation updateMeal($id: ID!, $input: LogMealInput!) {
-  updateMeal(id: $id, input: $input) {
-    mealEntryId
-    updatedAt
-    snapshot {
-      energyKcal
-      proteinG
-      carbsG
-      fatG
-      fiberG
-      sugarG
-      sodiumMg
-    }
-  }
-}
+Fallback key (se `idempotencyKey` non passata):
 ```
-
-### 2.3 Delete: deleteMeal
-
-```graphql
-mutation deleteMeal($id: ID!) {
-  deleteMeal(id: $id) {
-    success
-    deletedAt
-    recalculatedStats {
-      energyKcal
-      fatG
-      sugarG
-      sodiumMg
-    }
-  }
-}
+lower(name) | round(quantityG,3) | (timestamp se fornito) | barcode | userId
 ```
+Caratteristiche:
+* Se il client NON fornisce timestamp → non entra nella chiave → due log identici senza timestamp sono deduplicati.
+* Se il client fornisce un timestamp diverso → produce chiavi distinte (scelta intenzionale per consentire log retroattivi).
+* Il campo `idempotencyKey` risultante viene restituito nel `MealEntry` per correlare replay.
 
-### 2.1 Input Structure (Logical)
+Conflitto: se viene passata una chiave esplicita già usata con payload diverso → il backend (attuale implementazione stub) accetterà la prima e ignorerà successivi log (future: response con flag conflitto).
 
-| Campo | Tipo | Obbligatorio | Descrizione |
-|-------|------|--------------|-------------|
-| `foodRef` | union (`ProductBarcodeRef` / `ManualEntryRef` / `AIInferenceRef`) | sì | Origine del cibo loggato |
-| `quantity` | Float > 0 | sì | Quantità numerica |
-| `unit` | Enum (`g`,`ml`,`piece`,`serving`) | sì | Unità di misura |
-| `mealType` | Enum (`breakfast`,`lunch`,`dinner`,`snack`) | sì | Categoria pasto |
-| `userNote` | String(<=300) | no | Nota libera opzionale |
-| `portionOverride` | Float >0 | no | Override porzione se diversa da standard |
+## 4. nutrientSnapshotJson
 
-`foodRef` varianti:
-
-```graphql
-type ProductBarcodeRef { barcode: String! }
-type ManualEntryRef { name: String!, nutrients: ManualNutrientsInput! }
-type AIInferenceRef { inferenceId: ID!, itemId: ID! }
-```
-`ManualNutrientsInput` campi minimi: `energyKcal`, `proteinG`, `carbsG`, `fatG` (opzionali micronutrienti estensibili).
-
-### 2.2 Idempotency Key
-
-- Campo header o variabile GraphQL `idempotencyKey` (UUID v4 consigliato)
-- Finestra retention chiavi: 24h (configurabile)
-- Se richiesta identica (stesso hash normalizzato) → restituisce stessa risposta (HTTP 200, no duplicato)
-- Se conflitto (chiave riusata con payload differente) → errore `IdempotencyConflict`
-
-Hash normalizzato include: user_id, foodRef (serializzato), quantity, unit, mealType, portionOverride (se presente).
-
-## 3. Snapshot Nutrienti
-
-Al log, il backend produce `nutrient_snapshot_json` con almeno:
-
-```json
+Popolato quando disponibile un prodotto barcode normalizzato (OpenFoodFacts adapter in cache). Struttura attuale (esempio):
+```jsonc
 {
-  "schema_version": 1,
-  "source": "OFF|MANUAL|AI",
-  "source_ref": "barcode|manual|inference:<id>",
-  "energy_kcal": 210.0,
-  "protein_g": 12.5,
-  "carbs_g": 18.0,
-  "fat_g": 8.4,
-  "raw": { /* payload originale ridotto */ }
+  "calories": 180,
+  "protein": 6.4,
+  "carbs": 22.5,
+  "fat": 5.1,
+  "fiber": 3.2,
+  "sugar": 12.0,
+  "sodium": 150
 }
 ```
-
 Regole:
+1. Scala per `quantityG` rispetto a 100g origine.
+2. Immutabile dopo il log (future enrichment non muta lo snapshot originale; potrà generare record supplementari o campi derivati).
+3. Chiavi ordinate (serializzazione deterministica) per consentire confronti test.
+4. Se prodotto non trovato → `null` (potrà essere popolato da pipeline AI futura).
 
-- Conversione kJ→kcal se necessario (fattore 0.239006)
-- Se sale presente e sodio assente → `sodium_mg = salt_g * 400`
-- Valori negativi o > range plausibile (es. protein > 150g per porzione standard) → rifiuto input
+## 5. Update & Delete
 
-## 4. Validazioni
+`updateMeal` ricalcola lo snapshot nutrienti se cambia `barcode` o `quantityG`. Campi opzionali non passati rimangono invariati. `deleteMeal` restituisce Boolean (`true` se la entry esisteva ed è stata rimossa). Non esiste oggi ricalcolo retroattivo del `dailySummary` memorizzato (summary calcolato on-demand), quindi il consumo successivo rifletterà lo stato aggiornato.
 
-| Categoria | Regola | Azione |
-|-----------|--------|--------|
-| Quantità | `quantity > 0` e `<= 5000` | Errore `InvalidQuantity` |
-| Unit | Enum valido | Errore `InvalidUnit` |
-| Meal Type | Enum valido | Errore `InvalidMealType` |
-| Barcode | Regex EAN13/8 | Errore `InvalidBarcode` |
-| AI Ref | Inference esiste & `status=CONFIRMED_PENDING` | Errore `InvalidAIReference` |
-| Macro | kcal derivabile se macro presenti | Autocalcolo se mancante |
+## 6. Activity Ingestion (Diagnostico)
 
-## 5. Errori Standard (GraphQL Codes)
+`ingestActivityEvents` accetta minute events per scopi di debug / timeline; NON alimenta più i totali di `dailySummary` (sostituiti dal flusso Health Totals Sync). Idempotenza: firma batch deterministica su eventi normalizzati (timestamp ridotto al minuto) → replay ritorna stesso risultato senza reinserimento. Eventi confliggenti (stesso minuto dati diversi) scartati con reason (es. `CONFLICT_DIFFERENT_DATA`).
 
-| Codice | Descrizione | HTTP | Operazioni |
-|--------|-------------|------|------------|
-| `IdempotencyConflict` | Chiave riusata con payload diverso | 409 | logMeal |
-| `InvalidQuantity` | Quantità fuori range | 400 | logMeal, updateMeal |
-| `InvalidBarcode` | Barcode non valido | 400 | logMeal, updateMeal |
-| `ProductNotFound` | OFF non ritorna prodotto / mismatch | 404 | logMeal, updateMeal |
-| `AIItemMismatch` | Item inference non appartiene a utente | 400 | logMeal, updateMeal |
-| `MealNotFound` | ID pasto non esiste o non appartiene a utente | 404 | updateMeal, deleteMeal |
-| `MealAlreadyDeleted` | Tentativo operazione su pasto già eliminato | 410 | updateMeal, deleteMeal |
-| `RateLimited` | Superato rate limite mutation | 429 | Tutte |
-| `ServerError` | Errore interno generico | 500 | Tutte |
+## 7. Health Totals Sync (Autoritativo)
 
-## 6. Estensioni Future (Backward Compatible)
+La mutation `syncHealthTotals` converte snapshot cumulativi (steps/caloriesOut/hrAvgSession opzionale) in delta robusti con gestione `duplicate`, `reset`, `idempotencyConflict`. I delta alimentano `dailySummary.activitySteps` e `dailySummary.activityCaloriesOut`. Dettagli completi: vedere `health_totals_sync.md`.
 
-- Campo opzionale `micronutrients` nel snapshot.
-- Aggiunta `mealContext` (es. preWorkout, postWorkout) come enum.
-- Supporto multi-item batching (input lista) mantenendo mutazione singola attuale.
+## 8. Errori & Validazioni (Stato Attuale)
 
-## 7. Eventi Derivati
+Implementazione corrente esegue validazioni basilari:
+| Categoria | Regola | Stato |
+|-----------|--------|-------|
+| quantityG | > 0 | Enforced |
+| barcode | Lunghezza ragionevole (basic) | Parziale |
+| timestamp | ISO8601 se presente | Enforced superficiale |
+| idempotenza | Chiave generata / rispettata | Enforced |
 
-Event Log (append-only) genererà eventi:
+Roadmap (non ancora): controlli range macro, error taxonomy standardizzata, rate limiting.
 
-| Evento | Payload Principale |
-|--------|--------------------|
-| `meal_logged` | meal_entry_id, user_id, meal_type, energy_kcal |
-| `daily_summary_recomputed` | user_id, date, deltas |
+## 9. Estensioni Pianificate (Non Runtime)
 
-## 8. Rate Limiting (Indicativo)
+| Feature | Tipo | Note |
+|---------|------|------|
+| meal batching | additive | Input lista di LogMealInput |> ritorno lista entries |
+| micronutrients avanzati | additive | Aggiunta altri campi nello snapshot |
+| recommendation embedding | additive | Campo recommendations in risposta logMeal |
+| conflict flag responses | additive | Response arricchita con `idempotencyConflict` per chiave riusata |
 
-| Azione | Limite | Finestra |
-|--------|--------|----------|
-| `logMeal` | 120 | 1h per utente |
-| `logMeal` | 600 | 24h per utente |
-| `updateMeal` | 60 | 1h per utente |
-| `updateMeal` | 300 | 24h per utente |
-| `deleteMeal` | 30 | 1h per utente |
-| `deleteMeal` | 150 | 24h per utente |
+## 10. Testing Contractuale (Guidelines)
 
-Superamento produce errore `RateLimited` con header `Retry-After`.
+Minimo set da mantenere:
+1. Log idempotente senza timestamp (2 richieste → 1 record).
+2. Log con timestamp diversi → 2 record.
+3. Update modifica quantity → calorie cambiano coerentemente (scaling lineare).
+4. Delete rimuove entry e seconda delete ritorna `False` (o rimane senza effetto) – comportamento attuale Boolean semplice.
+5. syncHealthTotals duplicate → nessun nuovo delta.
+6. syncHealthTotals reset detection → delta = snapshot.
 
-## 9. Test Contractuali
+## 11. Open Questions
 
-### 9.1 Test CRUD Operations
-- **Create (logMeal)**: Test idempotenza: ripetere stessa mutation 2 volte → una sola row
-- **Create Conflict**: Test conflitto: stessa chiave con macro diverse → errore
-- **Update**: Test update di pasto esistente → snapshot nutrients aggiornato correttamente
-- **Update Not Found**: Test update di pasto inesistente → errore `MealNotFound`
-- **Delete**: Test delete di pasto esistente → success=true e stats ricalcolate
-- **Delete Not Found**: Test delete di pasto inesistente → errore `MealNotFound`
-- **Delete Idempotence**: Test delete ripetuto → errore `MealAlreadyDeleted`
-
-### 9.2 Schema Validation
-- Snapshot SDL GraphQL aggiornato per ogni aggiunta di campo
-- Retrocompatibilità: campi aggiunti sempre opzionali
-- Response structure: updateMeal e deleteMeal mantengono struttura coerente
-
-## 10. Open Questions
-
-- Batching multi-pasto: vale la pena per ridurre roundtrip o complessità > beneficio iniziale?
-- Micronutrienti dinamici: introdurre dizionario centralizzato validi vs free-form JSON?
+* Introdurre subito conflict flag su idempotenza esplicita? (basso costo)
+* Normalizzazione nome meal per dedup più aggressivo (rimuovere stop‑words)?
+* Retention idempotency keys (attualmente in-memory – definire TTL persistente in futuro DB).
 
 ---
-
-## 11. Activity Ingestion (Nuova)
-
-Mutation (batch minute events):
-
-```graphql
-mutation ingestActivityEvents($input: [ActivityMinuteInput!]!, $idempotencyKey: ID!) {
-  ingestActivityEvents(input: $input, idempotencyKey: $idempotencyKey) {
-    accepted
-    duplicates
-    rejected { index reason }
-  }
-}
-```
-
-`ActivityMinuteInput`:
-| Campo | Tipo | Note |
-|-------|------|------|
-| ts | DateTime (min precision) | Normalizzato a minuto UTC |
-| steps | Int >=0 | opzionale, default 0 |
-| caloriesOut | Float >=0 | opzionale |
-| hrAvg | Float >=0 | opzionale |
-| source | Enum (`APPLE_HEALTH`,`GOOGLE_FIT`,`MANUAL`) | required |
-
-Idempotenza: hash batch = sha256(sorted(ts,user_id,steps,caloriesOut,hrAvg)). Tentativo ripetuto con stessa chiave → risposta cached.
-
-Conflitto: stessa chiave con payload diverso → `IdempotencyConflict`.
-
-## 12. logMeal Response Estesa
-
-Estensione (additiva) per includere raccomandazioni appena emesse:
-
-```graphql
-type LogMealResult {
-  mealEntryId: ID!
-  createdAt: DateTime!
-  snapshot: MealSnapshot!
-  recommendations: [Recommendation!]!
-}
-```
-
-Se nessuna generata → lista vuota.
-
-## 13. Recommendation Object (Estratto)
-
-```graphql
-type Recommendation {
-  id: ID!
-  emittedAt: DateTime!
-  category: RecommendationCategory!
-  triggerType: RecommendationTrigger!
-  message: String!
-}
-```
-
-Codici trigger definiti in `docs/recommendation_engine.md`.
-
-Feedback: aprire issue `contract:` con suggerimenti / edge case.
+Feedback: creare issue con prefisso `contract:` per proporre estensioni o segnalare edge case non coperti.

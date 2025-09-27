@@ -316,9 +316,7 @@ class UpdateMealInput:
 DEFAULT_USER_ID = "default"
 
 
-def _enrich_from_product(
-    prod: Product, quantity_g: float
-) -> Dict[str, Optional[float]]:
+def _enrich_from_product(prod: Product, quantity_g: float) -> Dict[str, Optional[float]]:
     factor = quantity_g / 100.0 if quantity_g else 1.0
     enriched: Dict[str, Optional[float]] = {}
     for field in NUTRIENT_FIELDS:
@@ -347,9 +345,7 @@ class Query:
     def health(self) -> str:
         return "ok"
 
-    @strawberry.field(
-        description="Fetch prodotto da OpenFoodFacts (cache)"
-    )  # type: ignore[misc]
+    @strawberry.field(description="Fetch prodotto da OpenFoodFacts (cache)")  # type: ignore[misc]
     async def product(
         self, info: Info[Any, Any], barcode: str
     ) -> Optional[Product]:  # noqa: ARG002
@@ -367,9 +363,7 @@ class Query:
         cache.set(key, prod, PRODUCT_CACHE_TTL_S)
         return prod
 
-    @strawberry.field(
-        description="Lista pasti più recenti (desc)"
-    )  # type: ignore[misc]
+    @strawberry.field(description="Lista pasti più recenti (desc)")  # type: ignore[misc]
     def meal_entries(
         self,
         info: Info[Any, Any],  # noqa: ARG002
@@ -386,9 +380,7 @@ class Query:
         records = meal_repo.list(uid, limit, after, before)
         return [MealEntry(**dataclasses.asdict(r)) for r in records]
 
-    @strawberry.field(
-        description="Riepilogo nutrienti per giorno (UTC)"
-    )  # type: ignore[misc]
+    @strawberry.field(description="Riepilogo nutrienti per giorno (UTC)")  # type: ignore[misc]
     def daily_summary(
         self,
         info: Info[Any, Any],  # noqa: ARG002
@@ -420,9 +412,7 @@ class Query:
             return round(val, 2)
 
         # Nuova fonte totals: health_totals_repo (snapshot delta aggregation)
-        steps_tot, cal_out_tot = health_totals_repo.daily_totals(
-            user_id=uid, date=date
-        )
+        steps_tot, cal_out_tot = health_totals_repo.daily_totals(user_id=uid, date=date)
         # Per diagnosi manteniamo events_count dalle minute events
         act_stats = activity_repo.get_daily_stats(uid, date + "T00:00:00Z")
         events_count = act_stats.get("events_count", 0)
@@ -479,9 +469,7 @@ class Query:
         )
         return [ActivityEvent(**dataclasses.asdict(e)) for e in events]
 
-    @strawberry.field(
-        description="Lista delta sync health totals per giorno"
-    )  # type: ignore[misc]
+    @strawberry.field(description="Lista delta sync health totals per giorno")  # type: ignore[misc]
     def sync_entries(
         self,
         info: Info[Any, Any],  # noqa: ARG002
@@ -500,9 +488,7 @@ class Query:
         )
         return [HealthTotalsDelta(**dataclasses.asdict(r)) for r in records]
 
-    @strawberry.field(
-        description="Statistiche cache prodotto"
-    )  # type: ignore[misc]
+    @strawberry.field(description="Statistiche cache prodotto")  # type: ignore[misc]
     def cache_stats(self, info: Info[Any, Any]) -> "CacheStats":  # noqa: ARG002,E501
         s = cache.stats()
         return CacheStats(
@@ -523,9 +509,7 @@ class CacheStats:
 @strawberry.type
 class Mutation:
     @strawberry.mutation(  # type: ignore[misc]
-        description=(
-            "Log di un pasto con arricchimento nutrienti se barcode noto"
-        )
+        description=("Log di un pasto con arricchimento nutrienti se barcode noto")
     )
     async def log_meal(
         self, info: Info[Any, Any], input: LogMealInput
@@ -546,9 +530,7 @@ class Mutation:
         if existing:
             return MealEntry(**dataclasses.asdict(existing))
 
-        nutrients: Dict[str, Optional[float]] = {
-            k: None for k in NUTRIENT_FIELDS
-        }
+        nutrients: Dict[str, Optional[float]] = {k: None for k in NUTRIENT_FIELDS}
 
         prod: Optional[Product] = None
         if input.barcode:
@@ -599,9 +581,7 @@ class Mutation:
         meal_repo.add(meal)
         return MealEntry(**dataclasses.asdict(meal))
 
-    @strawberry.mutation(
-        description="Aggiorna un pasto esistente"
-    )  # type: ignore[misc]
+    @strawberry.mutation(description="Aggiorna un pasto esistente")  # type: ignore[misc]
     async def update_meal(
         self, info: Info[Any, Any], input: UpdateMealInput
     ) -> MealEntry:  # noqa: ARG002
@@ -612,17 +592,9 @@ class Mutation:
         if input.user_id and input.user_id != rec.user_id:
             raise GraphQLError("FORBIDDEN: user mismatch")
         # Decide se serve ricalcolo nutrienti (se barcode o quantity cambiano)
-        new_barcode = (
-            input.barcode if input.barcode is not None else rec.barcode
-        )
-        new_quantity = (
-            input.quantity_g
-            if input.quantity_g is not None
-            else rec.quantity_g
-        )
-        nutrients: Dict[str, Optional[float]] = {
-            k: getattr(rec, k) for k in NUTRIENT_FIELDS
-        }
+        new_barcode = input.barcode if input.barcode is not None else rec.barcode
+        new_quantity = input.quantity_g if input.quantity_g is not None else rec.quantity_g
+        nutrients: Dict[str, Optional[float]] = {k: getattr(rec, k) for k in NUTRIENT_FIELDS}
         prod: Optional[Product] = None
         recalc = False
         if new_barcode != rec.barcode or (
@@ -681,9 +653,7 @@ class Mutation:
         return MealEntry(**dataclasses.asdict(updated))
 
     @strawberry.mutation(description="Cancella un pasto")  # type: ignore[misc]
-    def delete_meal(
-        self, info: Info[Any, Any], id: str
-    ) -> bool:  # noqa: ARG002
+    def delete_meal(self, info: Info[Any, Any], id: str) -> bool:  # noqa: ARG002
         ok = meal_repo.delete(id)
         return ok
 
@@ -724,9 +694,7 @@ class Mutation:
             }
             for e in sorted(norm_events, key=lambda r: r.ts)
         ]
-        canonical = _json.dumps(
-            sig_payload, sort_keys=True, separators=(",", ":")
-        )
+        canonical = _json.dumps(sig_payload, sort_keys=True, separators=(",", ":"))
         signature = _hashlib.sha256(canonical.encode("utf-8")).hexdigest()
         # Se la chiave non è fornita generiamo deterministico da signature
         auto_key = None
@@ -748,13 +716,9 @@ class Mutation:
                     ],
                     idempotency_key_used=idempotency_key,
                 )
-            raise GraphQLError(
-                "IdempotencyConflict: key re-used with different payload"
-            )
+            raise GraphQLError("IdempotencyConflict: key re-used with different payload")
         # Ingest via repository (normalization & dedup inside repo)
-        accepted, duplicates, rejected = activity_repo.ingest_batch(
-            norm_events
-        )
+        accepted, duplicates, rejected = activity_repo.ingest_batch(norm_events)
         # Cache idempotent result
         getattr(activity_repo, "_batch_idempo")[idem_key] = (
             signature,
@@ -767,9 +731,7 @@ class Mutation:
         return IngestActivityResult(
             accepted=accepted,
             duplicates=duplicates,
-            rejected=[
-                RejectedActivityEvent(index=i, reason=r) for i, r in rejected
-            ],
+            rejected=[RejectedActivityEvent(index=i, reason=r) for i, r in rejected],
             idempotency_key_used=idempotency_key,
         )
 
@@ -807,7 +769,9 @@ class Mutation:
         )
 
     # --- AI Photo Stub Mutations ---
-    @strawberry.mutation(description="Analizza una foto (stub deterministico)")
+    @strawberry.mutation(  # type: ignore[misc]
+        description="Analizza una foto (stub deterministico)"
+    )
     def analyze_meal_photo(
         self,
         info: Info[Any, Any],  # noqa: ARG002
@@ -824,7 +788,7 @@ class Mutation:
         )
         return _map_analysis(rec)
 
-    @strawberry.mutation(
+    @strawberry.mutation(  # type: ignore[misc]
         description="Conferma items analisi foto e crea MealEntry"
     )
     def confirm_meal_photo(
@@ -863,9 +827,7 @@ class Mutation:
                 sodium=pred.sodium,
             )
             # Idempotenza meal: se già creato restituiamo esistente
-            existing = meal_repo.find_by_idempotency(
-                uid, meal.idempotency_key or ""
-            )
+            existing = meal_repo.find_by_idempotency(uid, meal.idempotency_key or "")
             if existing:
                 created.append(MealEntry(**dataclasses.asdict(existing)))
             else:

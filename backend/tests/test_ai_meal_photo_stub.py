@@ -54,8 +54,8 @@ async def test_confirm_creates_meals_and_is_idempotent() -> None:
         analysis_id = r.json()["data"]["analyzeMealPhoto"]["id"]
         confirm = _q(
             f'mutation {{ confirmMealPhoto(input:{{analysisId:"{analysis_id}", '
-            'acceptedIndexes:[0,1]}) { analysisId createdMeals '
-            '{ name calories quantityG } } }'
+            "acceptedIndexes:[0,1]}) { analysisId createdMeals "
+            "{ name calories quantityG } } }"
         )
         first = await ac.post("/graphql", json={"query": confirm})
         second = await ac.post("/graphql", json={"query": confirm})
@@ -64,22 +64,18 @@ async def test_confirm_creates_meals_and_is_idempotent() -> None:
     assert d1["analysisId"] == analysis_id
     # Idempotenza: stessi due pasti, non duplicati
     assert len(d1["createdMeals"]) == 2
-    assert {m["name"] for m in d1["createdMeals"]} == {
-        m["name"] for m in d2["createdMeals"]
-    }
+    assert {m["name"] for m in d1["createdMeals"]} == {m["name"] for m in d2["createdMeals"]}
 
 
 @pytest.mark.asyncio
 async def test_confirm_invalid_index() -> None:
-    analyze = _q(
-        'mutation { analyzeMealPhoto(input:{photoId:"err1"}) { id } }'
-    )
+    analyze = _q('mutation { analyzeMealPhoto(input:{photoId:"err1"}) { id } }')
     async with AsyncClient(app=app, base_url="http://test") as ac:
         r = await ac.post("/graphql", json={"query": analyze})
         analysis_id = r.json()["data"]["analyzeMealPhoto"]["id"]
         bad = _q(
             f'mutation {{ confirmMealPhoto(input:{{analysisId:"{analysis_id}", '
-            'acceptedIndexes:[5]}) { analysisId } }'
+            "acceptedIndexes:[5]}) { analysisId } }"
         )
         resp = await ac.post("/graphql", json={"query": bad})
     errs = resp.json().get("errors")

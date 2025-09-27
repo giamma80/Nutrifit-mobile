@@ -246,6 +246,8 @@ Edge cases sync:
 
 NOTA: `activityEvents` nel `DailySummary` rimane il conteggio degli eventi minuto ingestati (diagnostica), non più correlato ai totali.
 
+Guida completa (algoritmo, state machine, edge cases estesi): vedi `docs/health_totals_sync.md` dalla root oppure [../../docs/health_totals_sync.md](../../docs/health_totals_sync.md).
+
 La mutation (forma sintetica):
 
 ```graphql

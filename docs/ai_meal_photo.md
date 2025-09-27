@@ -1,5 +1,7 @@
 # AI Meal Photo Analysis – Fase 0 Stub
 
+Documenti correlati: [Pipeline AI Food Recognition](ai_food_pipeline_README.md) · [Prompt GPT-4V Draft](ai_food_recognition_prompt.md)
+
 ## Obiettivo
 Ridurre l'attrito nella registrazione dei pasti offrendo un flusso rapido foto → suggerimenti → conferma, iniziando con uno stub deterministico (nessuna AI esterna) per validare UX, schema e idempotenza.
 
