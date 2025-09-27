@@ -127,9 +127,9 @@ class HeuristicAdapter:
         return items
 
 
-# Feature flag (futura estensione: se definito ADAPTER=heuristic, ecc.)
-_ENV_FLAG = os.getenv("AI_HEURISTIC_ENABLED", "0")
-_REMOTE_FLAG = os.getenv("AI_REMOTE_ENABLED", "0")  # futura attivazione remote
+# NOTE: le variabili d'ambiente sono lette dinamicamente in
+# get_active_adapter per consentire ai test di mutarle a runtime
+# senza ri-importare il modulo.
 
 
 class RemoteModelAdapter:
@@ -181,7 +181,7 @@ class RemoteModelAdapter:
         ok = self._simulate_remote()
         if not ok:
             # fallback a heuristic se flag attivo, altrimenti stub
-            if _ENV_FLAG in {"1", "true", "TRUE", "on"}:
+            if _flag_enabled(os.getenv("AI_HEURISTIC_ENABLED")):
                 return HeuristicAdapter().analyze(
                     user_id=user_id,
                     photo_id=photo_id,
@@ -194,8 +194,8 @@ class RemoteModelAdapter:
                 photo_url=photo_url,
                 now_iso=now_iso,
             )
-    # Simulazione risposta "più raffinata" partendo dalla
-    # heuristic/stub base
+        # Simulazione risposta "più raffinata" partendo dalla
+        # heuristic/stub base
         base_items = (
             HeuristicAdapter().analyze(
                 user_id=user_id,
@@ -203,7 +203,7 @@ class RemoteModelAdapter:
                 photo_url=photo_url,
                 now_iso=now_iso,
             )
-            if _ENV_FLAG in {"1", "true", "TRUE", "on"}
+            if _flag_enabled(os.getenv("AI_HEURISTIC_ENABLED"))
             else StubAdapter().analyze(
                 user_id=user_id,
                 photo_id=photo_id,
@@ -219,11 +219,19 @@ class RemoteModelAdapter:
         return base_items
 
 
+def _flag_enabled(value: Optional[str]) -> bool:
+    if not value:
+        return False
+    return value in {"1", "true", "TRUE", "on", "yes", "Y"}
+
+
 def get_active_adapter() -> InferenceAdapter:
-    # Ordine di priorità: remote (se attivo) > heuristic (se attivo) > stub
-    if _REMOTE_FLAG in {"1", "true", "TRUE", "on"}:
+    # Lettura runtime flags
+    remote_flag = os.getenv("AI_REMOTE_ENABLED")
+    heuristic_flag = os.getenv("AI_HEURISTIC_ENABLED")
+    if _flag_enabled(remote_flag):
         return RemoteModelAdapter()
-    if _ENV_FLAG in {"1", "true", "TRUE", "on"}:
+    if _flag_enabled(heuristic_flag):
         return HeuristicAdapter()
     return StubAdapter()
 
