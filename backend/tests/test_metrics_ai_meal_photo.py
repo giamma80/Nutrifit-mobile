@@ -6,10 +6,12 @@ from metrics.ai_meal_photo import (
     time_analysis,
     record_error,
     record_failed,
+    reset_all,
 )
 
 
 def test_metrics_basic_flow() -> None:
+    reset_all()
     base = snapshot()
     assert (
         all(c["value"] == 0 for c in base["counters"])  # counters zero
@@ -38,21 +40,18 @@ def test_metrics_basic_flow() -> None:
     h = [
         h
         for h in data["histograms"]
-        if h["name"] == "ai_meal_photo_latency_ms"
-        and h["tags"].get("source") == "stub"
+        if h["name"] == "ai_meal_photo_latency_ms" and h["tags"].get("source") == "stub"
     ]
     assert h and h[0]["count"] >= 2
     errs = [
         c
         for c in data["counters"]
-        if c["name"] == "ai_meal_photo_errors_total"
-        and c["tags"].get("code") == "PARSE_EMPTY"
+        if c["name"] == "ai_meal_photo_errors_total" and c["tags"].get("code") == "PARSE_EMPTY"
     ]
     assert errs and errs[0]["value"] == 2
     failed = [
         c
         for c in data["counters"]
-        if c["name"] == "ai_meal_photo_failed_total"
-        and c["tags"].get("code") == "PARSE_EMPTY"
+        if c["name"] == "ai_meal_photo_failed_total" and c["tags"].get("code") == "PARSE_EMPTY"
     ]
     assert failed and failed[0]["value"] == 1

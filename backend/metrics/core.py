@@ -154,5 +154,11 @@ class MetricsRegistry:
             data["histograms"].append(hist)
         return data
 
+    def reset(self) -> None:
+        """Reset completo (solo per test)."""
+        with self._lock:
+            self._counters.clear()
+            self._histograms.clear()
+
 
 registry = MetricsRegistry()

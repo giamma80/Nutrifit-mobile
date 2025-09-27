@@ -89,3 +89,8 @@ def time_analysis(
 
 def snapshot() -> RegistrySnapshot:  # pragma: no cover - passthrough
     return registry.snapshot()
+
+
+def reset_all() -> None:  # pragma: no cover - test utility
+    """Resetta tutte le metriche (uso test)."""
+    registry.reset()
