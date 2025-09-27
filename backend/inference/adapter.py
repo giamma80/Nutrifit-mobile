@@ -15,6 +15,8 @@ from __future__ import annotations
 from typing import List, Optional, Protocol
 import os
 import hashlib
+import time
+import random
 
 from ai_models.meal_photo_models import MealPhotoItemPredictionRecord
 
@@ -127,15 +129,109 @@ class HeuristicAdapter:
 
 # Feature flag (futura estensione: se definito ADAPTER=heuristic, ecc.)
 _ENV_FLAG = os.getenv("AI_HEURISTIC_ENABLED", "0")
+_REMOTE_FLAG = os.getenv("AI_REMOTE_ENABLED", "0")  # futura attivazione remote
+
+
+class RemoteModelAdapter:
+    """Scheletro adapter per inference remota (Fase 2).
+
+    Obiettivi:
+    * Simulare chiamata esterna con timeout.
+    * Applicare fallback automatico (heuristic → stub) se timeout o errore.
+    * Non sollevare eccezioni verso il repository (robustezza UX).
+
+    Implementazione attuale: mock che attende fino a `REMOTE_LATENCY_MS` e
+    genera piccola variazione sulle quantità. Se la latenza simulata supera
+    `REMOTE_TIMEOUT_MS` viene attivato fallback.
+
+    Variabili ambiente supportate:
+    * REMOTE_TIMEOUT_MS (default 1200)
+    * REMOTE_LATENCY_MS (default 600)
+    * REMOTE_FAIL_RATE (default 0.0)  # probabilità di fallire la chiamata
+    * REMOTE_JITTER_MS (default 150)
+    """
+
+    def __init__(self) -> None:
+        self.timeout_ms = int(os.getenv("REMOTE_TIMEOUT_MS", "1200"))
+        self.base_latency_ms = int(os.getenv("REMOTE_LATENCY_MS", "600"))
+        self.jitter_ms = int(os.getenv("REMOTE_JITTER_MS", "150"))
+        self.fail_rate = float(os.getenv("REMOTE_FAIL_RATE", "0.0"))
+
+    def name(self) -> str:  # pragma: no cover semplice
+        return "model"
+
+    def _simulate_remote(self) -> bool:
+        latency = self.base_latency_ms + random.randint(0, self.jitter_ms)
+        time.sleep(latency / 1000.0)
+        if latency > self.timeout_ms:
+            return False
+        if random.random() < self.fail_rate:
+            return False
+        return True
+
+    def analyze(
+        self,
+        *,
+        user_id: str,
+        photo_id: Optional[str],
+        photo_url: Optional[str],
+        now_iso: str,
+    ) -> List[MealPhotoItemPredictionRecord]:
+        # Prima prova a simulare remote; se fallisce fallback
+        ok = self._simulate_remote()
+        if not ok:
+            # fallback a heuristic se flag attivo, altrimenti stub
+            if _ENV_FLAG in {"1", "true", "TRUE", "on"}:
+                return HeuristicAdapter().analyze(
+                    user_id=user_id,
+                    photo_id=photo_id,
+                    photo_url=photo_url,
+                    now_iso=now_iso,
+                )
+            return StubAdapter().analyze(
+                user_id=user_id,
+                photo_id=photo_id,
+                photo_url=photo_url,
+                now_iso=now_iso,
+            )
+    # Simulazione risposta "più raffinata" partendo dalla
+    # heuristic/stub base
+        base_items = (
+            HeuristicAdapter().analyze(
+                user_id=user_id,
+                photo_id=photo_id,
+                photo_url=photo_url,
+                now_iso=now_iso,
+            )
+            if _ENV_FLAG in {"1", "true", "TRUE", "on"}
+            else StubAdapter().analyze(
+                user_id=user_id,
+                photo_id=photo_id,
+                photo_url=photo_url,
+                now_iso=now_iso,
+            )
+        )
+        # Piccola variazione: +5% quantity se presente
+        for it in base_items:
+            if it.quantity_g:  # type: ignore[truthy-bool]
+                it.quantity_g = it.quantity_g * 1.05
+                it.confidence = min(1.0, it.confidence + 0.04)
+        return base_items
 
 
 def get_active_adapter() -> InferenceAdapter:
+    # Ordine di priorità: remote (se attivo) > heuristic (se attivo) > stub
+    if _REMOTE_FLAG in {"1", "true", "TRUE", "on"}:
+        return RemoteModelAdapter()
     if _ENV_FLAG in {"1", "true", "TRUE", "on"}:
         return HeuristicAdapter()
     return StubAdapter()
 
 
-def hash_photo_reference(photo_id: Optional[str], photo_url: Optional[str]) -> str:
+def hash_photo_reference(
+    photo_id: Optional[str],
+    photo_url: Optional[str],
+) -> str:
     """Hash stabile (sha256 trunc) di riferimenti foto per caching/idempotenza.
     Non usato ancora per la chiave principale (compat mantenuta) ma pronto.
     """
