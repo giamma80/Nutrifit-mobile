@@ -1,4 +1,6 @@
 import pytest
+from typing import Any, Dict
+from httpx import AsyncClient, Response
 
 
 class DummyDTO:
@@ -11,7 +13,9 @@ class DummyDTO:
 
 
 @pytest.mark.asyncio
-async def test_product_success(client, monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_product_success(
+    client: AsyncClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
     async def fake_fetch(barcode: str) -> DummyDTO:
         return DummyDTO(barcode)
 
@@ -19,15 +23,17 @@ async def test_product_success(client, monkeypatch: pytest.MonkeyPatch) -> None:
 
     monkeypatch.setattr(adapter, "fetch_product", fake_fetch)
     query = '{ product(barcode: "123") { barcode name calories protein } }'
-    resp = await client.post("/graphql", json={"query": query})
-    data = resp.json()["data"]["product"]
+    resp: Response = await client.post("/graphql", json={"query": query})
+    data: Dict[str, Any] = resp.json()["data"]["product"]
     assert data["barcode"] == "123"
     assert data["calories"] == 123
     assert data["protein"] == 10.5
 
 
 @pytest.mark.asyncio
-async def test_product_not_found(client, monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_product_not_found(
+    client: AsyncClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
     from openfoodfacts import adapter
     from openfoodfacts.adapter import ProductNotFound
 
@@ -35,16 +41,18 @@ async def test_product_not_found(client, monkeypatch: pytest.MonkeyPatch) -> Non
         raise ProductNotFound(barcode)
 
     monkeypatch.setattr(adapter, "fetch_product", fake_fetch)
-    resp = await client.post(
+    resp: Response = await client.post(
         "/graphql",
         json={"query": '{ product(barcode: "404") { barcode } }'},
     )
-    data = resp.json()["data"]
+    data: Dict[str, Any] = resp.json()["data"]
     assert data["product"] is None
 
 
 @pytest.mark.asyncio
-async def test_product_cache_hit(client, monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_product_cache_hit(
+    client: AsyncClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
     from openfoodfacts import adapter
 
     calls = {"n": 0}

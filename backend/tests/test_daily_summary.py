@@ -1,4 +1,6 @@
 import pytest
+from typing import Any, Dict
+from httpx import AsyncClient, Response
 from app import Product
 from repository.meals import meal_repo
 from repository.activities import activity_repo
@@ -31,7 +33,7 @@ def _reset_repo() -> None:
 
 
 @pytest.mark.asyncio
-async def test_daily_summary_empty_day(client) -> None:
+async def test_daily_summary_empty_day(client: AsyncClient) -> None:
     _reset_repo()
     query = _q(
         """
@@ -49,8 +51,8 @@ async def test_daily_summary_empty_day(client) -> None:
         } }
         """
     )
-    resp = await client.post("/graphql", json={"query": query})
-    data = resp.json()["data"]["dailySummary"]
+    resp: Response = await client.post("/graphql", json={"query": query})
+    data: Dict[str, Any] = resp.json()["data"]["dailySummary"]
     assert data["date"] == "2025-01-10"
     assert data["meals"] == 0
     assert data["calories"] == 0
@@ -63,7 +65,7 @@ async def test_daily_summary_empty_day(client) -> None:
 
 
 @pytest.mark.asyncio
-async def test_daily_summary_aggregation(client) -> None:
+async def test_daily_summary_aggregation(client: AsyncClient) -> None:
     _reset_repo()
     m1 = _q(
         """
@@ -124,8 +126,8 @@ async def test_daily_summary_aggregation(client) -> None:
             } }
             """
     )
-    resp = await client.post("/graphql", json={"query": query})
-    ds = resp.json()["data"]["dailySummary"]
+    resp2: Response = await client.post("/graphql", json={"query": query})
+    ds: Dict[str, Any] = resp2.json()["data"]["dailySummary"]
     assert ds["meals"] == 2
     assert isinstance(ds["calories"], int)
     assert ds["activitySteps"] == 50
@@ -138,7 +140,7 @@ async def test_daily_summary_aggregation(client) -> None:
 
 
 @pytest.mark.asyncio
-async def test_daily_summary_user_isolation(client) -> None:
+async def test_daily_summary_user_isolation(client: AsyncClient) -> None:
     _reset_repo()
     m1 = _q(
         """
@@ -223,10 +225,10 @@ async def test_daily_summary_user_isolation(client) -> None:
             } }
             """
     )
-    r_def = await client.post("/graphql", json={"query": q_default})
-    r_u2 = await client.post("/graphql", json={"query": q_u2})
-    d_def = r_def.json()["data"]["dailySummary"]
-    d_u2 = r_u2.json()["data"]["dailySummary"]
+    r_def: Response = await client.post("/graphql", json={"query": q_default})
+    r_u2: Response = await client.post("/graphql", json={"query": q_u2})
+    d_def: Dict[str, Any] = r_def.json()["data"]["dailySummary"]
+    d_u2: Dict[str, Any] = r_u2.json()["data"]["dailySummary"]
     assert d_def["userId"] == "default" and d_def["meals"] == 1
     assert d_u2["userId"] == "u2" and d_u2["meals"] == 1
     assert d_def["activitySteps"] == 10
@@ -236,7 +238,7 @@ async def test_daily_summary_user_isolation(client) -> None:
 
 
 @pytest.mark.asyncio
-async def test_daily_summary_surplus_and_clamp(client) -> None:
+async def test_daily_summary_surplus_and_clamp(client: AsyncClient) -> None:
     _reset_repo()
     synthetic = Product(
         barcode="SURPLUS1",
@@ -292,9 +294,11 @@ async def test_daily_summary_surplus_and_clamp(client) -> None:
             } }
             """
     )
-    resp = await client.post("/graphql", json={"query": query})
-    ds = resp.json()["data"]["dailySummary"]
+    resp3: Response = await client.post("/graphql", json={"query": query})
+    ds = resp3.json()["data"]["dailySummary"]
     assert ds["activityCaloriesOut"] == 2.0
     assert isinstance(ds["calories"], int)
-    assert ds["caloriesDeficit"] == (ds["activityCaloriesOut"] - ds["calories"])
+    assert ds["caloriesDeficit"] == (
+        ds["activityCaloriesOut"] - ds["calories"]
+    )
     assert ds["caloriesReplenishedPercent"] == 999

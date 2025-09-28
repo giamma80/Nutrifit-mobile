@@ -1,4 +1,6 @@
 import pytest
+from typing import Any, Dict, List
+from httpx import AsyncClient, Response
 from repository.activities import activity_repo
 
 
@@ -19,7 +21,9 @@ def _reset_activity_repo() -> None:
 
 
 @pytest.mark.asyncio
-async def test_activity_ingest_happy_path(client) -> None:
+async def test_activity_ingest_happy_path(
+    client: AsyncClient,
+) -> None:
     _reset_activity_repo()
     mutation = _q(
         """
@@ -35,8 +39,10 @@ async def test_activity_ingest_happy_path(client) -> None:
         }
         """
     )
-    resp = await client.post("/graphql", json={"query": mutation})
-    data = resp.json()["data"].get("ingestActivityEvents")
+    resp: Response = await client.post("/graphql", json={"query": mutation})
+    data: Dict[str, Any] | None = resp.json()["data"].get(
+        "ingestActivityEvents"
+    )
     assert data is not None, resp.json()
     assert data["accepted"] == 2
     assert data["duplicates"] == 0
@@ -44,7 +50,9 @@ async def test_activity_ingest_happy_path(client) -> None:
 
 
 @pytest.mark.asyncio
-async def test_activity_ingest_duplicates_second_batch(client) -> None:
+async def test_activity_ingest_duplicates_second_batch(
+    client: AsyncClient,
+) -> None:
     _reset_activity_repo()
     m1 = _q(
         """
@@ -68,18 +76,18 @@ async def test_activity_ingest_duplicates_second_batch(client) -> None:
         }
         """
     )
-    r1 = await client.post("/graphql", json={"query": m1})
-    d1 = r1.json()["data"]["ingestActivityEvents"]
+    r1: Response = await client.post("/graphql", json={"query": m1})
+    d1: Dict[str, Any] = r1.json()["data"]["ingestActivityEvents"]
     assert d1["accepted"] == 1 and d1["duplicates"] == 0
-    r2 = await client.post("/graphql", json={"query": m2})
-    d2 = r2.json()["data"]["ingestActivityEvents"]
+    r2: Response = await client.post("/graphql", json={"query": m2})
+    d2: Dict[str, Any] = r2.json()["data"]["ingestActivityEvents"]
     assert d2["accepted"] == 0
     assert d2["duplicates"] == 1
     assert d2["rejected"] == []
 
 
 @pytest.mark.asyncio
-async def test_activity_ingest_conflict(client) -> None:
+async def test_activity_ingest_conflict(client: AsyncClient) -> None:
     _reset_activity_repo()
     first = _q(
         """
@@ -104,8 +112,10 @@ async def test_activity_ingest_conflict(client) -> None:
         """
     )
     await client.post("/graphql", json={"query": first})
-    r2 = await client.post("/graphql", json={"query": second_conflict})
-    d2 = r2.json()["data"]["ingestActivityEvents"]
+    r2: Response = await client.post(
+        "/graphql", json={"query": second_conflict}
+    )
+    d2: Dict[str, Any] = r2.json()["data"]["ingestActivityEvents"]
     assert d2["accepted"] == 0 and d2["duplicates"] == 0
     assert len(d2["rejected"]) == 1
     assert d2["rejected"][0]["reason"] == "CONFLICT_DIFFERENT_DATA"
@@ -113,7 +123,7 @@ async def test_activity_ingest_conflict(client) -> None:
 
 @pytest.mark.asyncio
 async def test_activity_ingest_normalization_duplicate_via_seconds(
-    client,
+    client: AsyncClient,
 ) -> None:
     _reset_activity_repo()
     m1 = _q(
@@ -138,15 +148,15 @@ async def test_activity_ingest_normalization_duplicate_via_seconds(
         }
         """
     )
-    r1 = await client.post("/graphql", json={"query": m1})
+    r1: Response = await client.post("/graphql", json={"query": m1})
     assert r1.json()["data"]["ingestActivityEvents"]["accepted"] == 1
-    r2 = await client.post("/graphql", json={"query": m2})
-    d2 = r2.json()["data"]["ingestActivityEvents"]
+    r2: Response = await client.post("/graphql", json={"query": m2})
+    d2: Dict[str, Any] = r2.json()["data"]["ingestActivityEvents"]
     assert d2["accepted"] == 0 and d2["duplicates"] == 1
 
 
 @pytest.mark.asyncio
-async def test_activity_ingest_invalid_values(client) -> None:
+async def test_activity_ingest_invalid_values(client: AsyncClient) -> None:
     _reset_activity_repo()
     m = _q(
         """
@@ -163,8 +173,8 @@ async def test_activity_ingest_invalid_values(client) -> None:
         }
         """
     )
-    r = await client.post("/graphql", json={"query": m})
-    d = r.json()["data"]["ingestActivityEvents"]
+    r: Response = await client.post("/graphql", json={"query": m})
+    d: Dict[str, Any] = r.json()["data"]["ingestActivityEvents"]
     assert d["accepted"] == 0
     reasons = sorted([x["reason"] for x in d["rejected"]])
     assert set(reasons) >= {
@@ -175,7 +185,9 @@ async def test_activity_ingest_invalid_values(client) -> None:
 
 
 @pytest.mark.asyncio
-async def test_activity_ingest_idempotency_cache_and_conflict(client) -> None:
+async def test_activity_ingest_idempotency_cache_and_conflict(
+    client: AsyncClient,
+) -> None:
     _reset_activity_repo()
     batch1 = _q(
         """
@@ -210,30 +222,26 @@ async def test_activity_ingest_idempotency_cache_and_conflict(client) -> None:
         }
         """
     )
-    r1 = await client.post("/graphql", json={"query": batch1})
-    d1 = r1.json()["data"]["ingestActivityEvents"]
+    r1: Response = await client.post("/graphql", json={"query": batch1})
+    d1: Dict[str, Any] = r1.json()["data"]["ingestActivityEvents"]
     assert d1["accepted"] == 1
-    r2 = await client.post("/graphql", json={"query": batch1_repeat_same})
-    d2 = r2.json()["data"]["ingestActivityEvents"]
+    r2: Response = await client.post(
+        "/graphql", json={"query": batch1_repeat_same}
+    )
+    d2: Dict[str, Any] = r2.json()["data"]["ingestActivityEvents"]
     assert d2["accepted"] == 1 and d2["duplicates"] == 0
-    r3 = await client.post("/graphql", json={"query": batch_conflict})
-    body3 = r3.json()
+    r3: Response = await client.post(
+        "/graphql", json={"query": batch_conflict}
+    )
+    body3: Dict[str, Any] = r3.json()
     assert body3.get("errors"), body3
-    # Conflict test retained for legacy scenario above
 
 
 @pytest.mark.asyncio
-async def test_activity_ingest_auto_idempotency_key(client) -> None:
-    """Auto-generate and reuse deterministic idempotency key.
-
-    Omit idempotencyKey -> server derives auto-<hash>:
-      1. First batch ingests (accepted=2)
-      2. Second identical batch hits idempotent cache (same key, accepted=2)
-    3. Third batch changed steps (same minute):
-      accepted=0, duplicates=1
-      rejected has CONFLICT_DIFFERENT_DATA
-      new auto key
-    """
+async def test_activity_ingest_auto_idempotency_key(
+    client: AsyncClient,
+) -> None:
+    """Auto-generate e riuso deterministico della chiave idempotenza."""
     _reset_activity_repo()
     mutation_first = _q(
         """
@@ -248,7 +256,6 @@ async def test_activity_ingest_auto_idempotency_key(client) -> None:
         }
         """
     )
-    # Identical batch (same seconds) -> same signature -> cache hit
     mutation_second_same = mutation_first
     mutation_changed = _q(
         """
@@ -263,25 +270,25 @@ async def test_activity_ingest_auto_idempotency_key(client) -> None:
         }
         """
     )
-    # First batch
-    r1 = await client.post("/graphql", json={"query": mutation_first})
-    d1 = r1.json()["data"]["ingestActivityEvents"]
-    assert d1["accepted"] == 2
-    assert d1["duplicates"] == 0
+    r1: Response = await client.post(
+        "/graphql", json={"query": mutation_first}
+    )
+    d1: Dict[str, Any] = r1.json()["data"]["ingestActivityEvents"]
+    assert d1["accepted"] == 2 and d1["duplicates"] == 0
     auto_key = d1["idempotencyKeyUsed"]
     assert auto_key and auto_key.startswith("auto-")
-    # Second identical batch -> cache replay (accepted count preserved)
-    r2 = await client.post("/graphql", json={"query": mutation_second_same})
-    d2 = r2.json()["data"]["ingestActivityEvents"]
-    assert d2["accepted"] == 2
-    assert d2["duplicates"] == 0
+    r2: Response = await client.post(
+        "/graphql", json={"query": mutation_second_same}
+    )
+    d2: Dict[str, Any] = r2.json()["data"]["ingestActivityEvents"]
+    assert d2["accepted"] == 2 and d2["duplicates"] == 0
     assert d2["idempotencyKeyUsed"] == auto_key
-    # Third changed steps at same minute -> conflict (rejected) + duplicate
-    r3 = await client.post("/graphql", json={"query": mutation_changed})
-    d3 = r3.json()["data"]["ingestActivityEvents"]
-    assert d3["accepted"] == 0
-    assert d3["duplicates"] == 1
-    reasons = [r["reason"] for r in d3["rejected"]]
+    r3: Response = await client.post(
+        "/graphql", json={"query": mutation_changed}
+    )
+    d3: Dict[str, Any] = r3.json()["data"]["ingestActivityEvents"]
+    assert d3["accepted"] == 0 and d3["duplicates"] == 1
+    reasons: List[str] = [r["reason"] for r in d3["rejected"]]
     assert "CONFLICT_DIFFERENT_DATA" in reasons
     assert d3["idempotencyKeyUsed"].startswith("auto-")
     assert d3["idempotencyKeyUsed"] != auto_key

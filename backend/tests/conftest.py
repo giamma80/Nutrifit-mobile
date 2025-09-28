@@ -22,10 +22,13 @@ Design note:
 
 from __future__ import annotations
 
-from typing import Iterator, Callable, Any
+from typing import Iterator, Callable, Any, TYPE_CHECKING, cast
+
+if TYPE_CHECKING:  # import solo per typing
+    from httpx import AsyncClient, ASGITransport  # pragma: no cover
 
 try:  # pragma: no cover - mypy può non risolvere pytest
-    import pytest  # type: ignore
+    import pytest
 except Exception:  # pragma: no cover
 
     class _PytestStub:
@@ -59,7 +62,7 @@ def metrics_reset() -> Iterator[None]:
 
 
 @pytest.fixture(scope="session")
-def asgi_transport():
+def asgi_transport() -> "ASGITransport":
     """ASGI transport riusabile per tutti i test HTTP.
 
     Nota: niente parametro lifespan per compatibilità con la versione httpx
@@ -67,12 +70,12 @@ def asgi_transport():
     """
     from httpx import ASGITransport
     from app import app
-
-    return ASGITransport(app=app)
+    # FastAPI è ASGI compatibile, cast esplicito per placare mypy
+    return ASGITransport(app=cast(Any, app))
 
 
 @pytest.fixture()
-def client(asgi_transport):  # type: ignore[override]
+def client(asgi_transport: "ASGITransport") -> Iterator["AsyncClient"]:
     """Client HTTP sync fixture che fornisce un AsyncClient.
 
     In modalità pytest-asyncio strict un test async può usare una fixture
@@ -85,7 +88,7 @@ def client(asgi_transport):  # type: ignore[override]
     async def _make():
         return AsyncClient(transport=asgi_transport, base_url="http://test")
 
-    client_obj = anyio.run(_make)
+    client_obj: AsyncClient = anyio.run(_make)
 
     try:
         yield client_obj
