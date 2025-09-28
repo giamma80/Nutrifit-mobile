@@ -85,7 +85,7 @@ def client(asgi_transport: "ASGITransport") -> Iterator["AsyncClient"]:
     import anyio
     from httpx import AsyncClient
 
-    async def _make():
+    async def _make() -> AsyncClient:
         return AsyncClient(transport=asgi_transport, base_url="http://test")
 
     client_obj: AsyncClient = anyio.run(_make)
