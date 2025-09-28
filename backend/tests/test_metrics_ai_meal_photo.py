@@ -6,12 +6,10 @@ from metrics.ai_meal_photo import (
     time_analysis,
     record_error,
     record_failed,
-    reset_all,
 )
 
 
 def test_metrics_basic_flow() -> None:
-    reset_all()
     base = snapshot()
     assert (
         all(c["value"] == 0 for c in base["counters"])  # counters zero

@@ -26,11 +26,7 @@ def test_metrics_source_label_stub(monkeypatch: Any) -> None:
     )
     assert rec.source == "stub"
     after = snapshot()
-    req = [
-        c
-        for c in after["counters"]
-        if c["name"] == "ai_meal_photo_requests_total"
-    ]
+    req = [c for c in after["counters"] if c["name"] == "ai_meal_photo_requests_total"]
     assert any(c["tags"].get("source") == "stub" for c in req)
 
 
@@ -50,11 +46,7 @@ def test_metrics_source_label_heuristic(
     )
     assert rec.source == "heuristic"
     snap = snapshot()
-    req = [
-        c
-        for c in snap["counters"]
-        if c["name"] == "ai_meal_photo_requests_total"
-    ]
+    req = [c for c in snap["counters"] if c["name"] == "ai_meal_photo_requests_total"]
     assert any(c["tags"].get("source") == "heuristic" for c in req)
 
 
@@ -83,9 +75,5 @@ def test_metrics_source_label_remote_fallback(
     # interno ha prodotto dati (per ora non distinguiamo fallback nel source).
     assert rec.source == "model"
     snap = snapshot()
-    req = [
-        c
-        for c in snap["counters"]
-        if c["name"] == "ai_meal_photo_requests_total"
-    ]
+    req = [c for c in snap["counters"] if c["name"] == "ai_meal_photo_requests_total"]
     assert any(c["tags"].get("source") == "model" for c in req)

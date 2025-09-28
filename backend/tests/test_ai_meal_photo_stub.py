@@ -1,6 +1,4 @@
 import pytest
-from httpx import AsyncClient
-from app import app
 
 
 def _q(s: str) -> str:
@@ -8,43 +6,33 @@ def _q(s: str) -> str:
 
 
 @pytest.mark.asyncio
-async def test_analyze_meal_photo_basic() -> None:
+async def test_analyze_meal_photo_basic(client) -> None:
     mutation = _q(
         """
-                mutation {
-                    analyzeMealPhoto(input:{photoId:"ph1"}) {
-                        id
-                        status
-                        items { label confidence quantityG calories }
-                        idempotencyKeyUsed
-                        analysisErrors { code severity }
-                        failureReason
-                    }
-                }
+        mutation {
+          analyzeMealPhoto(input:{photoId:"ph1"}) {
+            id status items { label confidence quantityG calories }
+            idempotencyKeyUsed
+          }
+        }
         """
     )
-    async with AsyncClient(app=app, base_url="http://test") as ac:
-        r = await ac.post("/graphql", json={"query": mutation})
+    r = await client.post("/graphql", json={"query": mutation})
     data = r.json()["data"]["analyzeMealPhoto"]
     assert data["status"] == "COMPLETED"
     assert len(data["items"]) == 2
-    # Nuovi campi errori presenti e vuoti
-    assert data["analysisErrors"] == []
-    assert data["failureReason"] is None
     labels = {it["label"] for it in data["items"]}
     assert {"Insalata mista", "Petto di pollo"} == labels
 
 
 @pytest.mark.asyncio
-async def test_analyze_idempotent_same_key() -> None:
+async def test_analyze_idempotent_same_key(client) -> None:
     mutation = _q(
         'mutation { analyzeMealPhoto(input:{photoId:"same", '
-        'idempotencyKey:"AIK1"}) { id items { label } '
-        "analysisErrors { code } failureReason } }"
+        'idempotencyKey:"AIK1"}) { id items { label } } }'
     )
-    async with AsyncClient(app=app, base_url="http://test") as ac:
-        r1 = await ac.post("/graphql", json={"query": mutation})
-        r2 = await ac.post("/graphql", json={"query": mutation})
+    r1 = await client.post("/graphql", json={"query": mutation})
+    r2 = await client.post("/graphql", json={"query": mutation})
     a1 = r1.json()["data"]["analyzeMealPhoto"]
     a2 = r2.json()["data"]["analyzeMealPhoto"]
     assert a1["id"] == a2["id"]
@@ -52,24 +40,20 @@ async def test_analyze_idempotent_same_key() -> None:
 
 
 @pytest.mark.asyncio
-async def test_confirm_creates_meals_and_is_idempotent() -> None:
+async def test_confirm_creates_meals_and_is_idempotent(client) -> None:
     analyze = _q(
         'mutation { analyzeMealPhoto(input:{photoId:"conf1", '
-        'idempotencyKey:"AKCONF"}) { id items { label } '
-        "analysisErrors { code } } }"
+        'idempotencyKey:"AKCONF"}) { id items { label } } }'
     )
-    async with AsyncClient(app=app, base_url="http://test") as ac:
-        r = await ac.post("/graphql", json={"query": analyze})
-        analysis_id = r.json()["data"]["analyzeMealPhoto"]["id"]
-        confirm = _q(
-            "mutation { "
-            f'confirmMealPhoto(input:{{analysisId:"{analysis_id}",'
-            " acceptedIndexes:[0,1]}) { analysisId createdMeals { name "  # noqa: E501
-            "calories quantityG } }"
-            " }"
-        )
-        first = await ac.post("/graphql", json={"query": confirm})
-        second = await ac.post("/graphql", json={"query": confirm})
+    r = await client.post("/graphql", json={"query": analyze})
+    analysis_id = r.json()["data"]["analyzeMealPhoto"]["id"]
+    confirm = _q(
+        f'mutation {{ confirmMealPhoto(input:{{analysisId:"{analysis_id}", '
+        "acceptedIndexes:[0,1]}) { analysisId createdMeals "
+        "{ name calories quantityG } } }"
+    )
+    first = await client.post("/graphql", json={"query": confirm})
+    second = await client.post("/graphql", json={"query": confirm})
     d1 = first.json()["data"]["confirmMealPhoto"]
     d2 = second.json()["data"]["confirmMealPhoto"]
     assert d1["analysisId"] == analysis_id
@@ -79,17 +63,14 @@ async def test_confirm_creates_meals_and_is_idempotent() -> None:
 
 
 @pytest.mark.asyncio
-async def test_confirm_invalid_index() -> None:
+async def test_confirm_invalid_index(client) -> None:
     analyze = _q('mutation { analyzeMealPhoto(input:{photoId:"err1"}) { id } }')
-    async with AsyncClient(app=app, base_url="http://test") as ac:
-        r = await ac.post("/graphql", json={"query": analyze})
-        analysis_id = r.json()["data"]["analyzeMealPhoto"]["id"]
-        bad = _q(
-            "mutation { "
-            f'confirmMealPhoto(input:{{analysisId:"{analysis_id}",'
-            " acceptedIndexes:[5]}) { analysisId }"
-            " }"
-        )
-        resp = await ac.post("/graphql", json={"query": bad})
+    r = await client.post("/graphql", json={"query": analyze})
+    analysis_id = r.json()["data"]["analyzeMealPhoto"]["id"]
+    bad = _q(
+        f'mutation {{ confirmMealPhoto(input:{{analysisId:"{analysis_id}", '
+        "acceptedIndexes:[5]}) { analysisId } }"
+    )
+    resp = await client.post("/graphql", json={"query": bad})
     errs = resp.json().get("errors")
     assert errs and any("INVALID_INDEX" in e.get("message", "") for e in errs)

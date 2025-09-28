@@ -668,6 +668,89 @@ Comandi rapidi:
 ./make.sh preflight    # full quality gate
 ```
 
+##   Metrics & AI Meal Photo Adapters
+
+###   Adapter Pattern
+
+Pipeline analisi foto pasto (stato attuale):
+
+1. `StubAdapter` (default) – restituisce sempre una lista fissa di item simulati.
+2. `HeuristicAdapter` (abilitato con `AI_HEURISTIC_ENABLED=1`) – genera item pseudo‑deterministici a partire da hash di photoId / photoUrl.
+3. `RemoteModelAdapter` (scheletro; abilitato con `AI_REMOTE_ENABLED=1`) – simula chiamata remota con latenza, jitter e timeout configurabili; in caso di timeout/failure (placeholder) ricade su heuristic o stub.
+
+Se più flag sono attivi vale la precedenza: Remote > Heuristic > Stub.
+
+###   Variabili d'Ambiente (Flag)
+
+| Variabile | Default | Descrizione |
+|-----------|---------|-------------|
+| `AI_HEURISTIC_ENABLED` | 0 | Abilita HeuristicAdapter |
+| `AI_REMOTE_ENABLED` | 0 | Abilita RemoteModelAdapter |
+| `REMOTE_TIMEOUT_MS` | 1200 | Timeout simulato remoto |
+| `REMOTE_LATENCY_MS` | 900 | Latenza media simulata |
+| `REMOTE_JITTER_MS` | 300 | Jitter massima additiva |
+| `REMOTE_FAIL_RATE` | 0.0 | Probabilità simulata di failure (0–1) |
+
+I flag vengono letti a ogni invocazione (`get_active_adapter()`), quindi i test possono modificarli a runtime senza ricostruire il modulo.
+
+###   Metriche Disponibili
+
+Tutte le metriche supportano il label opzionale `source` (adapter attivo) e, ove rilevante, `phase` o codici errore:
+
+| Nome | Tipo | Labels | Significato |
+|------|------|--------|-------------|
+| `ai_meal_photo_requests_total` | counter | `phase`, `status`, `source?` | Conteggio invocazioni e outcome (completed/failed) |
+| `ai_meal_photo_latency_ms` | histogram | `source?` | Latenza end‑to‑end per fase principale |
+| `ai_meal_photo_fallback_total` | counter | `reason`, `source?` | (Futuro) conteggi fallback remoto → heuristic/stub |
+| `ai_meal_photo_errors_total` | counter | `code`, `source?` | Errori granulari (singoli item) |
+| `ai_meal_photo_failed_total` | counter | `code`, `source?` | Failure finale bloccante |
+
+Per ora `phase == source` (unica fase). L'infrastruttura consente di introdurre sotto‑fasi (es. pre‑processing / model / post‑processing) senza cambiare il contratto esistente.
+
+###   Timing e Conteggio
+
+Il context manager `time_analysis(phase, source=...)` incapsula:
+
+1. Start timer (perf_counter)
+2. Esecuzione adapter
+3. Incremento `requests_total{status=...}` (completed se nessuna eccezione)
+4. Osservazione latenza sull'histogram
+
+In caso di eccezione: `status=failed` e l'eccezione è rilanciata.
+
+###   Reset Metriche nei Test
+
+File `tests/conftest.py` definisce fixture autouse `metrics_reset` che invoca `metrics.ai_meal_photo.reset_all()` prima e dopo ogni test per garantire isolamento (evitare dipendenza dall'ordine dei test). Questo ha permesso di eliminare chiamate manuali a `reset_all()` dentro i singoli test.
+
+###   Idempotenza Analisi
+
+Chiave auto‑generata: `auto-<sha256(user|photoId|photoUrl)[:16]>` se non viene passato `idempotency_key` esplicito. Un'analisi identica (stessi parametri) ritorna il record esistente senza ricrearlo / ricontare metriche.
+
+###   Fallback (Roadmap)
+
+Il `RemoteModelAdapter` in futuro registrerà:
+
+* `ai_meal_photo_fallback_total{reason=timeout|error,source=remote}` quando ricade su heuristic/stub.
+* Etichette distinte di fase (`remote_call`, `heuristic_fallback`) se introdurremo multi‑fase.
+
+###   Estensioni Future
+
+* Circuit breaker per fallimenti remoti
+* Cache risultati per photo hash
+* Persistenza store analisi (oggi in‑memory)
+* Arricchimento nutrizionale derivato da detection items
+
+###   Debug Rapido Metriche
+
+Nei test: `from metrics.ai_meal_photo import snapshot; print(snapshot())`.
+
+Output snapshot (esempio sintetico):
+```python
+RegistrySnapshot(counters={'ai_meal_photo_requests_total': {('phase=stub','status=completed'): 1}}, histograms={...})
+```
+
+---
+
 ##   Schema Diff (Semantic Quick Reference)
 
 Lo script `scripts/verify_schema_breaking.py` confronta lo SDL runtime (`backend/graphql/schema.graphql`) con il mirror root (`graphql/schema.graphql`). Classificazioni:
