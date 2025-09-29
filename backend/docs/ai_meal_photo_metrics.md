@@ -63,7 +63,7 @@ Note:
 |------|------|--------|-------------|
 | `ai_meal_photo_requests_total` | counter | `phase`, `status`, `source?` | Incrementato a fine fase (o fail) |
 | `ai_meal_photo_latency_ms` | histogram | `source?` | Durata fase principale |
-| `ai_meal_photo_fallback_total` | counter | `reason`, `source?` | (TODO) conteggio fallback remoti |
+| `ai_meal_photo_fallback_total` | counter | `reason`, `source?` | Conteggio fallback (adapter superiore non disponibile o errore) |
 | `ai_meal_photo_errors_total` | counter | `code`, `source?` | Errori granulari (non fatal) |
 | `ai_meal_photo_failed_total` | counter | `code`, `source?` | Failure finale bloccante |
 
@@ -87,7 +87,8 @@ Registra: counter requests + histogram latency. Se un'eccezione emerge → `stat
 ### Estensioni Pianificate
 - Bucketizzazione esplicita histogram (oggi naive, in‑memory)
 - Export Prometheus (converter → /metrics)
-- Dimensioni aggiuntive: `fallback=bool`, `timeout=bool`
+- Dimensioni aggiuntive: `timeout=bool`, `model=real|sim`
+- Cause fallback estese (timeout, rate limit, HTTP_* codes)
 
 ---
 ## 5. Fixture di Test & Isolamento
@@ -104,12 +105,21 @@ Motivo: prevenire accumulo contatori tra test ed eliminare dipendenze dall'ordin
 Se un test richiede di ispezionare valori cumulativi multi‑step, deve farlo entro i propri confini (non rely su stato precedente). Per disabilitare temporaneamente il reset finale si può copiare la logica interna (sconsigliato se non strettamente necessario).
 
 ---
-## 6. Estensioni Pianificate
-- Fallback metrics: `ai_meal_photo_fallback_total` popolato in `RemoteModelAdapter`.
+## 6. Estensioni & Fallback (Aggiornato)
 - Circuit breaker (trip se timeout consecutivi > soglia).
 - Persistenza analisi (DB) + TTL cache warmup.
 - Normalizzazione/standard schema items (macronutrienti, bounding boxes, ecc.).
 - Integrazione risultato analisi nel meal enrichment pipeline.
+
+### Cause Fallback Attuali (label `reason`)
+| Codice | Significato |
+|--------|-------------|
+| `REAL_DISABLED` | Flag real GPT‑4V non attivo (`AI_GPT4V_REAL_ENABLED`=0) |
+| `MISSING_API_KEY` | Assente variabile `OPENAI_API_KEY` per path reale |
+| `PARSE_<CODE>` | Errore parsing output modello (es. `PARSE_NO_JSON_OBJECT`) |
+
+Nel caso `PARSE_*` viene incrementato anche `ai_meal_photo_errors_total{code=...}`.
+Percorso successo: solo `ai_meal_photo_requests_total{status=completed}` + latenza.
 
 ---
 ## 7. FAQ / Troubleshooting
@@ -131,4 +141,5 @@ Se un test richiede di ispezionare valori cumulativi multi‑step, deve farlo en
 ---
 ## Changelog
 - v0: Introduzione stub + metriche base + reset fixture.
-- v1 (planned): Remote fallback counters + multi-phase timing.
+- v1: Aggiunta metriche fallback GPT-4V (REAL_DISABLED, MISSING_API_KEY, PARSE_*), test isolamento.
+- v2 (planned): Multi-phase timing + estensione cause fallback (timeout/rate-limit) + esport Prometheus.

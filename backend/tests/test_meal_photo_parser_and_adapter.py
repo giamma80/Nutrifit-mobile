@@ -167,3 +167,53 @@ def test_gpt4v_real_disabled_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
         if reason in {"REAL_DISABLED", "MISSING_API_KEY"}:
             fb.append(c)
     assert fb, "Atteso fallback metric per REAL_DISABLED o MISSING_API_KEY"
+
+
+def test_gpt4v_success_metrics(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Percorso reale mockato: solo incremento richieste, no fallback/error."""
+    from inference import adapter as adapter_mod
+
+    class SuccessGpt(adapter_mod.Gpt4vAdapter):  # type: ignore
+        def _real_model_output(self, photo_url):  # noqa: D401
+            return json.dumps(
+                {
+                    "items": [
+                        {
+                            "label": "Riso",
+                            "quantity": {"value": 100, "unit": "g"},
+                            "confidence": 0.9,
+                        }
+                    ]
+                }
+            )
+
+    monkeypatch.setenv("AI_MEAL_PHOTO_MODE", "gpt4v")
+    monkeypatch.setenv("AI_GPT4V_REAL_ENABLED", "1")
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+    monkeypatch.setattr(adapter_mod, "Gpt4vAdapter", SuccessGpt)
+    before = snapshot()
+    adapter = get_active_adapter()
+    items = adapter.analyze(
+        user_id="u3", photo_id="p3", photo_url=None, now_iso="NOW"
+    )
+    after = snapshot()
+    assert items and len(items) == 1
+    # Richieste incrementate (status=completed)
+    
+    def _counter_delta(name: str, predicate=lambda _tags: True) -> int:
+        def _val(snap):
+            for c in snap["counters"]:
+                if c["name"] == name and predicate(c["tags"]):
+                    return c["value"]
+            return 0
+        return _val(after) - _val(before)
+
+    req_delta = _counter_delta(
+        "ai_meal_photo_requests_total",
+        lambda t: t.get("phase") == "gpt4v" and t.get("status") == "completed",
+    )
+    fb_delta = _counter_delta("ai_meal_photo_fallback_total")
+    err_delta = _counter_delta("ai_meal_photo_errors_total")
+    assert req_delta >= 1, "Atteso incremento richieste completed"
+    assert fb_delta == 0, "Nessun fallback atteso in percorso successo"
+    assert err_delta == 0, "Nessun errore atteso in percorso successo"
