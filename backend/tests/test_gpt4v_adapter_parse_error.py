@@ -4,8 +4,7 @@ from inference.adapter import Gpt4vAdapter, StubAdapter
 from metrics.ai_meal_photo import snapshot, reset_all
 
 
-@pytest.mark.asyncio
-async def test_gpt4v_parse_error_fallback(
+def test_gpt4v_parse_error_fallback(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Parse non JSON: fallback a stub + metriche fallback & error.

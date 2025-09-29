@@ -4,8 +4,7 @@ from inference.adapter import Gpt4vAdapter, StubAdapter
 from metrics.ai_meal_photo import snapshot, reset_all
 
 
-@pytest.mark.asyncio
-async def test_gpt4v_success_monkeypatched(
+def test_gpt4v_success_monkeypatched(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Success case: modello vision mock restituisce JSON valido.

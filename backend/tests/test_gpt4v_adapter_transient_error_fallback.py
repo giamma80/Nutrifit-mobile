@@ -4,8 +4,7 @@ from inference.adapter import Gpt4vAdapter
 from metrics.ai_meal_photo import snapshot, reset_all
 
 
-@pytest.mark.asyncio
-async def test_gpt4v_transient_error_fallback(
+def test_gpt4v_transient_error_fallback(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Errore transiente vision: fallback a simulazione (no errors_total).

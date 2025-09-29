@@ -4,8 +4,7 @@ from inference.adapter import Gpt4vAdapter, StubAdapter
 from metrics.ai_meal_photo import snapshot, reset_all
 
 
-@pytest.mark.asyncio
-async def test_gpt4v_timeout_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_gpt4v_timeout_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
     """Timeout nella chiamata vision: fallback a simulazione.
 
     Verifiche:

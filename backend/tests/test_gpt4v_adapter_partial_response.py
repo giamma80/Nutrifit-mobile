@@ -4,8 +4,7 @@ from inference.adapter import Gpt4vAdapter
 from metrics.ai_meal_photo import snapshot, reset_all
 
 
-@pytest.mark.asyncio
-async def test_gpt4v_partial_response_no_fallback(
+def test_gpt4v_partial_response_no_fallback(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Risposta con mix di item validi e invalidi: niente fallback.
