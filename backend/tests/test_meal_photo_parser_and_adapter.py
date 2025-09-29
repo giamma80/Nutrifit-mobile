@@ -1,6 +1,6 @@
 import json
 import pytest
-from typing import List
+from typing import List, Callable, Dict, Any, Optional
 
 from ai_models.meal_photo_prompt import (
     parse_and_validate,
@@ -105,9 +105,7 @@ async def test_gpt4v_adapter_selection(
 ) -> None:
     monkeypatch.setenv("AI_MEAL_PHOTO_MODE", "gpt4v")
     adapter = get_active_adapter()
-    items = adapter.analyze(
-        user_id="u1", photo_id="p1", photo_url=None, now_iso="NOW"
-    )
+    items = adapter.analyze(user_id="u1", photo_id="p1", photo_url=None, now_iso="NOW")
     assert adapter.name() == "gpt4v"
     assert len(items) >= 1
     assert all(it.calories is not None for it in items)
@@ -127,9 +125,7 @@ async def test_fallback_on_parse_error(
     monkeypatch.setattr(adapter_mod, "Gpt4vAdapter", BrokenGpt)
     a = get_active_adapter()
     before = snapshot()
-    items = a.analyze(
-        user_id="u1", photo_id="p1", photo_url=None, now_iso="NOW"
-    )
+    items = a.analyze(user_id="u1", photo_id="p1", photo_url=None, now_iso="NOW")
     after = snapshot()
     # Fallback stub produce 2 items
     assert len(items) == 2
@@ -154,9 +150,7 @@ def test_gpt4v_real_disabled_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("AI_MEAL_PHOTO_MODE", "gpt4v")
     # NON abilitiamo AI_GPT4V_REAL_ENABLED → deve scattare REAL_DISABLED
     adapter = get_active_adapter()
-    items = adapter.analyze(
-        user_id="u2", photo_id="p2", photo_url=None, now_iso="NOW"
-    )
+    items = adapter.analyze(user_id="u2", photo_id="p2", photo_url=None, now_iso="NOW")
     assert items
     data = snapshot()
     fb = []
@@ -173,8 +167,8 @@ def test_gpt4v_success_metrics(monkeypatch: pytest.MonkeyPatch) -> None:
     """Percorso reale mockato: solo incremento richieste, no fallback/error."""
     from inference import adapter as adapter_mod
 
-    class SuccessGpt(adapter_mod.Gpt4vAdapter):  # type: ignore
-        def _real_model_output(self, photo_url):  # noqa: D401
+    class SuccessGpt(adapter_mod.Gpt4vAdapter):
+        def _real_model_output(self, photo_url: Optional[str]) -> str:  # noqa: D401
             return json.dumps(
                 {
                     "items": [
@@ -193,20 +187,31 @@ def test_gpt4v_success_metrics(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(adapter_mod, "Gpt4vAdapter", SuccessGpt)
     before = snapshot()
     adapter = get_active_adapter()
-    items = adapter.analyze(
-        user_id="u3", photo_id="p3", photo_url=None, now_iso="NOW"
-    )
+    items = adapter.analyze(user_id="u3", photo_id="p3", photo_url=None, now_iso="NOW")
     after = snapshot()
     assert items and len(items) == 1
     # Richieste incrementate (status=completed)
-    
-    def _counter_delta(name: str, predicate=lambda _tags: True) -> int:
-        def _val(snap):
-            for c in snap["counters"]:
-                if c["name"] == name and predicate(c["tags"]):
-                    return c["value"]
+
+    def _counter_delta(
+        name: str,
+        predicate: Optional[Callable[[Dict[str, str]], bool]] = None,
+    ) -> int:
+        """Delta di un counter, filtrato opzionalmente dai tag."""
+
+        def get_value(snap: Any) -> int:  # snapshot è un dict nested dinamico
+            counters = []
+            if isinstance(snap, dict):
+                counters = snap.get("counters", [])
+            for c in counters:
+                tags = c.get("tags", {})
+                cond = predicate is None or predicate(tags)
+                if c.get("name") == name and cond:
+                    val = c.get("value")
+                    if isinstance(val, int):
+                        return val
             return 0
-        return _val(after) - _val(before)
+
+        return get_value(after) - get_value(before)
 
     req_delta = _counter_delta(
         "ai_meal_photo_requests_total",

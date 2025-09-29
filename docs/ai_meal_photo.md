@@ -10,7 +10,7 @@ Ridurre l'attrito nella registrazione dei pasti offrendo un flusso rapido foto �
 |---------|------|----------|
 | Generazione predictions | Stub + Heuristic flaggata | `StubAdapter` default, `HeuristicAdapter` attivabile con env `AI_HEURISTIC_ENABLED=1` |
 | Idempotenza analisi | Attiva | Chiave esplicita o auto `user|photoId|photoUrl` (sha256 trunc) – funzione `hash_photo_reference` pronta ma non ancora usata per sostituire la chiave completa user-based |
-| Campo `source` schema | Presente | Valori attuali: `stub` o `heuristic` |
+| Campo `source` schema | Presente | Valori: `stub`, `heuristic`, `model`, `gpt4v` |
 | Metriche | Timing wrapper | `time_analysis(phase=adapter.name())` registra latenza per adapter |
 | Logging | Parziale | Evento `analysis.created` con adapter e numero items |
 | Error Taxonomy | Definita | Non ancora popolata runtime (nessun errore generato nello stub) |
@@ -75,6 +75,7 @@ Attuale: solo latenza per adapter (fase). Pianificato:
 | Hash utility | Funzione pronta | DONE |
 | Metrics estensione (cache, errori) | Counters addizionali | TODO |
 | Remote model adapter | Chiamata API esterna + fallback | TODO |
+| GPT-4V adapter (simulato parse JSON) | Prompt+parse con calories + fallback stub | DONE |
 | Circuit breaker | Protezione errori provider | TODO |
 | Nutrient enrichment | Stima nutrienti per item | TODO |
 | Confidence explanation | Dettaglio motivazione | TODO |
@@ -104,4 +105,139 @@ Inserire array `analysisErrors` già nel modello schema (vuoto ora). Regole futu
 - Preparare test di integrazione latenza una volta introdotto remote model.
 
 ---
-Revision: Aggiornato a Fase 1 (heuristic flag) – 2025-09-27.
+## Estensione Calorie (Requisito Immediato)
+Per supportare la logica di deficit calorico è necessario che la mutation `analyzeMealPhoto` restituisca da subito:
+
+1. Calorie stimate per ciascun item (campo `calories` in kcal, intero o float con 1 decimale).
+2. Calorie totali della foto (campo aggregato `totalCalories`).
+3. (Opzionale per futuro) `calorieConfidence` per item e totale (0–1) – inizialmente omesso o derivato dalla confidence generale.
+
+### Fonti Dati Caloriche (Priorità di Risoluzione)
+Ordine di lookup per determinare le kcal per 100g di un item riconosciuto:
+1. Nutrition DB interna (se già esiste mapping canonical name → kcal_100g).
+2. Tabella statica embedded (mapping essenziale, es. pollo, insalata, riso, pasta, mela, acqua = 0).
+3. Euristica categoria → densità media (es: verdura 25 kcal/100g, frutta 52, cereali 350, proteine magre 165, condimenti 500, bevande acqua 0).
+4. Fallback finale: 100 kcal/100g (default neutro) con flag interno `isEstimatedDensity=True`.
+
+Formula per item: `item.calories = round( quantity_grams * kcal_per_100g / 100 , 1 )`.
+Aggregato: `totalCalories = sum(item.calories)`.
+
+### Validazione & Normalizzazione
+- Se unità non in grammi ma "piece": convertire con peso medio definito in tabella (es. 1 mela = 150g) prima di calcolare.
+- Clamp quantità se > 2000g → 2000g (evita outlier eccessivo) marcando `quantityClamped=True` (solo interno / logging).
+- Se densità proviene da fallback 4, incrementare un contatore di telemetria `ai_meal_photo_density_fallback_total`.
+
+### Error Handling Specifico Calorie
+- Se nessun item valido → `totalCalories = 0` e possibile codice errore `NO_VALID_ITEMS` (futuro, non blocca la risposta).
+- Calorie negative o NaN non sono ammesse: sostituzione con 0 e log warning.
+
+### Impatto Schema (Proposta / Implementato parzialmente)
+```
+type MealPhotoItemPrediction {
+  name: String!
+  quantity: Float!
+  unit: String!
+  calories: Int!        # o Float! se si preferisce maggiore precisione
+  confidence: Float
+  source: String!
+}
+
+type MealPhotoAnalysis {
+  id: ID!
+  items: [MealPhotoItemPrediction!]!
+  totalCalories: Int    # calcolato server-side (può essere null se retro)
+  source: String!
+  analysisErrors: [MealPhotoAnalysisError!]
+}
+```
+(Se lo schema attuale differisce, adattare i nomi mantenendo semantica invariata.)
+
+### Sequence Diagram (Foto → Calorie → LogMeal)
+```mermaid
+sequenceDiagram
+    autonumber
+    participant C as Client
+    participant GQL as GraphQL API
+    participant Repo as AnalysisRepo
+    participant Sel as AdapterSelector
+    participant A as ActiveAdapter
+  participant Pmt as PromptBuilder
+    participant LLM as Vision/GPT4V Provider
+    participant P as Parser+Validator
+    participant N as NutrientService
+    participant Agg as CalorieAggregator
+    participant R as Repo(Persist)
+    participant LM as LogMeal Flow
+
+    C->>GQL: analyzeMealPhoto(photoId?, photoUrl?)
+    GQL->>Repo: checkIdempotency(user, key)
+    alt Cache Hit
+        Repo-->>GQL: existing Analysis (with items+calories?)
+        GQL-->>C: Analysis payload
+    else New Analysis
+        GQL->>Sel: get_active_adapter()
+        Sel-->>GQL: adapter ref
+  GQL->>A: analyze(user, photo refs)
+  A->>Pmt: generate_prompt()
+  A->>LLM: (prompt + image) [solo se gpt4v / model]
+  LLM-->>A: raw JSON (o testo)
+        A-->>P: raw predictions
+        P->>P: schema parse + quantity/unit normalization
+        P->>N: resolve kcal/100g for each item
+        N-->>P: items enriched (kcal/100g)
+        P-->>Agg: normalized items
+        Agg->>Agg: compute item.calories & totalCalories
+        Agg-->>GQL: items + totalCalories
+        GQL->>R: persist analysis (items, calories, source)
+        R-->>GQL: analysisId
+        GQL-->>C: payload (items, totalCalories, source)
+        C->>GQL: confirmMealPhoto(selectedItemIds)
+        GQL->>LM: create MealEntries with calories
+        LM-->>C: meal logged (deficit tracking enabled)
+    end
+
+    opt Fallback Path
+  P->>GQL: parse error
+  GQL->>A: fallback analyze (heuristic/stub → calories comunque)
+        A-->>GQL: fallback items
+        GQL->>N: enrich calories
+        N-->>GQL: items kcal/100g
+        GQL->>Agg: compute calories
+        Agg-->>GQL: enriched fallback
+    end
+```
+
+### Calorie Aggregator – Micro-Contratto
+Input: lista items con (name, quantity_grams, unit, kcal_per_100g)
+Output: items arricchiti con `calories` + `totalCalories` intero/float.
+Errori: se un item manca di `kcal_per_100g` dopo fallback → densità default 100.
+Success Criteria: `totalCalories == sum(items.calories)` e mai negativo.
+
+### Telemetria Aggiuntiva Proposta
+| Metric | Tipo | Labels | Descrizione |
+|--------|------|--------|-------------|
+| ai_meal_photo_density_fallback_total | counter | source | Numero item che hanno richiesto densità fallback generica |
+| ai_meal_photo_calories_compute_seconds | histogram | source | Latenza fase aggregazione calorie |
+
+### Integrazione con LogMeal
+Il flusso `confirmMealPhoto` ricevendo item selezionati ora ha sempre `calories` → può creare `MealEntry` con valore energetico immediatamente disponibile per il calcolo del deficit senza attendere arricchimenti successivi.
+
+## Nuovi Acceptance Criteria (Estesi)
+5. Ogni item contiene `calories` (>=0) e nessun NaN.
+6. `totalCalories` = somma item o 0 se lista vuota.
+7. Percentuale fallback densità <30% (monitoraggio).
+8. Fallback parse (gpt4v) → stub/heuristic con calorie garantite.
+9. Variabile `AI_MEAL_PHOTO_MODE` seleziona adapter (`stub|heuristic|model|gpt4v`).
+
+## Selezione Adapter Runtime
+Priorità: se `AI_MEAL_PHOTO_MODE` è definita usa quel valore; altrimenti legacy flags
+`AI_REMOTE_ENABLED` / `AI_HEURISTIC_ENABLED`. Valori non riconosciuti → `stub`.
+
+## Stato Implementazione (29-09-2025)
+- Calorie item & totalCalories: DONE (server calcola total_calories).
+- Adapter GPT-4V simulato (prompt pipeline + parse + fallback): DONE.
+- Persistenza invariata; `source` ora riflette adapter effettivo.
+- Mancante: vera chiamata esterna vision & enrich nutrienti avanzati.
+
+---
+Revision: Aggiornato a Fase 1 (heuristic flag + calorie design) – 2025-09-29.

@@ -1,4 +1,5 @@
 import pytest
+import pytest_asyncio
 from typing import Generator, AsyncIterator
 from metrics.ai_meal_photo import reset_all
 from httpx import AsyncClient
@@ -14,7 +15,7 @@ def _reset_metrics() -> Generator[None, None, None]:
     reset_all()
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def client() -> AsyncIterator[AsyncClient]:
     """Client HTTP asincrono per test GraphQL/REST.
 

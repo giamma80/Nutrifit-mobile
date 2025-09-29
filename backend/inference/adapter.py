@@ -241,9 +241,7 @@ class Gpt4vAdapter:
         return "gpt4v"
 
     def _simulate_model_output(self) -> str:
-        items = StubAdapter().analyze(
-            user_id="_sim", photo_id=None, photo_url=None, now_iso="_"
-        )
+        items = StubAdapter().analyze(user_id="_sim", photo_id=None, photo_url=None, now_iso="_")
         parts = []
         for it in items:
             q = it.quantity_g or 100.0

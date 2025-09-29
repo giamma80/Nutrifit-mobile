@@ -46,7 +46,7 @@ def generate_prompt(*, locale: str = "it") -> str:
         '{"label":"string",',
         '"quantity":{"value":<num>,"unit":"g|piece"},',
         '"confidence":<0-1>',
-        ']}.',
+        "]}.",
         " Regole: max 5 items, label brevi in italiano. ",
         'Se nessun riconoscimento: {"items": []}.',
     ]
@@ -175,4 +175,3 @@ __all__ = [
     "ParsedItem",
     "ParseError",
 ]
-
