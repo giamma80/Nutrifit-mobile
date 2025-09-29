@@ -12,7 +12,7 @@ enrichment, fallback chain).
 
 from __future__ import annotations
 
-from typing import List, Optional, Protocol, Any, Dict, cast
+from typing import List, Optional, Protocol
 import os
 import hashlib
 import time
@@ -23,6 +23,12 @@ from ai_models.meal_photo_models import MealPhotoItemPredictionRecord
 from ai_models.meal_photo_prompt import (
     parse_and_validate,  # noqa: F401
     ParseError as MealPhotoParseError,  # noqa: F401
+)
+from .vision_client import (
+    call_openai_vision,
+    VisionTimeoutError,
+    VisionTransientError,
+    VisionCallError,
 )
 from metrics.ai_meal_photo import record_fallback, record_error, time_analysis
 
@@ -259,60 +265,38 @@ class Gpt4vAdapter:
         return json.dumps({"items": parts})
 
     def _real_model_output(self, photo_url: Optional[str]) -> str:
+        """Bridge sync→async tramite asyncio.run (transitorio).
+
+        Futuro: rendere l'interfaccia analyze async eliminando questo bridge.
+        """
+        import asyncio
+
         if not _flag_enabled(os.getenv("AI_GPT4V_REAL_ENABLED")):
             raise MealPhotoParseError("REAL_DISABLED")
         api_key = os.getenv("OPENAI_API_KEY")
         if not api_key:
             raise MealPhotoParseError("MISSING_API_KEY")
-        model = os.getenv("AI_GPT4V_MODEL", "gpt-4o-mini")
-        try:  # import lazy
-            from openai import OpenAI  # noqa: F401
-        except Exception as exc:  # pragma: no cover
-            raise MealPhotoParseError(f"OPENAI_IMPORT_ERR: {exc}") from exc
-        client = OpenAI(api_key=api_key)
-        # Tipizzazione esplicita per evitare inferenze complesse
-        messages: List[Dict[str, Any]] = [
-            {
-                "role": "user",
-                "content": [
-                    {
-                        "type": "text",
-                        "text": (
-                            "Analizza la foto del pasto e "
-                            "restituisci SOLO JSON valido "
-                            'con schema {"items":[{'
-                            'label":"string","quantity":{"value":<num>,'
-                            '"unit":"g|piece"},"confidence":<0-1>}]}'
-                        ),
-                    }
-                ],
-            }
-        ]
-        if photo_url:
-            try:  # pragma: no cover
-                messages[0]["content"].append(
-                    {"type": "image_url", "image_url": {"url": photo_url}}
+        prompt = (
+            "Analizza la foto del pasto e "
+            "restituisci SOLO JSON valido con schema "
+            '{"items":[{"label":"string","quantity":'
+            '{"value":<num>,"unit":"g|piece"},"confidence":<0-1>}]}'
+        )
+        try:
+            # Esecuzione async → sync bridge
+            return asyncio.run(
+                call_openai_vision(
+                    image_url=photo_url,
+                    prompt=prompt,
+                    timeout_s=12.0,
                 )
-            except Exception:
-                pass
-        try:
-            # chiamata API
-            resp = client.chat.completions.create(
-                model=model,
-                messages=cast(Any, messages),  # cast: compat API openai
-                temperature=0.0,
-                max_tokens=600,
             )
-        except Exception as exc:  # pragma: no cover
-            raise MealPhotoParseError(f"OPENAI_API_ERR: {exc}") from exc
-        try:
-            choice = resp.choices[0]
-            text = getattr(choice.message, "content", None) or ""
-        except Exception as exc:  # pragma: no cover
-            raise MealPhotoParseError(f"OPENAI_RESP_ERR: {exc}") from exc
-        if not text:
-            raise MealPhotoParseError("EMPTY_RESPONSE")
-        return text
+        except VisionTimeoutError as exc:
+            raise MealPhotoParseError(f"TIMEOUT:{exc}") from exc
+        except VisionTransientError as exc:
+            raise MealPhotoParseError(f"TRANSIENT:{exc}") from exc
+        except VisionCallError as exc:
+            raise MealPhotoParseError(f"CALL_ERR:{exc}") from exc
 
     def __init__(self) -> None:
         self.last_fallback_reason: Optional[str] = None
@@ -327,6 +311,7 @@ class Gpt4vAdapter:
     ) -> List[MealPhotoItemPredictionRecord]:
         with time_analysis(phase=self.name(), source=self.name()):
             try:
+                # Bridge sync→async; futuro: analyze async nativa.
                 raw_text = self._real_model_output(photo_url)
             except MealPhotoParseError as exc:
                 self.last_fallback_reason = str(exc)

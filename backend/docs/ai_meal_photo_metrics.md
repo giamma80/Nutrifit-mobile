@@ -116,6 +116,9 @@ Se un test richiede di ispezionare valori cumulativi multi‑step, deve farlo en
 |--------|-------------|
 | `REAL_DISABLED` | Flag real GPT‑4V non attivo (`AI_GPT4V_REAL_ENABLED`=0) |
 | `MISSING_API_KEY` | Assente variabile `OPENAI_API_KEY` per path reale |
+| `TIMEOUT:<detail>` | Timeout chiamata vision reale (esaurito budget tempo) |
+| `TRANSIENT:<detail>` | Errore transiente recuperabile (rate limit, 5xx, network) |
+| `CALL_ERR:<detail>` | Errore generico non classificato nella chiamata vision |
 | `PARSE_<CODE>` | Errore parsing output modello (es. `PARSE_NO_JSON_OBJECT`) |
 
 Nel caso `PARSE_*` viene incrementato anche `ai_meal_photo_errors_total{code=...}`.
@@ -142,4 +145,4 @@ Percorso successo: solo `ai_meal_photo_requests_total{status=completed}` + laten
 ## Changelog
 - v0: Introduzione stub + metriche base + reset fixture.
 - v1: Aggiunta metriche fallback GPT-4V (REAL_DISABLED, MISSING_API_KEY, PARSE_*), test isolamento.
-- v2 (planned): Multi-phase timing + estensione cause fallback (timeout/rate-limit) + esport Prometheus.
+- v2: Estese cause fallback (TIMEOUT / TRANSIENT / CALL_ERR) + test hardening GPT-4V.
