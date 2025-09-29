@@ -24,9 +24,7 @@ async def test_ai_meal_photo_metrics_sentinel(
 
     from typing import Any
 
-    def counter_val(
-        snap: Any, name: str, **tag_filters: str
-    ) -> int:
+    def counter_val(snap: Any, name: str, **tag_filters: str) -> int:
         for c in snap["counters"]:
             if c["name"] != name:
                 continue
@@ -49,13 +47,11 @@ async def test_ai_meal_photo_metrics_sentinel(
         status="completed",
     )
     # Stub non dovrebbe generare fallback o error
-    fb_total_delta = (
-        counter_val(after, "ai_meal_photo_fallback_total")
-        - counter_val(before, "ai_meal_photo_fallback_total")
+    fb_total_delta = counter_val(after, "ai_meal_photo_fallback_total") - counter_val(
+        before, "ai_meal_photo_fallback_total"
     )
-    err_total_delta = (
-        counter_val(after, "ai_meal_photo_errors_total")
-        - counter_val(before, "ai_meal_photo_errors_total")
+    err_total_delta = counter_val(after, "ai_meal_photo_errors_total") - counter_val(
+        before, "ai_meal_photo_errors_total"
     )
 
     assert req_completed_delta == 1, "Una richiesta stub completata attesa"

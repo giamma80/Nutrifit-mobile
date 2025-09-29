@@ -7,6 +7,7 @@ from typing import cast, Any
 
 # Import esplicito per prevenire PendingDeprecationWarning (best effort)
 from typing import TYPE_CHECKING
+
 if TYPE_CHECKING:  # pragma: no cover
     # Placeholder: import opzionale rimosso per evitare errori mypy se assente
     pass
@@ -31,7 +32,5 @@ async def client() -> AsyncIterator[AsyncClient]:
     """
     # Cast a Any per soddisfare la firma attesa (FastAPI è compatibile ASGI)
     transport = ASGITransport(app=cast(Any, app))
-    async with AsyncClient(
-        transport=transport, base_url="http://testserver"
-    ) as ac:
+    async with AsyncClient(transport=transport, base_url="http://testserver") as ac:
         yield ac
