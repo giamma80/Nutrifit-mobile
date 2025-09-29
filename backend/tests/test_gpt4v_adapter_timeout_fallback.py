@@ -18,9 +18,11 @@ def test_gpt4v_timeout_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("AI_GPT4V_REAL_ENABLED", "1")
     monkeypatch.setenv("OPENAI_API_KEY", "fake-key")
 
-    from inference import vision_client
+    import inference.adapter as adapter_mod
 
-    class _FakeTimeout(vision_client.VisionTimeoutError):
+    from inference.vision_client import VisionTimeoutError
+
+    class _FakeTimeout(VisionTimeoutError):
         pass
 
     async def _raise_timeout(
@@ -28,7 +30,7 @@ def test_gpt4v_timeout_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
     ) -> str:  # noqa: D401
         raise _FakeTimeout("deadline")
 
-    monkeypatch.setattr(vision_client, "call_openai_vision", _raise_timeout)
+    monkeypatch.setattr(adapter_mod, "call_openai_vision", _raise_timeout)
 
     adapter = Gpt4vAdapter()
     before = snapshot()
@@ -42,14 +44,10 @@ def test_gpt4v_timeout_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
 
     assert items, "Attesi items da simulazione dopo timeout"
     assert adapter.last_fallback_reason
-    assert adapter.last_fallback_reason.startswith("TIMEOUT:"), (
-        "Fallback reason TIMEOUT attesa"
-    )
+    assert adapter.last_fallback_reason.startswith("TIMEOUT:"), "Fallback reason TIMEOUT attesa"
 
     # Confronto calorie primo item (insalata) tra stub e simulazione
-    stub_first = StubAdapter().analyze(
-        user_id="_", photo_id=None, photo_url=None, now_iso="_"
-    )[0]
+    stub_first = StubAdapter().analyze(user_id="_", photo_id=None, photo_url=None, now_iso="_")[0]
     # La simulazione calcola calorie via densità (20 kcal/100g) => 150g -> 30
     sim_first = items[0]
     if sim_first.label.startswith("insalata"):
@@ -70,9 +68,9 @@ def test_gpt4v_timeout_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
                     return v
         return 0
 
-    fb_delta = counter_val(
-        after, "ai_meal_photo_fallback_total"
-    ) - counter_val(before, "ai_meal_photo_fallback_total")
+    fb_delta = counter_val(after, "ai_meal_photo_fallback_total") - counter_val(
+        before, "ai_meal_photo_fallback_total"
+    )
     err_delta = counter_val(after, "ai_meal_photo_errors_total") - counter_val(
         before, "ai_meal_photo_errors_total"
     )
@@ -88,9 +86,5 @@ def test_gpt4v_timeout_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
         status="completed",
     )
     assert fb_delta == 1, "Atteso un fallback su timeout"
-    assert err_delta == 0, (
-        "Timeout non incrementa errors_total (solo fallback)"
-    )
-    assert (
-        completed_delta == 1
-    ), "Richiesta deve risultare completed nonostante timeout"
+    assert err_delta == 0, "Timeout non incrementa errors_total (solo fallback)"
+    assert completed_delta == 1, "Richiesta deve risultare completed nonostante timeout"

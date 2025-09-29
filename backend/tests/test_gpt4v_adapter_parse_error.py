@@ -19,25 +19,21 @@ def test_gpt4v_parse_error_fallback(
     monkeypatch.setenv("AI_GPT4V_REAL_ENABLED", "1")
     monkeypatch.setenv("OPENAI_API_KEY", "fake-key")
 
-    from inference import vision_client
+    import inference.adapter as adapter_mod
 
     async def _fake_call(
         *, image_url: str | None, prompt: str, timeout_s: float = 12.0
     ) -> str:  # noqa: D401
         return "RISPOSTA LIBERA SENZA JSON"
 
-    monkeypatch.setattr(vision_client, "call_openai_vision", _fake_call)
+    monkeypatch.setattr(adapter_mod, "call_openai_vision", _fake_call)
 
     adapter = Gpt4vAdapter()
     before = snapshot()
-    items = adapter.analyze(
-        user_id="u1", photo_id="ph-parse", photo_url="http://ex", now_iso="NOW"
-    )
+    items = adapter.analyze(user_id="u1", photo_id="ph-parse", photo_url="http://ex", now_iso="NOW")
     after = snapshot()
 
-    stub_items = StubAdapter().analyze(
-        user_id="_", photo_id=None, photo_url=None, now_iso="_"
-    )
+    stub_items = StubAdapter().analyze(user_id="_", photo_id=None, photo_url=None, now_iso="_")
     assert len(items) == len(stub_items)
     # Confronto semplice su etichette
     assert [i.label for i in items] == [i.label for i in stub_items]
@@ -55,9 +51,8 @@ def test_gpt4v_parse_error_fallback(
                     return v
         return 0
 
-    fb_delta = (
-        counter_val(after, "ai_meal_photo_fallback_total")
-        - counter_val(before, "ai_meal_photo_fallback_total")
+    fb_delta = counter_val(after, "ai_meal_photo_fallback_total") - counter_val(
+        before, "ai_meal_photo_fallback_total"
     )
     err_delta = counter_val(after, "ai_meal_photo_errors_total") - counter_val(
         before, "ai_meal_photo_errors_total"

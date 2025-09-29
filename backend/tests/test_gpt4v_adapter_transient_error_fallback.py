@@ -20,9 +20,11 @@ def test_gpt4v_transient_error_fallback(
     monkeypatch.setenv("AI_GPT4V_REAL_ENABLED", "1")
     monkeypatch.setenv("OPENAI_API_KEY", "fake-key")
 
-    from inference import vision_client
+    import inference.adapter as adapter_mod
 
-    class _FakeTransient(vision_client.VisionTransientError):
+    from inference.vision_client import VisionTransientError
+
+    class _FakeTransient(VisionTransientError):
         pass
 
     async def _raise_transient(
@@ -30,7 +32,7 @@ def test_gpt4v_transient_error_fallback(
     ) -> str:  # noqa: D401
         raise _FakeTransient("temporary")
 
-    monkeypatch.setattr(vision_client, "call_openai_vision", _raise_transient)
+    monkeypatch.setattr(adapter_mod, "call_openai_vision", _raise_transient)
 
     adapter = Gpt4vAdapter()
     before = snapshot()
@@ -59,9 +61,9 @@ def test_gpt4v_transient_error_fallback(
                     return v
         return 0
 
-    fb_delta = counter_val(
-        after, "ai_meal_photo_fallback_total"
-    ) - counter_val(before, "ai_meal_photo_fallback_total")
+    fb_delta = counter_val(after, "ai_meal_photo_fallback_total") - counter_val(
+        before, "ai_meal_photo_fallback_total"
+    )
     err_delta = counter_val(after, "ai_meal_photo_errors_total") - counter_val(
         before, "ai_meal_photo_errors_total"
     )
