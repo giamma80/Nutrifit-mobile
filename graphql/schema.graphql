@@ -141,6 +141,7 @@ type MealPhotoAnalysis {
   items: [MealPhotoItemPrediction!]!
   rawJson: String
   idempotencyKeyUsed: String
+  totalCalories: Int
   analysisErrors: [MealPhotoAnalysisError!]!
   failureReason: MealPhotoAnalysisErrorCode
 }
