@@ -4,7 +4,8 @@ from inference.adapter import Gpt4vAdapter
 from metrics.ai_meal_photo import snapshot, reset_all
 
 
-def test_gpt4v_partial_response_no_fallback(
+@pytest.mark.asyncio
+async def test_gpt4v_partial_response_no_fallback(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Risposta con mix di item validi e invalidi: niente fallback.
@@ -45,7 +46,7 @@ def test_gpt4v_partial_response_no_fallback(
 
     adapter = Gpt4vAdapter()
     before = snapshot()
-    items = adapter.analyze(
+    items = await adapter.analyze_async(
         user_id="u1",
         photo_id="ph-partial",
         photo_url="http://ex",
@@ -81,9 +82,9 @@ def test_gpt4v_partial_response_no_fallback(
                     return v
         return 0
 
-    fb_delta = counter_val(after, "ai_meal_photo_fallback_total") - counter_val(
-        before, "ai_meal_photo_fallback_total"
-    )
+    fb_delta = counter_val(
+        after, "ai_meal_photo_fallback_total"
+    ) - counter_val(before, "ai_meal_photo_fallback_total")
     completed_delta = counter_val(
         after,
         "ai_meal_photo_requests_total",

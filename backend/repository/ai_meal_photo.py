@@ -23,9 +23,7 @@ from inference.adapter import get_active_adapter
 
 class InMemoryMealPhotoAnalysisRepository:
     def __init__(self) -> None:
-        # (user_id, analysis_id)
         self._analyses: Dict[Tuple[str, str], MealPhotoAnalysisRecord] = {}
-        # (user_id, idempotency_key) -> analysis_id
         self._idemp: Dict[Tuple[str, str], str] = {}
 
     def _auto_key(
@@ -37,7 +35,7 @@ class InMemoryMealPhotoAnalysisRepository:
         basis = f"{user_id}|{photo_id or ''}|{photo_url or ''}".encode("utf-8")
         return "auto-" + hashlib.sha256(basis).hexdigest()[:16]
 
-    def create_or_get(
+    async def create_or_get_async(
         self,
         *,
         user_id: str,
@@ -56,9 +54,9 @@ class InMemoryMealPhotoAnalysisRepository:
         if existing_id:
             return self._analyses[(user_id, existing_id)]
         adapter = get_active_adapter()
-        # Usa sia phase che source per metriche (per ora coincidono)
         with time_analysis(phase=adapter.name(), source=adapter.name()):
-            items = adapter.analyze(
+            # Chiamata async primaria
+            items = await adapter.analyze_async(
                 user_id=user_id,
                 photo_id=photo_id,
                 photo_url=photo_url,
@@ -87,6 +85,27 @@ class InMemoryMealPhotoAnalysisRepository:
             },
         )
         return rec
+
+    # Wrapper sync per compat (verrà rimosso in futuro)
+    def create_or_get(
+        self,
+        *,
+        user_id: str,
+        photo_id: Optional[str],
+        photo_url: Optional[str],
+        idempotency_key: Optional[str],
+        now_iso: str,
+    ) -> MealPhotoAnalysisRecord:  # pragma: no cover semplice wrapper
+        import asyncio
+        return asyncio.run(
+            self.create_or_get_async(
+                user_id=user_id,
+                photo_id=photo_id,
+                photo_url=photo_url,
+                idempotency_key=idempotency_key,
+                now_iso=now_iso,
+            )
+        )
 
     def get(
         self,

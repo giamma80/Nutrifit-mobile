@@ -4,7 +4,8 @@ from inference.adapter import Gpt4vAdapter, StubAdapter
 from metrics.ai_meal_photo import snapshot, reset_all
 
 
-def test_gpt4v_success_monkeypatched(
+@pytest.mark.asyncio
+async def test_gpt4v_success_monkeypatched(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Success case: modello vision mock restituisce JSON valido.
@@ -22,7 +23,9 @@ def test_gpt4v_success_monkeypatched(
     # Patch simbolo importato in adapter
     import inference.adapter as adapter_mod
 
-    async def _fake_call(*, image_url: str | None, prompt: str, timeout_s: float = 12.0) -> str:
+    async def _fake_call(
+        *, image_url: str | None, prompt: str, timeout_s: float = 12.0
+    ) -> str:
         return (
             '{"items":[{"label":"Insalata mista","quantity":'
             '{"value":120,"unit":"g"},"confidence":0.9},'
@@ -34,7 +37,7 @@ def test_gpt4v_success_monkeypatched(
 
     adapter = Gpt4vAdapter()
     before = snapshot()
-    items = adapter.analyze(
+    items = await adapter.analyze_async(
         user_id="u1",
         photo_id="ph-success",
         photo_url="http://ex",
@@ -44,10 +47,14 @@ def test_gpt4v_success_monkeypatched(
 
     assert items, "Attesi items dal path gpt4v"
     # Confronto semplice: stub produce quantità 150 e 120; qui 120 e 110
-    stub_items = StubAdapter().analyze(user_id="_", photo_id=None, photo_url=None, now_iso="_")
+    stub_items = await StubAdapter().analyze_async(
+        user_id="_", photo_id=None, photo_url=None, now_iso="_"
+    )
     stub_quantities = sorted([int(it.quantity_g or 0) for it in stub_items])
     new_quantities = sorted([int(it.quantity_g or 0) for it in items])
-    assert new_quantities != stub_quantities, "Quantità dovrebbero differire dal puro stub"
+    assert (
+        new_quantities != stub_quantities
+    ), "Quantità dovrebbero differire dal puro stub"
 
     from typing import Any
 
@@ -73,8 +80,8 @@ def test_gpt4v_success_monkeypatched(
         phase="gpt4v",
         status="completed",
     )
-    fallback_total_delta = counter_val(after, "ai_meal_photo_fallback_total") - counter_val(
-        before, "ai_meal_photo_fallback_total"
-    )
+    fallback_total_delta = counter_val(
+        after, "ai_meal_photo_fallback_total"
+    ) - counter_val(before, "ai_meal_photo_fallback_total")
     assert completed_delta == 1, "Una richiesta gpt4v completata attesa"
     assert fallback_total_delta == 0, "Nessun fallback atteso nel success case"

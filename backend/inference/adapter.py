@@ -34,7 +34,24 @@ from metrics.ai_meal_photo import record_fallback, record_error, time_analysis
 
 
 class InferenceAdapter(Protocol):
+    """Protocol aggiornato: supporta metodo asincrono principale.
+
+    analyze_async è la fonte di verità; analyze sync è wrapper
+    temporaneo per compat (può bloccare l'event loop se usato dentro
+    coroutine; verrà rimosso in una fase successiva).
+    """
+
     def name(self) -> str:  # identificatore adapter per logging/metrics
+        ...
+
+    async def analyze_async(
+        self,
+        *,
+        user_id: str,
+        photo_id: Optional[str],
+        photo_url: Optional[str],
+        now_iso: str,
+    ) -> List[MealPhotoItemPredictionRecord]:
         ...
 
     def analyze(
@@ -44,14 +61,16 @@ class InferenceAdapter(Protocol):
         photo_id: Optional[str],
         photo_url: Optional[str],
         now_iso: str,
-    ) -> List[MealPhotoItemPredictionRecord]:
-        """Produce lista di predictions (stub/heuristic/model).
-            Requisiti baseline:
-        * Non sollevare eccezioni per input vuoti (fallback interno)
-        * Restituire ≥1 item (se nessun rilevamento usare placeholder generico)
-            * Confidence in range [0,1]
-        """
-        ...
+    ) -> List[MealPhotoItemPredictionRecord]:  # pragma: no cover wrapper
+        import asyncio
+        return asyncio.run(
+            self.analyze_async(
+                user_id=user_id,
+                photo_id=photo_id,
+                photo_url=photo_url,
+                now_iso=now_iso,
+            )
+        )
 
 
 class StubAdapter:
@@ -82,6 +101,18 @@ class StubAdapter:
     def name(self) -> str:
         return "stub"
 
+    async def analyze_async(
+        self,
+        *,
+        user_id: str,
+        photo_id: Optional[str],
+        photo_url: Optional[str],
+        now_iso: str,
+    ) -> List[MealPhotoItemPredictionRecord]:
+        with time_analysis(phase=self.name(), source=self.name()):
+            return list(self._ITEMS)
+
+    # Manteniamo analyze sync per compat
     def analyze(
         self,
         *,
@@ -90,9 +121,16 @@ class StubAdapter:
         photo_url: Optional[str],
         now_iso: str,
     ) -> List[MealPhotoItemPredictionRecord]:
-        # Instrumentazione metriche (phase=stub)
-        with time_analysis(phase=self.name(), source=self.name()):
-            return list(self._ITEMS)
+        """Wrapper sync temporaneo (deprecando in futuro)."""
+        import asyncio
+        return asyncio.run(
+            self.analyze_async(
+                user_id=user_id,
+                photo_id=photo_id,
+                photo_url=photo_url,
+                now_iso=now_iso,
+            )
+        )
 
 
 class HeuristicAdapter:
@@ -107,7 +145,7 @@ class HeuristicAdapter:
     def name(self) -> str:  # pragma: no cover (semplice)
         return "heuristic"
 
-    def analyze(
+    async def analyze_async(
         self,
         *,
         user_id: str,
@@ -116,7 +154,7 @@ class HeuristicAdapter:
         now_iso: str,
     ) -> List[MealPhotoItemPredictionRecord]:
         with time_analysis(phase=self.name(), source=self.name()):
-            base = StubAdapter().analyze(
+            base = await StubAdapter().analyze_async(
                 user_id=user_id,
                 photo_id=photo_id,
                 photo_url=photo_url,
@@ -127,8 +165,7 @@ class HeuristicAdapter:
             if photo_id and photo_id[-1].isdigit():
                 even = int(photo_id[-1]) % 2 == 0
             if even and len(items) > 1 and items[1].quantity_g:
-                # aumenta porzione secondo item
-                items[1].quantity_g = items[1].quantity_g * 1.15  # tipo euristica
+                items[1].quantity_g = items[1].quantity_g * 1.15
                 items[1].confidence = min(1.0, items[1].confidence + 0.03)
             if photo_url and "water" in photo_url.lower():
                 items.append(
@@ -140,6 +177,24 @@ class HeuristicAdapter:
                     )
                 )
             return items
+
+    def analyze(
+        self,
+        *,
+        user_id: str,
+        photo_id: Optional[str],
+        photo_url: Optional[str],
+        now_iso: str,
+    ) -> List[MealPhotoItemPredictionRecord]:
+        import asyncio
+        return asyncio.run(
+            self.analyze_async(
+                user_id=user_id,
+                photo_id=photo_id,
+                photo_url=photo_url,
+                now_iso=now_iso,
+            )
+        )
 
 
 # NOTE: le variabili d'ambiente sono lette dinamicamente in
@@ -184,7 +239,7 @@ class RemoteModelAdapter:
             return False
         return True
 
-    def analyze(
+    async def analyze_async(
         self,
         *,
         user_id: str,
@@ -193,47 +248,60 @@ class RemoteModelAdapter:
         now_iso: str,
     ) -> List[MealPhotoItemPredictionRecord]:
         with time_analysis(phase=self.name(), source=self.name()):
-            # Prima prova a simulare remote; se fallisce fallback
             ok = self._simulate_remote()
             if not ok:
-                # fallback a heuristic se flag attivo, altrimenti stub
                 if _flag_enabled(os.getenv("AI_HEURISTIC_ENABLED")):
-                    return HeuristicAdapter().analyze(
+                    return await HeuristicAdapter().analyze_async(
                         user_id=user_id,
                         photo_id=photo_id,
                         photo_url=photo_url,
                         now_iso=now_iso,
                     )
-                return StubAdapter().analyze(
+                return await StubAdapter().analyze_async(
                     user_id=user_id,
                     photo_id=photo_id,
                     photo_url=photo_url,
                     now_iso=now_iso,
                 )
-            # Simulazione risposta "più raffinata" partendo dalla
-            # heuristic/stub base
             base_items = (
-                HeuristicAdapter().analyze(
+                await HeuristicAdapter().analyze_async(
                     user_id=user_id,
                     photo_id=photo_id,
                     photo_url=photo_url,
                     now_iso=now_iso,
                 )
                 if _flag_enabled(os.getenv("AI_HEURISTIC_ENABLED"))
-                else StubAdapter().analyze(
+                else await StubAdapter().analyze_async(
                     user_id=user_id,
                     photo_id=photo_id,
                     photo_url=photo_url,
                     now_iso=now_iso,
                 )
             )
-            # Piccola variazione: +5% quantity se presente
             for it in base_items:
                 q = it.quantity_g
                 if q is not None and q > 0:
                     it.quantity_g = q * 1.05
                     it.confidence = min(1.0, it.confidence + 0.04)
             return base_items
+
+    def analyze(
+        self,
+        *,
+        user_id: str,
+        photo_id: Optional[str],
+        photo_url: Optional[str],
+        now_iso: str,
+    ) -> List[MealPhotoItemPredictionRecord]:
+        import asyncio
+        return asyncio.run(
+            self.analyze_async(
+                user_id=user_id,
+                photo_id=photo_id,
+                photo_url=photo_url,
+                now_iso=now_iso,
+            )
+        )
 
 
 class Gpt4vAdapter:
@@ -251,7 +319,9 @@ class Gpt4vAdapter:
         return "gpt4v"
 
     def _simulate_model_output(self) -> str:
-        items = StubAdapter().analyze(user_id="_sim", photo_id=None, photo_url=None, now_iso="_")
+        # Usa direttamente gli item statici dello StubAdapter per evitare
+        # chiamata sync analyze() (che userebbe asyncio.run dentro event loop).
+        items: List[MealPhotoItemPredictionRecord] = list(StubAdapter._ITEMS)
         parts = []
         for it in items:
             q = it.quantity_g or 100.0
@@ -264,13 +334,7 @@ class Gpt4vAdapter:
             )
         return json.dumps({"items": parts})
 
-    def _real_model_output(self, photo_url: Optional[str]) -> str:
-        """Bridge sync→async tramite asyncio.run (transitorio).
-
-        Futuro: rendere l'interfaccia analyze async eliminando questo bridge.
-        """
-        import asyncio
-
+    async def _real_model_output(self, photo_url: Optional[str]) -> str:
         if not _flag_enabled(os.getenv("AI_GPT4V_REAL_ENABLED")):
             raise MealPhotoParseError("REAL_DISABLED")
         api_key = os.getenv("OPENAI_API_KEY")
@@ -283,13 +347,10 @@ class Gpt4vAdapter:
             '{"value":<num>,"unit":"g|piece"},"confidence":<0-1>}]}'
         )
         try:
-            # Esecuzione async → sync bridge
-            return asyncio.run(
-                call_openai_vision(
-                    image_url=photo_url,
-                    prompt=prompt,
-                    timeout_s=12.0,
-                )
+            return await call_openai_vision(
+                image_url=photo_url,
+                prompt=prompt,
+                timeout_s=12.0,
             )
         except VisionTimeoutError as exc:
             raise MealPhotoParseError(f"TIMEOUT:{exc}") from exc
@@ -301,7 +362,7 @@ class Gpt4vAdapter:
     def __init__(self) -> None:
         self.last_fallback_reason: Optional[str] = None
 
-    def analyze(
+    async def analyze_async(
         self,
         *,
         user_id: str,
@@ -311,8 +372,7 @@ class Gpt4vAdapter:
     ) -> List[MealPhotoItemPredictionRecord]:
         with time_analysis(phase=self.name(), source=self.name()):
             try:
-                # Bridge sync→async; futuro: analyze async nativa.
-                raw_text = self._real_model_output(photo_url)
+                raw_text = await self._real_model_output(photo_url)
             except MealPhotoParseError as exc:
                 self.last_fallback_reason = str(exc)
                 record_fallback(self.last_fallback_reason, source=self.name())
@@ -324,7 +384,7 @@ class Gpt4vAdapter:
                 self.last_fallback_reason = reason
                 record_fallback(reason, source=self.name())
                 record_error(reason, source=self.name())
-                return StubAdapter().analyze(
+                return await StubAdapter().analyze_async(
                     user_id=user_id,
                     photo_id=photo_id,
                     photo_url=photo_url,
@@ -341,6 +401,24 @@ class Gpt4vAdapter:
                     )
                 )
             return out
+
+    def analyze(
+        self,
+        *,
+        user_id: str,
+        photo_id: Optional[str],
+        photo_url: Optional[str],
+        now_iso: str,
+    ) -> List[MealPhotoItemPredictionRecord]:
+        import asyncio
+        return asyncio.run(
+            self.analyze_async(
+                user_id=user_id,
+                photo_id=photo_id,
+                photo_url=photo_url,
+                now_iso=now_iso,
+            )
+        )
 
 
 def _flag_enabled(value: Optional[str]) -> bool:

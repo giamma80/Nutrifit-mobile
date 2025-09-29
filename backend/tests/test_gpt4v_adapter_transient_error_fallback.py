@@ -4,7 +4,8 @@ from inference.adapter import Gpt4vAdapter
 from metrics.ai_meal_photo import snapshot, reset_all
 
 
-def test_gpt4v_transient_error_fallback(
+@pytest.mark.asyncio
+async def test_gpt4v_transient_error_fallback(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Errore transiente vision: fallback a simulazione (no errors_total).
@@ -36,7 +37,7 @@ def test_gpt4v_transient_error_fallback(
 
     adapter = Gpt4vAdapter()
     before = snapshot()
-    items = adapter.analyze(
+    items = await adapter.analyze_async(
         user_id="u1",
         photo_id="ph-transient",
         photo_url="http://ex",
@@ -61,9 +62,9 @@ def test_gpt4v_transient_error_fallback(
                     return v
         return 0
 
-    fb_delta = counter_val(after, "ai_meal_photo_fallback_total") - counter_val(
-        before, "ai_meal_photo_fallback_total"
-    )
+    fb_delta = counter_val(
+        after, "ai_meal_photo_fallback_total"
+    ) - counter_val(before, "ai_meal_photo_fallback_total")
     err_delta = counter_val(after, "ai_meal_photo_errors_total") - counter_val(
         before, "ai_meal_photo_errors_total"
     )

@@ -813,14 +813,19 @@ class Mutation:
     @strawberry.mutation(  # type: ignore[misc]
         description="Analizza una foto (stub deterministico)"
     )
-    def analyze_meal_photo(
+    async def analyze_meal_photo(
         self,
         info: Info[Any, Any],  # noqa: ARG002
         input: AnalyzeMealPhotoInput,
     ) -> MealPhotoAnalysis:
+        """Async mutation per analisi foto.
+
+        Evita uso di asyncio.run dentro event loop (pytest/strawberry) e
+        utilizza il nuovo percorso create_or_get_async.
+        """
         uid = input.user_id or DEFAULT_USER_ID
         now_iso = datetime.datetime.utcnow().isoformat() + "Z"
-        rec = meal_photo_repo.create_or_get(
+        rec = await meal_photo_repo.create_or_get_async(
             user_id=uid,
             photo_id=input.photo_id,
             photo_url=input.photo_url,
@@ -868,7 +873,9 @@ class Mutation:
                 sodium=pred.sodium,
             )
             # Idempotenza meal: se già creato restituiamo esistente
-            existing = meal_repo.find_by_idempotency(uid, meal.idempotency_key or "")
+            existing = meal_repo.find_by_idempotency(
+                uid, meal.idempotency_key or ""
+            )
             if existing:
                 created.append(MealEntry(**dataclasses.asdict(existing)))
             else:
