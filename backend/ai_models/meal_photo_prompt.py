@@ -1,14 +1,4 @@
-"""Prompt & Parsing utilities per Meal Photo Analysis (Fase 1 GPT-4V).
-
-Responsabilità:
-- Generare prompt primario e fallback per il modello vision
-- Effettuare parsing robusto del JSON restituito (o string simil-JSON)
-- Validare e normalizzare struttura item (label, quantity_g, unit, confidence)
-- Arricchire con calorie usando densità stimata (finché non esiste enrichment)
-
-Nota: modulo self-contained per ridurre coupling con repository e
-consentire test unit granulari.
-"""
+"""Prompt & Parsing utilities per Meal Photo Analysis (Fase 1 GPT-4V)."""
 
 from __future__ import annotations
 
@@ -17,12 +7,10 @@ from typing import Any, Dict, List, Optional, Tuple
 import json
 import re
 
-# Limiti e costanti
 MAX_ITEMS = 5
 MAX_QUANTITY_G = 2000.0
-DEFAULT_DENSITY_KCAL_100G = 100.0  # fallback neutro
+DEFAULT_DENSITY_KCAL_100G = 100.0
 
-# Mapping densità base (kcal/100g) – valori approssimativi
 DENSITY_MAP = {
     "pollo": 165.0,
     "petto di pollo": 165.0,
@@ -35,10 +23,7 @@ DENSITY_MAP = {
     "acqua": 0.0,
 }
 
-PIECE_AVG_WEIGHT_G = {
-    "mela": 150.0,
-    "banana": 120.0,
-}
+PIECE_AVG_WEIGHT_G = {"mela": 150.0, "banana": 120.0}
 
 
 @dataclass(slots=True)
@@ -47,22 +32,21 @@ class ParsedItem:
     quantity_g: float
     confidence: float
     calories: int
-    source_density: str  # map|heuristic|fallback
+    source_density: str
+
+
+class ParseError(Exception):
+    pass
 
 
 def generate_prompt(*, locale: str = "it") -> str:
-    """Prompt principale per GPT-4V: restituisce SOLO JSON puro.
-
-    Richiede array "items" con oggetti: label, quantity (value, unit),
-    confidence (0-1). Nessun testo fuori dal JSON.
-    """
     parts = [
         "Analizza la foto del pasto e restituisci SOLO JSON valido: ",
         '{"items":[',
         '{"label":"string",',
         '"quantity":{"value":<num>,"unit":"g|piece"},',
         '"confidence":<0-1>',
-        "]}.",
+        ']}.',
         " Regole: max 5 items, label brevi in italiano. ",
         'Se nessun riconoscimento: {"items": []}.',
     ]
@@ -71,22 +55,13 @@ def generate_prompt(*, locale: str = "it") -> str:
 
 def generate_fallback_prompt() -> str:
     return (
-        'Riprova. SOLO JSON: {"items":[{"label":"<cibo>",'
+        'Riprova. SOLO JSON: {"items":[{"label":"<cibo>",'  # noqa: E501
         '"quantity":{"value":<num>,"unit":"g"},"confidence":<0-1>}]}'
         " Max 3 items. Nessun testo extra."
     )
 
 
-class ParseError(Exception):
-    pass
-
-
 def _safe_json_extract(text: str) -> Dict[str, Any]:
-    """Estrae il primo blocco JSON plausibile dal testo.
-
-    Il modello potrebbe aggiungere testo prima/dopo; cerchiamo la prima '{' e
-    l'ultima '}' e tentiamo parse. Se fallisce solleva ParseError.
-    """
     first = text.find("{")
     last = text.rfind("}")
     if first == -1 or last == -1 or last <= first:
@@ -94,16 +69,15 @@ def _safe_json_extract(text: str) -> Dict[str, Any]:
     snippet = text[first : last + 1]
     try:
         obj = json.loads(snippet)
-        if not isinstance(obj, dict):  # salvaguardia contro JSON non oggetto
+        if not isinstance(obj, dict):
             raise ParseError("ROOT_NOT_OBJECT")
         return obj
-    except Exception as exc:  # pragma: no cover - best effort
+    except Exception as exc:  # pragma: no cover
         raise ParseError(f"INVALID_JSON: {exc}") from exc
 
 
 def _normalize_label(raw: str) -> str:
     lab = raw.strip().lower()
-    # Rimuovi caratteri non alfanumerici base (lascia spazi)
     lab = re.sub(r"[^a-zàèéìòóùA-Z0-9 ]", "", lab)
     lab = re.sub(r"\s+", " ", lab).strip()
     return lab
@@ -112,7 +86,6 @@ def _normalize_label(raw: str) -> str:
 def _resolve_density(label: str) -> Tuple[float, str]:
     if label in DENSITY_MAP:
         return DENSITY_MAP[label], "map"
-    # euristica semplice categorie
     if any(k in label for k in ["insalata", "verdura"]):
         return 20.0, "heuristic"
     if any(k in label for k in ["pollo", "carne", "petto"]):
@@ -134,8 +107,7 @@ def _convert_quantity(quantity_obj: Any) -> Optional[float]:
     if unit == "g":
         return float(value)
     if unit == "piece":
-        # stimiamo peso medio (se noto) altrimenti fallback 100g
-        label_hint = quantity_obj.get("label_hint")  # opzionale
+        label_hint = quantity_obj.get("label_hint")
         if isinstance(label_hint, str):
             lw = _normalize_label(label_hint)
             grams = PIECE_AVG_WEIGHT_G.get(lw, 100.0)
@@ -201,4 +173,6 @@ __all__ = [
     "generate_fallback_prompt",
     "parse_and_validate",
     "ParsedItem",
+    "ParseError",
 ]
+

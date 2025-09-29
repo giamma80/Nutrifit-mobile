@@ -8,9 +8,11 @@ from ai_models.meal_photo_prompt import (
     ParseError,
 )
 from inference.adapter import get_active_adapter
+from metrics.ai_meal_photo import snapshot
 
 
 # -------- Parser Unit Tests --------
+
 
 def test_parse_basic() -> None:
     raw = json.dumps(
@@ -96,6 +98,7 @@ def test_parse_empty_items_ok() -> None:
 
 # -------- Adapter Selection Tests --------
 
+
 @pytest.mark.asyncio
 async def test_gpt4v_adapter_selection(
     monkeypatch: pytest.MonkeyPatch,
@@ -123,9 +126,44 @@ async def test_fallback_on_parse_error(
     monkeypatch.setenv("AI_MEAL_PHOTO_MODE", "gpt4v")
     monkeypatch.setattr(adapter_mod, "Gpt4vAdapter", BrokenGpt)
     a = get_active_adapter()
+    before = snapshot()
     items = a.analyze(
         user_id="u1", photo_id="p1", photo_url=None, now_iso="NOW"
     )
+    after = snapshot()
     # Fallback stub produce 2 items
     assert len(items) == 2
     assert a.name() == "gpt4v"
+    fb = [
+        c
+        for c in after["counters"]
+        if c["name"] == "ai_meal_photo_fallback_total"
+        and c["tags"].get("reason", "").startswith("PARSE_")
+    ]
+    prev = [
+        c
+        for c in before["counters"]
+        if c["name"] == "ai_meal_photo_fallback_total"
+        and c["tags"].get("reason", "").startswith("PARSE_")
+    ]
+    prev_val = prev[0]["value"] if prev else 0
+    assert fb and fb[0]["value"] >= prev_val + 1
+
+
+def test_gpt4v_real_disabled_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("AI_MEAL_PHOTO_MODE", "gpt4v")
+    # NON abilitiamo AI_GPT4V_REAL_ENABLED → deve scattare REAL_DISABLED
+    adapter = get_active_adapter()
+    items = adapter.analyze(
+        user_id="u2", photo_id="p2", photo_url=None, now_iso="NOW"
+    )
+    assert items
+    data = snapshot()
+    fb = []
+    for c in data["counters"]:
+        if c["name"] != "ai_meal_photo_fallback_total":
+            continue
+        reason = c["tags"].get("reason")
+        if reason in {"REAL_DISABLED", "MISSING_API_KEY"}:
+            fb.append(c)
+    assert fb, "Atteso fallback metric per REAL_DISABLED o MISSING_API_KEY"

@@ -219,10 +219,11 @@ class MealPhotoAnalysis:
     user_id: str
     status: MealPhotoAnalysisStatus
     created_at: str
-    source: str  # 'STUB' per fase 0
+    source: str  # adapter name: stub|heuristic|model|gpt4v
     items: List[MealPhotoItemPrediction]
     raw_json: Optional[str] = None
     idempotency_key_used: Optional[str] = None
+    total_calories: Optional[int] = None
     # Campi errori esposti in GraphQL (camelCase)
     # Manteniamo snake_case interno per Python
     analysis_errors: List["MealPhotoAnalysisError"] = dataclasses.field(default_factory=list)
@@ -281,12 +282,16 @@ class ConfirmMealPhotoInput:
 
 
 def _map_analysis(rec) -> MealPhotoAnalysis:  # type: ignore[no-untyped-def]
+    total_cal = 0
+    for i in rec.items:
+        if i.calories:
+            total_cal += int(i.calories)
     return MealPhotoAnalysis(
         id=rec.id,
         user_id=rec.user_id,
         status=MealPhotoAnalysisStatus(rec.status),
         created_at=rec.created_at,
-        source="STUB",
+        source=rec.source,
         items=[
             MealPhotoItemPrediction(
                 label=i.label,
@@ -304,6 +309,7 @@ def _map_analysis(rec) -> MealPhotoAnalysis:  # type: ignore[no-untyped-def]
         ],
         raw_json=rec.raw_json,
         idempotency_key_used=rec.idempotency_key_used,
+        total_calories=total_cal,
         analysis_errors=[],  # exposed as analysisErrors
         failure_reason=None,  # exposed as failureReason
     )

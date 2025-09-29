@@ -12,13 +12,19 @@ enrichment, fallback chain).
 
 from __future__ import annotations
 
-from typing import List, Optional, Protocol
+from typing import List, Optional, Protocol, Any, Dict, cast
 import os
 import hashlib
 import time
 import random
+import json
 
 from ai_models.meal_photo_models import MealPhotoItemPredictionRecord
+from ai_models.meal_photo_prompt import (
+    parse_and_validate,  # noqa: F401
+    ParseError as MealPhotoParseError,  # noqa: F401
+)
+from metrics.ai_meal_photo import record_fallback, record_error, time_analysis
 
 
 class InferenceAdapter(Protocol):
@@ -220,6 +226,136 @@ class RemoteModelAdapter:
         return base_items
 
 
+class Gpt4vAdapter:
+    """Adapter GPT-4 Vision (fase 1) con doppia modalità: reale o simulata.
+
+    Modalità reale se:
+      - AI_GPT4V_REAL_ENABLED abilitato
+      - OPENAI_API_KEY presente
+    Altrimenti simulazione deterministica basata sullo stub.
+    Qualsiasi errore nella parte reale → fallback immediato a simulazione.
+    Se parsing JSON fallisce → fallback a StubAdapter (coerenza UX).
+    """
+
+    def name(self) -> str:  # pragma: no cover semplice
+        return "gpt4v"
+
+    def _simulate_model_output(self) -> str:
+        items = StubAdapter().analyze(
+            user_id="_sim", photo_id=None, photo_url=None, now_iso="_"
+        )
+        parts = []
+        for it in items:
+            q = it.quantity_g or 100.0
+            parts.append(
+                {
+                    "label": it.label,
+                    "quantity": {"value": q, "unit": "g"},
+                    "confidence": it.confidence,
+                }
+            )
+        return json.dumps({"items": parts})
+
+    def _real_model_output(self, photo_url: Optional[str]) -> str:
+        if not _flag_enabled(os.getenv("AI_GPT4V_REAL_ENABLED")):
+            raise MealPhotoParseError("REAL_DISABLED")
+        api_key = os.getenv("OPENAI_API_KEY")
+        if not api_key:
+            raise MealPhotoParseError("MISSING_API_KEY")
+        model = os.getenv("AI_GPT4V_MODEL", "gpt-4o-mini")
+        try:  # import lazy
+            from openai import OpenAI  # noqa: F401
+        except Exception as exc:  # pragma: no cover
+            raise MealPhotoParseError(f"OPENAI_IMPORT_ERR: {exc}") from exc
+        client = OpenAI(api_key=api_key)
+        # Tipizzazione esplicita per evitare inferenze complesse
+        messages: List[Dict[str, Any]] = [
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "text",
+                        "text": (
+                            "Analizza la foto del pasto e "
+                            "restituisci SOLO JSON valido "
+                            'con schema {"items":[{'
+                            'label":"string","quantity":{"value":<num>,'
+                            '"unit":"g|piece"},"confidence":<0-1>}]}'
+                        ),
+                    }
+                ],
+            }
+        ]
+        if photo_url:
+            try:  # pragma: no cover
+                messages[0]["content"].append(
+                    {"type": "image_url", "image_url": {"url": photo_url}}
+                )
+            except Exception:
+                pass
+        try:
+            # chiamata API
+            resp = client.chat.completions.create(
+                model=model,
+                messages=cast(Any, messages),  # cast: compat API openai
+                temperature=0.0,
+                max_tokens=600,
+            )
+        except Exception as exc:  # pragma: no cover
+            raise MealPhotoParseError(f"OPENAI_API_ERR: {exc}") from exc
+        try:
+            choice = resp.choices[0]
+            text = getattr(choice.message, "content", None) or ""
+        except Exception as exc:  # pragma: no cover
+            raise MealPhotoParseError(f"OPENAI_RESP_ERR: {exc}") from exc
+        if not text:
+            raise MealPhotoParseError("EMPTY_RESPONSE")
+        return text
+
+    def __init__(self) -> None:
+        self.last_fallback_reason: Optional[str] = None
+
+    def analyze(
+        self,
+        *,
+        user_id: str,
+        photo_id: Optional[str],
+        photo_url: Optional[str],
+        now_iso: str,
+    ) -> List[MealPhotoItemPredictionRecord]:
+        with time_analysis(phase=self.name(), source=self.name()):
+            try:
+                raw_text = self._real_model_output(photo_url)
+            except MealPhotoParseError as exc:
+                self.last_fallback_reason = str(exc)
+                record_fallback(self.last_fallback_reason, source=self.name())
+                raw_text = self._simulate_model_output()
+            try:
+                parsed = parse_and_validate(raw_text)
+            except MealPhotoParseError as exc:
+                reason = f"PARSE_{str(exc)}"
+                self.last_fallback_reason = reason
+                record_fallback(reason, source=self.name())
+                record_error(reason, source=self.name())
+                return StubAdapter().analyze(
+                    user_id=user_id,
+                    photo_id=photo_id,
+                    photo_url=photo_url,
+                    now_iso=now_iso,
+                )
+            out: List[MealPhotoItemPredictionRecord] = []
+            for p in parsed:
+                out.append(
+                    MealPhotoItemPredictionRecord(
+                        label=p.label,
+                        confidence=p.confidence,
+                        quantity_g=p.quantity_g,
+                        calories=p.calories,
+                    )
+                )
+            return out
+
+
 def _flag_enabled(value: Optional[str]) -> bool:
     if not value:
         return False
@@ -227,7 +363,18 @@ def _flag_enabled(value: Optional[str]) -> bool:
 
 
 def get_active_adapter() -> InferenceAdapter:
-    # Lettura runtime flags
+    # Priorità nuova variabile unificata
+    mode = os.getenv("AI_MEAL_PHOTO_MODE")
+    if mode:
+        m = mode.strip().lower()
+        if m == "gpt4v":
+            return Gpt4vAdapter()
+        if m == "model":
+            return RemoteModelAdapter()
+        if m == "heuristic":
+            return HeuristicAdapter()
+        return StubAdapter()
+    # Backward compatibility
     remote_flag = os.getenv("AI_REMOTE_ENABLED")
     heuristic_flag = os.getenv("AI_HEURISTIC_ENABLED")
     if _flag_enabled(remote_flag):
