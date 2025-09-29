@@ -3,12 +3,12 @@ import pytest_asyncio
 from typing import Generator, AsyncIterator
 from metrics.ai_meal_photo import reset_all
 from httpx import AsyncClient, ASGITransport
+from typing import cast, Any
 
 # Import esplicito per prevenire PendingDeprecationWarning (best effort)
-try:  # pragma: no cover
-    import python_multipart  # type: ignore  # noqa: F401
-except Exception:  # pragma: no cover
-    # Non bloccare i test se il pacchetto non è installato
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:  # pragma: no cover
+    # Placeholder: import opzionale rimosso per evitare errori mypy se assente
     pass
 
 from app import app  # FastAPI app con schema GraphQL
@@ -29,7 +29,8 @@ async def client() -> AsyncIterator[AsyncClient]:
     Usa httpx.AsyncClient con ASGITransport esplicito (scorciatoia app=
     deprecata) e base_url fittizia per coerenza nelle richieste relative.
     """
-    transport = ASGITransport(app=app)
+    # Cast a Any per soddisfare la firma attesa (FastAPI è compatibile ASGI)
+    transport = ASGITransport(app=cast(Any, app))
     async with AsyncClient(
         transport=transport, base_url="http://testserver"
     ) as ac:
