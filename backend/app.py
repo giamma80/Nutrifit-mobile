@@ -873,9 +873,7 @@ class Mutation:
                 sodium=pred.sodium,
             )
             # Idempotenza meal: se già creato restituiamo esistente
-            existing = meal_repo.find_by_idempotency(
-                uid, meal.idempotency_key or ""
-            )
+            existing = meal_repo.find_by_idempotency(uid, meal.idempotency_key or "")
             if existing:
                 created.append(MealEntry(**dataclasses.asdict(existing)))
             else:

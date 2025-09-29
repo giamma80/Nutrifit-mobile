@@ -105,9 +105,7 @@ async def test_gpt4v_adapter_selection(
 ) -> None:
     monkeypatch.setenv("AI_MEAL_PHOTO_MODE", "gpt4v")
     adapter = get_active_adapter()
-    items = await adapter.analyze_async(
-        user_id="u1", photo_id="p1", photo_url=None, now_iso="NOW"
-    )
+    items = await adapter.analyze_async(user_id="u1", photo_id="p1", photo_url=None, now_iso="NOW")
     assert adapter.name() == "gpt4v"
     assert len(items) >= 1
     assert all(it.calories is not None for it in items)
@@ -127,9 +125,7 @@ async def test_fallback_on_parse_error(
     monkeypatch.setattr(adapter_mod, "Gpt4vAdapter", BrokenGpt)
     a = get_active_adapter()
     before = snapshot()
-    items = await a.analyze_async(
-        user_id="u1", photo_id="p1", photo_url=None, now_iso="NOW"
-    )
+    items = await a.analyze_async(user_id="u1", photo_id="p1", photo_url=None, now_iso="NOW")
     after = snapshot()
     # Fallback stub produce 2 items
     assert len(items) == 2
@@ -156,9 +152,7 @@ async def test_gpt4v_real_disabled_fallback(
 ) -> None:
     monkeypatch.setenv("AI_MEAL_PHOTO_MODE", "gpt4v")
     adapter = get_active_adapter()
-    items = await adapter.analyze_async(
-        user_id="u2", photo_id="p2", photo_url=None, now_iso="NOW"
-    )
+    items = await adapter.analyze_async(user_id="u2", photo_id="p2", photo_url=None, now_iso="NOW")
     assert items
     data = snapshot()
     fb = []
@@ -177,9 +171,7 @@ async def test_gpt4v_success_metrics(monkeypatch: pytest.MonkeyPatch) -> None:
     from inference import adapter as adapter_mod
 
     class SuccessGpt(adapter_mod.Gpt4vAdapter):
-        async def _real_model_output(
-            self, photo_url: Optional[str]
-        ) -> str:  # noqa: D401
+        async def _real_model_output(self, photo_url: Optional[str]) -> str:  # noqa: D401
             return json.dumps(
                 {
                     "items": [
@@ -198,9 +190,7 @@ async def test_gpt4v_success_metrics(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(adapter_mod, "Gpt4vAdapter", SuccessGpt)
     before = snapshot()
     adapter = get_active_adapter()
-    items = await adapter.analyze_async(
-        user_id="u3", photo_id="p3", photo_url=None, now_iso="NOW"
-    )
+    items = await adapter.analyze_async(user_id="u3", photo_id="p3", photo_url=None, now_iso="NOW")
     after = snapshot()
     assert items and len(items) == 1
     # Richieste incrementate (status=completed)

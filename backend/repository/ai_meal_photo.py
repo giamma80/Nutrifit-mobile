@@ -97,6 +97,7 @@ class InMemoryMealPhotoAnalysisRepository:
         now_iso: str,
     ) -> MealPhotoAnalysisRecord:  # pragma: no cover semplice wrapper
         import asyncio
+
         return asyncio.run(
             self.create_or_get_async(
                 user_id=user_id,

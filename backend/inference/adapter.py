@@ -51,8 +51,7 @@ class InferenceAdapter(Protocol):
         photo_id: Optional[str],
         photo_url: Optional[str],
         now_iso: str,
-    ) -> List[MealPhotoItemPredictionRecord]:
-        ...
+    ) -> List[MealPhotoItemPredictionRecord]: ...
 
     def analyze(
         self,
@@ -63,6 +62,7 @@ class InferenceAdapter(Protocol):
         now_iso: str,
     ) -> List[MealPhotoItemPredictionRecord]:  # pragma: no cover wrapper
         import asyncio
+
         return asyncio.run(
             self.analyze_async(
                 user_id=user_id,
@@ -123,6 +123,7 @@ class StubAdapter:
     ) -> List[MealPhotoItemPredictionRecord]:
         """Wrapper sync temporaneo (deprecando in futuro)."""
         import asyncio
+
         return asyncio.run(
             self.analyze_async(
                 user_id=user_id,
@@ -187,6 +188,7 @@ class HeuristicAdapter:
         now_iso: str,
     ) -> List[MealPhotoItemPredictionRecord]:
         import asyncio
+
         return asyncio.run(
             self.analyze_async(
                 user_id=user_id,
@@ -294,6 +296,7 @@ class RemoteModelAdapter:
         now_iso: str,
     ) -> List[MealPhotoItemPredictionRecord]:
         import asyncio
+
         return asyncio.run(
             self.analyze_async(
                 user_id=user_id,
@@ -411,6 +414,7 @@ class Gpt4vAdapter:
         now_iso: str,
     ) -> List[MealPhotoItemPredictionRecord]:
         import asyncio
+
         return asyncio.run(
             self.analyze_async(
                 user_id=user_id,

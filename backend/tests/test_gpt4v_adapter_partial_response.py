@@ -82,9 +82,9 @@ async def test_gpt4v_partial_response_no_fallback(
                     return v
         return 0
 
-    fb_delta = counter_val(
-        after, "ai_meal_photo_fallback_total"
-    ) - counter_val(before, "ai_meal_photo_fallback_total")
+    fb_delta = counter_val(after, "ai_meal_photo_fallback_total") - counter_val(
+        before, "ai_meal_photo_fallback_total"
+    )
     completed_delta = counter_val(
         after,
         "ai_meal_photo_requests_total",

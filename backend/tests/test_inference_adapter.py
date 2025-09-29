@@ -37,6 +37,7 @@ async def test_stub_adapter_sync_wrapper_equivalence() -> None:
     # Qui essendo il test async, evitare asyncio.run -> eseguiamo sync wrapper
     # in un executor per non annidare loop.
     import asyncio
+
     loop = asyncio.get_running_loop()
     sync_items = await loop.run_in_executor(
         None,

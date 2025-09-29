@@ -49,12 +49,12 @@ async def test_ai_meal_photo_metrics_sentinel(
         status="completed",
     )
     # Stub non dovrebbe generare fallback o error
-    fb_total_delta = counter_val(
-        after, "ai_meal_photo_fallback_total"
-    ) - counter_val(before, "ai_meal_photo_fallback_total")
-    err_total_delta = counter_val(
-        after, "ai_meal_photo_errors_total"
-    ) - counter_val(before, "ai_meal_photo_errors_total")
+    fb_total_delta = counter_val(after, "ai_meal_photo_fallback_total") - counter_val(
+        before, "ai_meal_photo_fallback_total"
+    )
+    err_total_delta = counter_val(after, "ai_meal_photo_errors_total") - counter_val(
+        before, "ai_meal_photo_errors_total"
+    )
 
     assert req_completed_delta == 1, "Una richiesta stub completata attesa"
     assert fb_total_delta == 0, "Nessun fallback atteso per stub"

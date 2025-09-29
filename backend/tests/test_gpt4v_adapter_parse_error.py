@@ -56,9 +56,9 @@ async def test_gpt4v_parse_error_fallback(
                     return v
         return 0
 
-    fb_delta = counter_val(
-        after, "ai_meal_photo_fallback_total"
-    ) - counter_val(before, "ai_meal_photo_fallback_total")
+    fb_delta = counter_val(after, "ai_meal_photo_fallback_total") - counter_val(
+        before, "ai_meal_photo_fallback_total"
+    )
     err_delta = counter_val(after, "ai_meal_photo_errors_total") - counter_val(
         before, "ai_meal_photo_errors_total"
     )
