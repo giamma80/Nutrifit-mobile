@@ -19,7 +19,7 @@ def _reset() -> None:
 
 @pytest.mark.asyncio
 async def test_log_meal_idempotent_without_timestamp(
-  client: AsyncClient,
+    client: AsyncClient,
 ) -> None:
     _reset()
     query = """
@@ -42,7 +42,7 @@ async def test_log_meal_idempotent_without_timestamp(
 
 @pytest.mark.asyncio
 async def test_log_meal_different_timestamp_not_idempotent(
-  client: AsyncClient,
+    client: AsyncClient,
 ) -> None:
     _reset()
     q1 = """
@@ -76,7 +76,7 @@ async def test_log_meal_different_timestamp_not_idempotent(
 
 @pytest.mark.asyncio
 async def test_log_meal_explicit_idempotency_key_wins(
-  client: AsyncClient,
+    client: AsyncClient,
 ) -> None:
     _reset()
     q1 = """

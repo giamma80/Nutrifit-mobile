@@ -52,7 +52,7 @@ async def test_analyze_meal_photo_gpt4v_idempotent(
     mutation = _q(
         'mutation { analyzeMealPhoto(input:{photoId:"gptv2", '
         'idempotencyKey:"GK1"}) { id items { label calories } '
-        'totalCalories } }'
+        "totalCalories } }"
     )
     r1: Response = await client.post("/graphql", json={"query": mutation})
     r2: Response = await client.post("/graphql", json={"query": mutation})

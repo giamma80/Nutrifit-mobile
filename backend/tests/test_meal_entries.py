@@ -127,20 +127,12 @@ async def test_meal_entries_after_before_filters(client: AsyncClient) -> None:
         )
         await client.post("/graphql", json={"query": mutation})
     query_after = _q(f"""{{ mealEntries(after:"{ts1}") {{ timestamp }} }}""")
-    resp_after: Response = await client.post(
-        "/graphql", json={"query": query_after}
-    )
-    ts_list_after: List[str] = [
-        e["timestamp"] for e in resp_after.json()["data"]["mealEntries"]
-    ]
+    resp_after: Response = await client.post("/graphql", json={"query": query_after})
+    ts_list_after: List[str] = [e["timestamp"] for e in resp_after.json()["data"]["mealEntries"]]
     assert ts_list_after == [ts3, ts2]
     query_before = _q(f"""{{ mealEntries(before:"{ts3}") {{ timestamp }} }}""")
-    resp_before: Response = await client.post(
-        "/graphql", json={"query": query_before}
-    )
-    ts_list_before: List[str] = [
-        e["timestamp"] for e in resp_before.json()["data"]["mealEntries"]
-    ]
+    resp_before: Response = await client.post("/graphql", json={"query": query_before})
+    ts_list_before: List[str] = [e["timestamp"] for e in resp_before.json()["data"]["mealEntries"]]
     assert ts_list_before == [ts2, ts1]
 
 

@@ -13,9 +13,7 @@ class DummyDTO:
 
 
 @pytest.mark.asyncio
-async def test_product_success(
-    client: AsyncClient, monkeypatch: pytest.MonkeyPatch
-) -> None:
+async def test_product_success(client: AsyncClient, monkeypatch: pytest.MonkeyPatch) -> None:
     async def fake_fetch(barcode: str) -> DummyDTO:
         return DummyDTO(barcode)
 
@@ -31,9 +29,7 @@ async def test_product_success(
 
 
 @pytest.mark.asyncio
-async def test_product_not_found(
-    client: AsyncClient, monkeypatch: pytest.MonkeyPatch
-) -> None:
+async def test_product_not_found(client: AsyncClient, monkeypatch: pytest.MonkeyPatch) -> None:
     from openfoodfacts import adapter
     from openfoodfacts.adapter import ProductNotFound
 
@@ -50,9 +46,7 @@ async def test_product_not_found(
 
 
 @pytest.mark.asyncio
-async def test_product_cache_hit(
-    client: AsyncClient, monkeypatch: pytest.MonkeyPatch
-) -> None:
+async def test_product_cache_hit(client: AsyncClient, monkeypatch: pytest.MonkeyPatch) -> None:
     from openfoodfacts import adapter
 
     calls = {"n": 0}

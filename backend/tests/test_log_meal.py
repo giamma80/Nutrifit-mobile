@@ -82,9 +82,7 @@ async def test_log_meal_with_barcode_enrichment(
 
 @pytest.mark.asyncio
 async def test_log_meal_invalid_quantity(client: AsyncClient) -> None:
-    mutation = _minify(
-        'mutation { logMeal(input: {name: "Bad", quantityG: -5}) { id } }'
-    )
+    mutation = _minify('mutation { logMeal(input: {name: "Bad", quantityG: -5}) { id } }')
     resp: Response = await client.post("/graphql", json={"query": mutation})
     err: Any = resp.json().get("errors")
     assert err and any("INVALID_QUANTITY" in e.get("message", "") for e in err)

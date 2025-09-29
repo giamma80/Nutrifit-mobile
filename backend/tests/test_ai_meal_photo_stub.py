@@ -63,16 +63,12 @@ async def test_confirm_creates_meals_and_is_idempotent(
     assert d1["analysisId"] == analysis_id
     # Idempotenza: stessi due pasti, non duplicati
     assert len(d1["createdMeals"]) == 2
-    assert {m["name"] for m in d1["createdMeals"]} == {
-        m["name"] for m in d2["createdMeals"]
-    }
+    assert {m["name"] for m in d1["createdMeals"]} == {m["name"] for m in d2["createdMeals"]}
 
 
 @pytest.mark.asyncio
 async def test_confirm_invalid_index(client: AsyncClient) -> None:
-    analyze = _q(
-        'mutation { analyzeMealPhoto(input:{photoId:"err1"}) { id } }'
-    )
+    analyze = _q('mutation { analyzeMealPhoto(input:{photoId:"err1"}) { id } }')
     r: Response = await client.post("/graphql", json={"query": analyze})
     analysis_id: str = r.json()["data"]["analyzeMealPhoto"]["id"]
     bad = _q(

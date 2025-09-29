@@ -298,7 +298,5 @@ async def test_daily_summary_surplus_and_clamp(client: AsyncClient) -> None:
     ds = resp3.json()["data"]["dailySummary"]
     assert ds["activityCaloriesOut"] == 2.0
     assert isinstance(ds["calories"], int)
-    assert ds["caloriesDeficit"] == (
-        ds["activityCaloriesOut"] - ds["calories"]
-    )
+    assert ds["caloriesDeficit"] == (ds["activityCaloriesOut"] - ds["calories"])
     assert ds["caloriesReplenishedPercent"] == 999

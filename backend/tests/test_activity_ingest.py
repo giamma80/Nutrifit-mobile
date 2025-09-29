@@ -40,9 +40,7 @@ async def test_activity_ingest_happy_path(
         """
     )
     resp: Response = await client.post("/graphql", json={"query": mutation})
-    data: Dict[str, Any] | None = resp.json()["data"].get(
-        "ingestActivityEvents"
-    )
+    data: Dict[str, Any] | None = resp.json()["data"].get("ingestActivityEvents")
     assert data is not None, resp.json()
     assert data["accepted"] == 2
     assert data["duplicates"] == 0
@@ -112,9 +110,7 @@ async def test_activity_ingest_conflict(client: AsyncClient) -> None:
         """
     )
     await client.post("/graphql", json={"query": first})
-    r2: Response = await client.post(
-        "/graphql", json={"query": second_conflict}
-    )
+    r2: Response = await client.post("/graphql", json={"query": second_conflict})
     d2: Dict[str, Any] = r2.json()["data"]["ingestActivityEvents"]
     assert d2["accepted"] == 0 and d2["duplicates"] == 0
     assert len(d2["rejected"]) == 1
@@ -225,14 +221,10 @@ async def test_activity_ingest_idempotency_cache_and_conflict(
     r1: Response = await client.post("/graphql", json={"query": batch1})
     d1: Dict[str, Any] = r1.json()["data"]["ingestActivityEvents"]
     assert d1["accepted"] == 1
-    r2: Response = await client.post(
-        "/graphql", json={"query": batch1_repeat_same}
-    )
+    r2: Response = await client.post("/graphql", json={"query": batch1_repeat_same})
     d2: Dict[str, Any] = r2.json()["data"]["ingestActivityEvents"]
     assert d2["accepted"] == 1 and d2["duplicates"] == 0
-    r3: Response = await client.post(
-        "/graphql", json={"query": batch_conflict}
-    )
+    r3: Response = await client.post("/graphql", json={"query": batch_conflict})
     body3: Dict[str, Any] = r3.json()
     assert body3.get("errors"), body3
 
@@ -270,22 +262,16 @@ async def test_activity_ingest_auto_idempotency_key(
         }
         """
     )
-    r1: Response = await client.post(
-        "/graphql", json={"query": mutation_first}
-    )
+    r1: Response = await client.post("/graphql", json={"query": mutation_first})
     d1: Dict[str, Any] = r1.json()["data"]["ingestActivityEvents"]
     assert d1["accepted"] == 2 and d1["duplicates"] == 0
     auto_key = d1["idempotencyKeyUsed"]
     assert auto_key and auto_key.startswith("auto-")
-    r2: Response = await client.post(
-        "/graphql", json={"query": mutation_second_same}
-    )
+    r2: Response = await client.post("/graphql", json={"query": mutation_second_same})
     d2: Dict[str, Any] = r2.json()["data"]["ingestActivityEvents"]
     assert d2["accepted"] == 2 and d2["duplicates"] == 0
     assert d2["idempotencyKeyUsed"] == auto_key
-    r3: Response = await client.post(
-        "/graphql", json={"query": mutation_changed}
-    )
+    r3: Response = await client.post("/graphql", json={"query": mutation_changed})
     d3: Dict[str, Any] = r3.json()["data"]["ingestActivityEvents"]
     assert d3["accepted"] == 0 and d3["duplicates"] == 1
     reasons: List[str] = [r["reason"] for r in d3["rejected"]]
