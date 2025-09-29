@@ -11,6 +11,7 @@ Fornire una base osservabile e idempotente per l'analisi (placeholder) di foto p
 5. Fixture di Test & Isolamento
 6. Estensioni Pianificate
 7. FAQ / Troubleshooting
+8. GPT-4V Vision Client & Mocking
 
 ---
 ## 1. Architettura & Adapter Pattern
@@ -124,6 +125,18 @@ Se un test richiede di ispezionare valori cumulativi multi‑step, deve farlo en
 Nel caso `PARSE_*` viene incrementato anche `ai_meal_photo_errors_total{code=...}`.
 Percorso successo: solo `ai_meal_photo_requests_total{status=completed}` + latenza.
 
+#### Mapping Fallback → Metriche (riepilogo operativo)
+| Evento | Counter incrementati | Note |
+|--------|----------------------|------|
+| Success path (output valido) | `requests_total{phase=gpt4v,status=completed}` + latency hist | Nessun fallback/error |
+| REAL_DISABLED / MISSING_API_KEY | `fallback_total{reason=...}` + success request (simulazione) | Non è un errore funzionale |
+| TIMEOUT:* | `fallback_total{reason=TIMEOUT:*}` + success request | Non incrementa errors_total |
+| TRANSIENT:* | `fallback_total{reason=TRANSIENT:*}` + success request | Possibile futuro retry |
+| CALL_ERR:* | `fallback_total{reason=CALL_ERR:*}` + success request | Classifica generica; da specializzare |
+| PARSE_* (JSON/validazione) | `fallback_total{reason=PARSE_*}` + `errors_total{code=PARSE_*}` + success request (stub) | Fallback finale a StubAdapter |
+
+> Nota: "success request" indica comunque l'incremento di `ai_meal_photo_requests_total{status=completed}` perché l'analisi produce un output valido (anche se degradato) per la UX.
+
 ---
 ## 7. FAQ / Troubleshooting
 
@@ -133,6 +146,50 @@ Percorso successo: solo `ai_meal_photo_requests_total{status=completed}` + laten
 | Flag non applicato | Adapter non cambia | Assicurarsi di aver impostato variabile PRIMA della chiamata a `create_or_get()` |
 | Latenza test flakey | Sleep random jitter | Ridurre `REMOTE_LATENCY_MS` / `REMOTE_JITTER_MS` via monkeypatch env nel test |
 | Idempotenza non funziona | Nuovo ID generato | Verifica valori input (photo_id / photo_url / user) identici e chiave non forzata |
+
+---
+## 8. GPT-4V Vision Client & Mocking
+
+### Obiettivi del layer `vision_client`
+Separare la logica di orchestrazione (adapter) dalla chiamata raw al modello vision per:
+1. Rendere il test deterministico (monkeypatch su singolo simbolo).
+2. Introdurre in futuro retry/backoff senza toccare l'adapter.
+3. Mappare errori esterni → eccezioni semantiche (`VisionTimeoutError`, `VisionTransientError`, `VisionCallError`).
+
+### Bridge sync → async (fase transitoria)
+L'adapter oggi è sincrono e usa `asyncio.run(call_openai_vision(...))`. Limiti:
+* Non invocabile da un event loop già attivo (si è risolto rendendo i test sincroni).
+* Penalizza performance se chiamato molte volte in parallelo.
+
+Prossimo step naturale: rendere `Gpt4vAdapter.analyze` async ed evitare `asyncio.run`, quindi i test potranno tornare async.
+
+### Strategia di mocking nei test
+I test patchano direttamente `inference.adapter.call_openai_vision` (non il modulo `vision_client`) perché l'import avviene a livello modulo. Questo evita che il simbolo già referenziato nell'adapter continui a puntare all'implementazione reale/skeleton.
+
+Esempio snippet (semplificato):
+```python
+import inference.adapter as adapter_mod
+
+async def _fake_call(*, image_url, prompt, timeout_s=12.0):
+    return '{"items":[{"label":"x","quantity":{"value":50,"unit":"g"},"confidence":0.9}]}'
+
+monkeypatch.setattr(adapter_mod, "call_openai_vision", _fake_call)
+```
+
+### Estensioni pianificate vision_client
+| Feature | Descrizione | Impatto metriche |
+|---------|-------------|------------------|
+| Timeout configurabile | Parametro env `AI_GPT4V_TIMEOUT_S` | Tag add-on (timeout=true) futuro |
+| Retry con backoff | Retry N volte su `VisionTransientError` | Counter aggiuntivo `ai_meal_photo_retries_total` |
+| Telemetria tokens | Calcolo tokens in/out (se API lo espone) | Nuovi counter/hist `ai_meal_photo_tokens_total` |
+| Circuit breaker | Aprire dopo X TIMEOUT/TRANSIENT consecutivi | Fallback reason dedicato es: `CB_OPEN` |
+
+### Linee guida future di robustezza
+- Validare dimensione massima payload JSON prima del parsing (protezione da prompt injection che gonfia output).
+- Aggiungere normalizzazione lingua (se locale non it → fallback a en + traduzione labels?).
+- UUID tracing: includere un `trace_id` per correlare log, metriche, request esterna.
+
+---
 
 ---
 ## Riferimenti Codice
