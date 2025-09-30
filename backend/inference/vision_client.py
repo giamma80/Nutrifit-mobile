@@ -91,9 +91,7 @@ async def call_openai_vision(
             # model name configurabile? per ora fisso
             try:
                 resp = client.chat.completions.create(
-                    model=os.getenv(
-                        "OPENAI_VISION_MODEL", "gpt-4o-mini"
-                    ),
+                    model=os.getenv("OPENAI_VISION_MODEL", "gpt-4o-mini"),
                     messages=messages_any,
                     temperature=0.0,
                 )

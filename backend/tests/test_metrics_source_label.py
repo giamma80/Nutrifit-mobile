@@ -5,7 +5,13 @@ import os
 
 
 def _clear_env() -> None:
-    for var in ["AI_HEURISTIC_ENABLED", "AI_REMOTE_ENABLED"]:
+    for var in [
+        "AI_HEURISTIC_ENABLED",
+        "AI_REMOTE_ENABLED",
+        "AI_MEAL_PHOTO_MODE",
+        "AI_GPT4V_REAL_ENABLED",
+        "OPENAI_API_KEY",
+    ]:
         if var in os.environ:
             del os.environ[var]
 

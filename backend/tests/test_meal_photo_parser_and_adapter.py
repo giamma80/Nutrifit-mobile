@@ -150,9 +150,17 @@ async def test_fallback_on_parse_error(
 async def test_gpt4v_real_disabled_fallback(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    # Garantisce percorso simulato (real disabilitato) rimuovendo variabili
     monkeypatch.setenv("AI_MEAL_PHOTO_MODE", "gpt4v")
+    monkeypatch.delenv("AI_GPT4V_REAL_ENABLED", raising=False)
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     adapter = get_active_adapter()
-    items = await adapter.analyze_async(user_id="u2", photo_id="p2", photo_url=None, now_iso="NOW")
+    items = await adapter.analyze_async(
+        user_id="u2",
+        photo_id="p2",
+        photo_url=None,
+        now_iso="NOW",
+    )
     assert items
     data = snapshot()
     fb = []
@@ -163,6 +171,32 @@ async def test_gpt4v_real_disabled_fallback(
         if reason in {"REAL_DISABLED", "MISSING_API_KEY"}:
             fb.append(c)
     assert fb, "Atteso fallback metric per REAL_DISABLED o MISSING_API_KEY"
+
+
+@pytest.mark.asyncio
+async def test_gpt4v_missing_api_key_fallback(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Real abilitato ma manca OPENAI_API_KEY -> fallback."""
+    monkeypatch.setenv("AI_MEAL_PHOTO_MODE", "gpt4v")
+    monkeypatch.setenv("AI_GPT4V_REAL_ENABLED", "1")
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    adapter = get_active_adapter()
+    items = await adapter.analyze_async(
+        user_id="u2b",
+        photo_id="p2b",
+        photo_url=None,
+        now_iso="NOW",
+    )
+    assert items, "Items simulati attesi in fallback"
+    data = snapshot()
+    fb = [
+        c
+        for c in data["counters"]
+        if c["name"] == "ai_meal_photo_fallback_total"
+        and c["tags"].get("reason") == "MISSING_API_KEY"
+    ]
+    assert fb, "Atteso fallback metric con reason=MISSING_API_KEY"
 
 
 @pytest.mark.asyncio
@@ -190,7 +224,12 @@ async def test_gpt4v_success_metrics(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(adapter_mod, "Gpt4vAdapter", SuccessGpt)
     before = snapshot()
     adapter = get_active_adapter()
-    items = await adapter.analyze_async(user_id="u3", photo_id="p3", photo_url=None, now_iso="NOW")
+    items = await adapter.analyze_async(
+        user_id="u3",
+        photo_id="p3",
+        photo_url=None,
+        now_iso="NOW",
+    )
     after = snapshot()
     assert items and len(items) == 1
     # Richieste incrementate (status=completed)

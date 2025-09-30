@@ -8,7 +8,14 @@ def _q(s: str) -> str:
 
 
 @pytest.mark.asyncio
-async def test_analyze_meal_photo_basic(client: AsyncClient) -> None:
+async def test_analyze_meal_photo_basic(
+    client: AsyncClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Assicura selezione stub (rimuove override globale AI_MEAL_PHOTO_MODE)
+    monkeypatch.delenv("AI_MEAL_PHOTO_MODE", raising=False)
+    monkeypatch.delenv("AI_GPT4V_REAL_ENABLED", raising=False)
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     mutation = _q(
         """
         mutation {

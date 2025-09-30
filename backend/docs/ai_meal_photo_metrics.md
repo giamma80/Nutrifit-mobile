@@ -18,13 +18,14 @@ Fornire una base osservabile e idempotente per l'analisi (placeholder) di foto p
 
 `get_active_adapter()` seleziona dinamicamente l'implementazione in base alle variabili d'ambiente (lette ad ogni chiamata):
 
-Priorità: Remote > Heuristic > Stub
+Priorità: GPT-4V (via AI_MEAL_PHOTO_MODE) > Remote > Heuristic > Stub
 
 | Adapter | Nome (`adapter.name()`) | Attivazione | Funzione | Stato | Fallback |
 |---------|------------------------|------------|----------|-------|----------|
+| Gpt4vAdapter | `gpt4v` | `AI_MEAL_PHOTO_MODE=gpt4v` (+ opzionali: `AI_GPT4V_REAL_ENABLED=1` & `OPENAI_API_KEY`) | Chiamata reale OpenAI Vision o simulazione deterministica | sperimentale | simulazione → stub (solo su parse hard fail) |
+| RemoteModelAdapter | `remote` | `AI_REMOTE_ENABLED=1` (se `AI_MEAL_PHOTO_MODE` non impostata) | Simula chiamata remota con latenza / timeout | sperimentale | heuristic → stub |
+| HeuristicAdapter | `heuristic` | `AI_HEURISTIC_ENABLED=1` (se sopra non attivi) | Genera pseudo‑item via hash | stabile | stub |
 | StubAdapter | `stub` | default | Ritorna lista fissa di 2 item | stabile | N/A |
-| HeuristicAdapter | `heuristic` | `AI_HEURISTIC_ENABLED=1` | Genera pseudo‑item via hash | stabile | verso stub se disattivato |
-| RemoteModelAdapter | `remote` | `AI_REMOTE_ENABLED=1` | Simula chiamata remota con latenza / timeout | sperimentale | verso heuristic → stub |
 
 ### Struttura item (placeholder)
 Ogni adapter restituisce lista di dict con chiavi minime (es. `label`, `confidence`, `quantityG`). Nessuna validazione rigida finché lo schema di output non è stabilizzato.
@@ -45,8 +46,12 @@ Stato univoco attuale: `COMPLETED`. Futuro: `PENDING`, `FAILED`, `CANCELLED`.
 
 | Variabile | Tipo | Default | Range | Uso |
 |-----------|------|---------|-------|-----|
-| `AI_HEURISTIC_ENABLED` | bool/int | 0 | {0,1} | Abilita heuristic |
-| `AI_REMOTE_ENABLED` | bool/int | 0 | {0,1} | Abilita remote |
+| `AI_MEAL_PHOTO_MODE` | string | (vuoto) | {`gpt4v`,`heuristic`,`model`,`stub`} | Se presente forza adapter specifico (nuova priorità) |
+| `AI_GPT4V_REAL_ENABLED` | bool/int | 0 | {0,1} | Abilita path reale vision nel Gpt4vAdapter (altrimenti simulazione) |
+| `OPENAI_API_KEY` | string | (vuoto) | — | Necessaria per path reale GPT‑4V |
+| `OPENAI_VISION_MODEL` | string | `gpt-4o-mini` | nome modello valido | Override modello vision |
+| `AI_HEURISTIC_ENABLED` | bool/int | 0 | {0,1} | Abilita heuristic (legacy path) |
+| `AI_REMOTE_ENABLED` | bool/int | 0 | {0,1} | Abilita remote (legacy path) |
 | `REMOTE_TIMEOUT_MS` | int | 1200 | >0 | Timeout simulato |
 | `REMOTE_LATENCY_MS` | int | 900 | >=0 | Latenza base |
 | `REMOTE_JITTER_MS` | int | 300 | >=0 | Jitter random max |
@@ -148,7 +153,7 @@ Percorso successo: solo `ai_meal_photo_requests_total{status=completed}` + laten
 | Idempotenza non funziona | Nuovo ID generato | Verifica valori input (photo_id / photo_url / user) identici e chiave non forzata |
 
 ---
-## 8. GPT-4V Vision Client & Mocking
+## 8. GPT-4V Vision Client & Mocking (Aggiornato)
 
 ### Obiettivi del layer `vision_client`
 Separare la logica di orchestrazione (adapter) dalla chiamata raw al modello vision per:
@@ -175,6 +180,50 @@ async def _fake_call(*, image_url, prompt, timeout_s=12.0):
 
 monkeypatch.setattr(adapter_mod, "call_openai_vision", _fake_call)
 ```
+
+### Implementazione Reale (fase corrente)
+
+Il file `inference/vision_client.py` ora contiene una implementazione reale della funzione
+`call_openai_vision` che:
+
+1. Valida presenza di `OPENAI_API_KEY` e `image_url`.
+2. Costruisce un singolo messaggio utente multi‑part (testo prompt + image_url) per il modello
+    (default `gpt-4o-mini`, override via `OPENAI_VISION_MODEL`).
+3. Esegue la chiamata sincrona del client OpenAI in un executor per non bloccare l'event loop.
+4. Applica un timeout hard (`asyncio.wait_for`) con default 12s (parametro `timeout_s`).
+5. Mappa eccezioni → gerarchia semantica:
+    - Timeout di rete / client (`ConnectTimeout`, `ReadTimeout`, `APITimeoutError`, scadenza `wait_for`) → `VisionTimeoutError`.
+    - Rate limit / HTTP 5xx → `VisionTransientError`.
+    - Qualsiasi altro errore API / risposta priva di contenuto → `VisionCallError`.
+6. Logga sempre (anche in errore) un evento strutturato `vision.call` con campi:
+    - `elapsed_ms`: durata
+    - `has_image`: bool presenza URL
+    - `timeout_s`: budget richiesto
+
+Il parsing dell'output rimane responsabilità dell'adapter GPT-4V (`parse_and_validate`).
+
+#### Variabili d'Ambiente Aggiuntive
+| Variabile | Default | Descrizione |
+|-----------|---------|-------------|
+| `OPENAI_VISION_MODEL` | `gpt-4o-mini` | Nome modello vision usato nella chiamata |
+| `OPENAI_API_KEY` | — | Chiave API necessaria per abilitare path reale |
+
+> Nota: il flag effettivo che abilita la parte reale rimane `AI_GPT4V_REAL_ENABLED=1` (controllato nell'adapter). Senza flag o chiave viene attivato fallback simulato con reason `REAL_DISABLED` o `MISSING_API_KEY`.
+
+#### Contratto di Errore Vision Client → Adapter
+| Eccezione vision_client | Adapter fallback reason | Effetto metriche |
+|-------------------------|-------------------------|------------------|
+| `VisionTimeoutError` | `TIMEOUT:<detail>` | + `fallback_total` (no `errors_total`) |
+| `VisionTransientError` | `TRANSIENT:<detail>` | + `fallback_total` |
+| `VisionCallError` | `CALL_ERR:<detail>` | + `fallback_total` |
+| Output parse‑invalid (a valle) | `PARSE_<CODE>` | + `fallback_total` + `errors_total` |
+
+#### Logging
+Esempio (formato semplificato):
+```
+INFO ai.vision vision.call elapsed_ms=842 has_image=True timeout_s=12.0
+```
+Consente di correlare outliers di latenza senza dover guardare ogni singola metrica.
 
 ### Estensioni pianificate vision_client
 | Feature | Descrizione | Impatto metriche |

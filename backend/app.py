@@ -33,6 +33,12 @@ from repository.health_totals import health_totals_repo  # NEW
 from repository.ai_meal_photo import meal_photo_repo
 import hashlib as _hashlib  # NEW
 import json as _json  # NEW
+import logging as _logging
+
+from inference.adapter import (
+    get_active_adapter,
+)  # import locale per evitare cicli
+from contextlib import asynccontextmanager
 from nutrients import NUTRIENT_FIELDS
 
 # TTL in secondi per la cache del prodotto (default 10 minuti)
@@ -129,7 +135,11 @@ class DailySummary:
 # ----------------- Activity Ingestion (B3) -----------------
 # Riutilizziamo l'enum del repository per evitare duplicazione incoerente
 # Enum repository esposto come GraphQL enum (annotato Any per mypy)
-ActivitySource: Any = strawberry.enum(_RepoActivitySource, name="ActivitySource")
+ActivitySource: Any = strawberry.enum(
+    _RepoActivitySource,
+    name="ActivitySource",
+)
+ActivitySourceEnum = ActivitySource  # alias typing
 
 
 @strawberry.type
@@ -331,7 +341,8 @@ class ActivityMinuteInput:
     steps: Optional[int] = 0
     calories_out: Optional[float] = None
     hr_avg: Optional[float] = None
-    source: ActivitySource = ActivitySource.MANUAL
+    # Enum default (alias per evitare ignore mypy)
+    source: ActivitySourceEnum = ActivitySource.MANUAL
 
 
 @strawberry.input
@@ -634,7 +645,7 @@ class Mutation:
             raise GraphQLError("FORBIDDEN: user mismatch")
         # Decide se serve ricalcolo nutrienti (se barcode o quantity cambiano)
         new_barcode = input.barcode if input.barcode is not None else rec.barcode
-        new_quantity = input.quantity_g if input.quantity_g is not None else rec.quantity_g
+        new_quantity = input.quantity_g if input.quantity_g is not None else (rec.quantity_g)
         nutrients: Dict[str, Optional[float]] = {k: getattr(rec, k) for k in NUTRIENT_FIELDS}
         prod: Optional[Product] = None
         recalc = False
@@ -890,7 +901,37 @@ schema = strawberry.Schema(
     mutation=Mutation,
 )
 
-app = FastAPI(title="Nutrifit Backend Subgraph", version=APP_VERSION)
+
+@asynccontextmanager
+def lifespan(_: FastAPI) -> Any:  # pragma: no cover osservabilità
+    adapter = get_active_adapter()
+    name = adapter.name()
+    real_flag = os.getenv("AI_GPT4V_REAL_ENABLED")
+    api_key = os.getenv("OPENAI_API_KEY")
+    masked_key = None
+    if api_key:
+        if len(api_key) > 8:
+            masked_key = api_key[:4] + "..." + api_key[-4:]
+        else:
+            masked_key = "***"
+    _logging.getLogger("startup").info(
+        "adapter.selected",
+        extra={
+            "adapter": name,
+            "ai_meal_photo_mode": os.getenv("AI_MEAL_PHOTO_MODE"),
+            "gpt4v_real_flag": real_flag,
+            "openai_key_present": bool(api_key),
+            "openai_key_masked": masked_key,
+        },
+    )
+    yield
+
+
+app = FastAPI(
+    title="Nutrifit Backend Subgraph",
+    version=APP_VERSION,
+    lifespan=lifespan,
+)
 
 
 @app.get("/health")
