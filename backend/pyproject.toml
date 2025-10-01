@@ -61,5 +61,6 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["openfoodfacts*", "rules*", "*"]
+# Include tutti i pacchetti top-level (directory con __init__.py) ad eccezione dei test
+include = ["*"]
 exclude = ["tests*"]

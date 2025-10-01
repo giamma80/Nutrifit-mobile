@@ -30,11 +30,27 @@ from .vision_client import (
     VisionTransientError,
     VisionCallError,
 )
-from metrics.ai_meal_photo import (
-    record_fallback,
-    record_error,
-    time_analysis,
-)
+try:  # metrics opzionali (non presenti nell'immagine slim)
+    from metrics.ai_meal_photo import (
+        record_fallback,
+        record_error,
+        time_analysis,
+    )  # type: ignore
+except Exception:  # pragma: no cover - fallback leggero
+    def time_analysis(*args, **kwargs):  # type: ignore
+        from contextlib import contextmanager
+
+        @contextmanager
+        def _cm():
+            yield
+
+        return _cm()
+
+    def record_fallback(*args, **kwargs):  # type: ignore
+        return None
+
+    def record_error(*args, **kwargs):  # type: ignore
+        return None
 
 
 class InferenceAdapter(Protocol):

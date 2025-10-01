@@ -9,6 +9,10 @@ FROM python:3.11-slim AS base
 ARG APP_VERSION="0.0.0-dev"
 ENV APP_VERSION=${APP_VERSION}
 
+# Build id per invalidare cache quando cambia sorgente senza modificare altri layer
+ARG APP_BUILD_ID="dev"
+ENV APP_BUILD_ID=${APP_BUILD_ID}
+
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     UV_LINK_MODE=copy \
@@ -40,7 +44,10 @@ RUN uv sync --no-dev --all-extras
 COPY app.py cache.py nutrients.py ./
 COPY openfoodfacts ./openfoodfacts
 COPY rules ./rules
+# Repository e schema GraphQL (metrics escluso: instrumentation opzionale non necessaria runtime)
 # NUOVO: repository (in-memory meal repo) e schema GraphQL
+COPY ai_models ./ai_models
+COPY inference ./inference
 COPY repository ./repository
 COPY graphql ./graphql
 

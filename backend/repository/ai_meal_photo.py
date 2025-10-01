@@ -16,9 +16,20 @@ from typing import Optional, Dict, Tuple
 import hashlib
 import uuid
 import logging
-from metrics.ai_meal_photo import time_analysis
+from contextlib import contextmanager
 from ai_models.meal_photo_models import MealPhotoAnalysisRecord
 from inference.adapter import get_active_adapter
+
+
+@contextmanager
+def time_analysis(*args, **kwargs):  # type: ignore
+    """No-op metrics context.
+
+    Il modulo `metrics` è escluso dall'immagine Docker per ridurre superfice
+    e dipendenze: questo contextmanager sostituisce la raccolta di metriche
+    senza introdurre branch logici nell'app.
+    """
+    yield
 
 
 class InMemoryMealPhotoAnalysisRepository:
