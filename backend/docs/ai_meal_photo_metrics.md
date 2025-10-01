@@ -234,25 +234,11 @@ Consente di correlare outliers di latenza senza dover guardare ogni singola metr
 | Circuit breaker | Aprire dopo X TIMEOUT/TRANSIENT consecutivi | Fallback reason dedicato es: `CB_OPEN` |
 
 ### Linee guida future di robustezza
-- Validare dimensione massima payload JSON prima del parsing (protezione da prompt injection che gonfia output).
-- Aggiungere normalizzazione lingua (se locale non it → fallback a en + traduzione labels?).
-- UUID tracing: includere un `trace_id` per correlare log, metriche, request esterna.
 
----
 
----
 ## Riferimenti Codice
-- Repository: `repository/ai_meal_photo.py`
-- Metriche helpers: `metrics/ai_meal_photo.py`
-- Adapter: `inference/adapter.py`
-- Test metriche: `tests/test_metrics_source_label.py`, `tests/test_metrics_ai_meal_photo.py`
 
----
 ## Changelog
-- v0: Introduzione stub + metriche base + reset fixture.
-- v1: Aggiunta metriche fallback GPT-4V (REAL_DISABLED, MISSING_API_KEY, PARSE_*), test isolamento.
-- v2: Estese cause fallback (TIMEOUT / TRANSIENT / CALL_ERR) + test hardening GPT-4V.
 
----
 ## Cross-link
-Per il flusso completo delle due mutazioni (`analyzeMealPhoto` e `confirmMealPhoto`) e la logica di idempotenza / conferma consultare: `docs/ai_meal_photo.md`.
+Per il flusso completo, calorie, roadmap e sequence diagram unificati fare riferimento a `../../docs/ai_meal_photo.md` (documento canonicale).
