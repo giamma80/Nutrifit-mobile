@@ -29,7 +29,7 @@ async def test_graphql_analyze_meal_photo_end_to_end(
         monkeypatch.delenv(k, raising=False)
 
         mutation = _q(
-                """
+            """
                 mutation TestAnalyze {
                     analyzeMealPhoto(input:{photoId:"test-ph-graphql"}) {
                         id
@@ -42,18 +42,12 @@ async def test_graphql_analyze_meal_photo_end_to_end(
     resp: Response = await client.post("/graphql", json={"query": mutation})
     payload: Dict[str, Any] = resp.json()
 
-    assert "errors" not in payload, (
-        f"Unexpected GraphQL errors: {payload.get('errors')}"
-    )
+    assert "errors" not in payload, f"Unexpected GraphQL errors: {payload.get('errors')}"
     data = payload["data"]["analyzeMealPhoto"]
     assert data["status"] == "COMPLETED"
-    assert len(data["items"]) == 2, (
-        "Stub adapter dovrebbe restituire due item fissi"
-    )
+    assert len(data["items"]) == 2, "Stub adapter dovrebbe restituire due item fissi"
     labels = {it["label"] for it in data["items"]}
     # Non vincoliamo l'ordine, solo la presenza delle etichette conosciute
     assert {"Insalata mista", "Petto di pollo"} == labels
     # id deve esistere ed essere stringa non vuota
-    assert isinstance(data["id"], str) and data["id"], (
-        "id analisi mancante o vuoto"
-    )
+    assert isinstance(data["id"], str) and data["id"], "id analisi mancante o vuoto"

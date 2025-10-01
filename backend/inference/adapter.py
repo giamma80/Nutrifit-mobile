@@ -30,6 +30,7 @@ from .vision_client import (
     VisionTransientError,
     VisionCallError,
 )
+
 try:  # metrics opzionali (non presenti nell'immagine slim)
     from metrics.ai_meal_photo import (
         record_fallback,
