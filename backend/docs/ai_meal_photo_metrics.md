@@ -252,3 +252,7 @@ Consente di correlare outliers di latenza senza dover guardare ogni singola metr
 - v0: Introduzione stub + metriche base + reset fixture.
 - v1: Aggiunta metriche fallback GPT-4V (REAL_DISABLED, MISSING_API_KEY, PARSE_*), test isolamento.
 - v2: Estese cause fallback (TIMEOUT / TRANSIENT / CALL_ERR) + test hardening GPT-4V.
+
+---
+## Cross-link
+Per il flusso completo delle due mutazioni (`analyzeMealPhoto` e `confirmMealPhoto`) e la logica di idempotenza / conferma consultare: `docs/ai_meal_photo.md`.
