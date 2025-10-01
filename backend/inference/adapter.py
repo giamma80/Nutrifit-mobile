@@ -37,16 +37,22 @@ try:  # metrics opzionali (non presenti nell'immagine slim)
         time_analysis,
     )
 except ImportError:  # pragma: no cover - fallback leggero
-    from contextlib import nullcontext
-    from typing import Any, ContextManager
+    from contextlib import contextmanager
+    from typing import Iterator
 
-    def time_analysis(*_args: Any, **_kwargs: Any) -> ContextManager[None]:
-        return nullcontext()
+    @contextmanager
+    def time_analysis(
+        phase: str,
+        *,
+        source: Optional[str] = None,
+        status_on_exit: Optional[str] = None,
+    ) -> Iterator[None]:
+        yield
 
-    def record_fallback(*_args: Any, **_kwargs: Any) -> None:
+    def record_fallback(reason: str, *, source: Optional[str] = None) -> None:
         return None
 
-    def record_error(*_args: Any, **_kwargs: Any) -> None:
+    def record_error(code: str, *, source: Optional[str] = None) -> None:
         return None
 
 
