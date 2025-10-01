@@ -7,17 +7,7 @@ import datetime
 import dataclasses
 import os
 import uuid
-from typing import (
-    Final,
-    Any,
-    Optional,
-    Dict,
-    List,
-    Protocol,
-    Mapping,
-    cast,
-)
-from enum import Enum
+from typing import Final, Any, Optional, Dict, List, cast
 from strawberry.types import Info
 from graphql import GraphQLError
 
@@ -40,6 +30,31 @@ from inference.adapter import (
 )  # import locale per evitare cicli
 from contextlib import asynccontextmanager
 from nutrients import NUTRIENT_FIELDS
+from graphql.types_meal import (
+    MealEntry,
+    DailySummary,
+    LogMealInput,
+    UpdateMealInput,
+    enrich_from_product,
+)
+from graphql.types_ai import (
+    MealPhotoAnalysisStatus,
+    MealPhotoItemPrediction,
+    MealPhotoAnalysis,
+    ConfirmMealPhotoResult,
+    AnalyzeMealPhotoInput,
+    ConfirmMealPhotoInput,
+)
+from graphql.types_activity_health import (
+    ActivitySource,
+    ActivityEvent,
+    RejectedActivityEvent,
+    IngestActivityResult,
+    HealthTotalsDelta,
+    SyncHealthTotalsResult,
+    CacheStats,
+)
+from graphql.types_product import Product, map_product
 
 # TTL in secondi per la cache del prodotto (default 10 minuti)
 PRODUCT_CACHE_TTL_S = float(os.getenv("PRODUCT_CACHE_TTL_S", "600"))
@@ -48,247 +63,22 @@ PRODUCT_CACHE_TTL_S = float(os.getenv("PRODUCT_CACHE_TTL_S", "600"))
 APP_VERSION = os.getenv("APP_VERSION", "0.0.0-dev")
 
 
-@strawberry.type
-@dataclasses.dataclass
-class Product:
-    barcode: str
-    name: str
-    brand: Optional[str] = None
-    category: Optional[str] = None
-    calories: Optional[int] = None
-    protein: Optional[float] = None
-    carbs: Optional[float] = None
-    fat: Optional[float] = None
-    fiber: Optional[float] = None
-    sugar: Optional[float] = None
-    sodium: Optional[float] = None
-
-
-class _ProductLike(Protocol):
-    barcode: str
-    name: str
-    brand: Optional[str]
-    category: Optional[str]
-    nutrients: Mapping[str, Any]
-
-
-def _map_product(dto: _ProductLike) -> Product:
-    n = dto.nutrients
-    return Product(
-        barcode=dto.barcode,
-        name=dto.name,
-        brand=dto.brand,
-        category=dto.category,
-        calories=n.get("calories"),
-        protein=n.get("protein"),
-        carbs=n.get("carbs"),
-        fat=n.get("fat"),
-        fiber=n.get("fiber"),
-        sugar=n.get("sugar"),
-        sodium=n.get("sodium"),
-    )
+_map_product = map_product  # retro compat alias
 
 
 # ----------------- Meal Logging (B2) + Repository refactor -----------------
-@strawberry.type
-@dataclasses.dataclass
-class MealEntry:
-    id: str
-    user_id: str  # NEW
-    name: str
-    quantity_g: float
-    timestamp: str
-    barcode: Optional[str] = None
-    idempotency_key: Optional[str] = None
-    nutrient_snapshot_json: Optional[str] = None
-    calories: Optional[int] = None
-    protein: Optional[float] = None
-    carbs: Optional[float] = None
-    fat: Optional[float] = None
-    fiber: Optional[float] = None
-    sugar: Optional[float] = None
-    sodium: Optional[float] = None
-
-
-@strawberry.type
-@dataclasses.dataclass
-class DailySummary:
-    date: str
-    user_id: str
-    meals: int
-    calories: int
-    protein: Optional[float]
-    carbs: Optional[float]
-    fat: Optional[float]
-    fiber: Optional[float]
-    sugar: Optional[float]
-    sodium: Optional[float]
-    # Activity (B3)
-    activity_steps: int = 0
-    activity_calories_out: float = 0.0
-    activity_events: int = 0
-    # Calorie balance snapshot (deficit positivo = più consumate che ingerite)
-    calories_deficit: int = 0
-    calories_replenished_percent: int = 0  # 0-100 (o >100 se surplus)
+"""GraphQL types spostati in moduli per ridurre complessità mypy."""
 
 
 # ----------------- Activity Ingestion (B3) -----------------
 # Riutilizziamo l'enum del repository per evitare duplicazione incoerente
-# Enum repository esposto come GraphQL enum (annotato Any per mypy)
-ActivitySource: Any = strawberry.enum(
-    _RepoActivitySource,
-    name="ActivitySource",
-)
-ActivitySourceEnum = ActivitySource  # alias typing
-
-
-@strawberry.type
-@dataclasses.dataclass
-class ActivityEvent:
-    user_id: str
-    ts: str  # ISO timestamp normalizzato a minuto UTC
-    steps: Optional[int] = None
-    calories_out: Optional[float] = None
-    hr_avg: Optional[float] = None
-    source = ActivitySource.MANUAL
-
-
-@strawberry.type
-@dataclasses.dataclass
-class RejectedActivityEvent:
-    index: int
-    reason: str
-
-
-@strawberry.type
-@dataclasses.dataclass
-class IngestActivityResult:
-    accepted: int
-    duplicates: int
-    rejected: List[RejectedActivityEvent]
-    idempotency_key_used: Optional[str] = None
+# Enum e ActivityEvent con default già definiti in modulo types_activity_health
 
 
 # ----------------- Health Totals Sync (B4) -----------------
 
-
-@strawberry.type
-@dataclasses.dataclass
-class HealthTotalsDelta:
-    id: str
-    user_id: str
-    date: str
-    timestamp: str
-    steps_delta: int
-    calories_out_delta: float
-    steps_total: int
-    calories_out_total: float
-    hr_avg_session: Optional[float] = None
-
-
-@strawberry.type
-@dataclasses.dataclass
-class SyncHealthTotalsResult:
-    accepted: bool
-    duplicate: bool
-    reset: bool
-    idempotency_key_used: Optional[str]
-    idempotency_conflict: bool
-    delta: Optional[HealthTotalsDelta]
-
-
 # ----------------- AI Meal Photo Stub (Fase 0) -----------------
-
-
-@strawberry.enum
-class MealPhotoAnalysisStatus(Enum):
-    PENDING = "PENDING"
-    COMPLETED = "COMPLETED"
-    FAILED = "FAILED"
-
-
-@strawberry.type
-@dataclasses.dataclass
-class MealPhotoItemPrediction:
-    label: str
-    confidence: float
-    quantity_g: Optional[float] = None
-    calories: Optional[int] = None
-    protein: Optional[float] = None
-    carbs: Optional[float] = None
-    fat: Optional[float] = None
-    fiber: Optional[float] = None
-    sugar: Optional[float] = None
-    sodium: Optional[float] = None
-
-
-@strawberry.type
-@dataclasses.dataclass
-class MealPhotoAnalysis:
-    id: str
-    user_id: str
-    status: MealPhotoAnalysisStatus
-    created_at: str
-    source: str  # adapter name: stub|heuristic|model|gpt4v
-    items: List[MealPhotoItemPrediction]
-    raw_json: Optional[str] = None
-    idempotency_key_used: Optional[str] = None
-    total_calories: Optional[int] = None
-    # Campi errori esposti in GraphQL (camelCase)
-    # Manteniamo snake_case interno per Python
-    analysis_errors: List["MealPhotoAnalysisError"] = dataclasses.field(default_factory=list)
-    failure_reason: Optional["MealPhotoAnalysisErrorCode"] = None
-
-
-@strawberry.enum
-class MealPhotoErrorSeverity(Enum):
-    ERROR = "ERROR"
-    WARNING = "WARNING"
-
-
-@strawberry.enum
-class MealPhotoAnalysisErrorCode(Enum):
-    INVALID_IMAGE = "INVALID_IMAGE"
-    UNSUPPORTED_FORMAT = "UNSUPPORTED_FORMAT"
-    IMAGE_TOO_LARGE = "IMAGE_TOO_LARGE"
-    BARCODE_DETECTION_FAILED = "BARCODE_DETECTION_FAILED"
-    PARSE_EMPTY = "PARSE_EMPTY"
-    PORTION_INFERENCE_FAILED = "PORTION_INFERENCE_FAILED"
-    RATE_LIMITED = "RATE_LIMITED"
-    INTERNAL_ERROR = "INTERNAL_ERROR"
-
-
-@strawberry.type
-@dataclasses.dataclass
-class MealPhotoAnalysisError:
-    code: MealPhotoAnalysisErrorCode
-    message: str
-    severity: MealPhotoErrorSeverity
-    debug_id: Optional[str] = None
-    fallback_applied: bool = False
-
-
-@strawberry.type
-@dataclasses.dataclass
-class ConfirmMealPhotoResult:
-    analysis_id: str
-    created_meals: List[MealEntry]
-
-
-@strawberry.input
-class AnalyzeMealPhotoInput:
-    photo_id: Optional[str] = None
-    photo_url: Optional[str] = None
-    user_id: Optional[str] = None
-    idempotency_key: Optional[str] = None
-
-
-@strawberry.input
-class ConfirmMealPhotoInput:
-    analysis_id: str
-    accepted_indexes: List[int]
-    user_id: Optional[str] = None
-    idempotency_key: Optional[str] = None
+"""Tipi AI spostati in graphql.types_ai"""
 
 
 def _map_analysis(rec) -> MealPhotoAnalysis:  # type: ignore[no-untyped-def]
@@ -296,32 +86,34 @@ def _map_analysis(rec) -> MealPhotoAnalysis:  # type: ignore[no-untyped-def]
     for i in rec.items:
         if i.calories:
             total_cal += int(i.calories)
+    items = [
+        MealPhotoItemPrediction(
+            label=i.label,
+            confidence=i.confidence,
+            quantity_g=i.quantity_g,
+            calories=i.calories,
+            protein=i.protein,
+            carbs=i.carbs,
+            fat=i.fat,
+            fiber=i.fiber,
+            sugar=i.sugar,
+            sodium=i.sodium,
+        )
+        for i in rec.items
+    ]
+    # Campi presenti in types_ai.MealPhotoAnalysis
     return MealPhotoAnalysis(
         id=rec.id,
         user_id=rec.user_id,
         status=MealPhotoAnalysisStatus(rec.status),
         created_at=rec.created_at,
         source=rec.source,
-        items=[
-            MealPhotoItemPrediction(
-                label=i.label,
-                confidence=i.confidence,
-                quantity_g=i.quantity_g,
-                calories=i.calories,
-                protein=i.protein,
-                carbs=i.carbs,
-                fat=i.fat,
-                fiber=i.fiber,
-                sugar=i.sugar,
-                sodium=i.sodium,
-            )
-            for i in rec.items
-        ],
+        items=items,
         raw_json=rec.raw_json,
         idempotency_key_used=rec.idempotency_key_used,
         total_calories=total_cal,
-        analysis_errors=[],  # exposed as analysisErrors
-        failure_reason=None,  # exposed as failureReason
+        analysis_errors=[],
+        failure_reason=None,
     )
 
 
@@ -341,46 +133,17 @@ class ActivityMinuteInput:
     steps: Optional[int] = 0
     calories_out: Optional[float] = None
     hr_avg: Optional[float] = None
-    # Enum default (alias per evitare ignore mypy)
-    source: ActivitySourceEnum = ActivitySource.MANUAL
+    # Enum GraphQL (repo enum esposto) default MANUAL
+    source: ActivitySource = ActivitySource.MANUAL
 
 
-@strawberry.input
-class LogMealInput:
-    name: str
-    quantity_g: float
-    timestamp: Optional[str] = None
-    barcode: Optional[str] = None
-    idempotency_key: Optional[str] = None
-    user_id: Optional[str] = None  # NEW (default handled in mutation)
-
-
-@strawberry.input
-class UpdateMealInput:
-    id: str
-    name: Optional[str] = None
-    quantity_g: Optional[float] = None
-    timestamp: Optional[str] = None
-    barcode: Optional[str] = None
-    user_id: Optional[str] = None
+"""Input pasti spostati in graphql.types_meal"""
 
 
 DEFAULT_USER_ID = "default"
 
 
-def _enrich_from_product(prod: Product, quantity_g: float) -> Dict[str, Optional[float]]:
-    factor = quantity_g / 100.0 if quantity_g else 1.0
-    enriched: Dict[str, Optional[float]] = {}
-    for field in NUTRIENT_FIELDS:
-        value = getattr(prod, field)
-        if value is not None:
-            if field == "calories":
-                enriched[field] = int(round(value * factor))
-            else:
-                enriched[field] = round(value * factor, 2)
-        else:
-            enriched[field] = None
-    return enriched
+_enrich_from_product = enrich_from_product  # retro compat
 
 
 @strawberry.type
@@ -397,7 +160,9 @@ class Query:
     def health(self) -> str:
         return "ok"
 
-    @strawberry.field(description="Fetch prodotto da OpenFoodFacts (cache)")  # type: ignore[misc]
+    @strawberry.field(
+        description="Fetch prodotto da OpenFoodFacts (cache)"
+    )  # type: ignore[misc]
     async def product(
         self, info: Info[Any, Any], barcode: str
     ) -> Optional[Product]:  # noqa: ARG002
@@ -411,11 +176,14 @@ class Query:
             return None
         except adapter.OpenFoodFactsError as e:
             raise GraphQLError(f"OPENFOODFACTS_ERROR: {e}") from e
-        prod = _map_product(cast("_ProductLike", dto))
+    # cast per soddisfare protocollo _ProductLike (nutrients compatibili)
+        prod = _map_product(cast(Any, dto))
         cache.set(key, prod, PRODUCT_CACHE_TTL_S)
         return prod
 
-    @strawberry.field(description="Lista pasti più recenti (desc)")  # type: ignore[misc]
+    @strawberry.field(
+        description="Lista pasti più recenti (desc)"
+    )  # type: ignore[misc]
     def meal_entries(
         self,
         info: Info[Any, Any],  # noqa: ARG002
@@ -432,7 +200,9 @@ class Query:
         records = meal_repo.list(uid, limit, after, before)
         return [MealEntry(**dataclasses.asdict(r)) for r in records]
 
-    @strawberry.field(description="Riepilogo nutrienti per giorno (UTC)")  # type: ignore[misc]
+    @strawberry.field(
+        description="Riepilogo nutrienti per giorno (UTC)"
+    )  # type: ignore[misc]
     def daily_summary(
         self,
         info: Info[Any, Any],  # noqa: ARG002
@@ -447,24 +217,26 @@ class Query:
         all_meals = meal_repo.list_all(uid)
         day_meals = [m for m in all_meals if m.timestamp.startswith(date)]
 
-        def _acc(field: str) -> float:
+        def _acc(name: str) -> float:
             total = 0.0
             for m in day_meals:
-                val = getattr(m, field)
+                val = getattr(m, name)
                 if val is not None:
                     total += float(val)
             return total
 
         calories_total = int(_acc("calories")) if day_meals else 0
 
-        def _opt(field: str) -> Optional[float]:
+        def _opt(name: str) -> Optional[float]:
             if not day_meals:
                 return 0.0
-            val = _acc(field)
+            val = _acc(name)
             return round(val, 2)
 
         # Nuova fonte totals: health_totals_repo (snapshot delta aggregation)
-        steps_tot, cal_out_tot = health_totals_repo.daily_totals(user_id=uid, date=date)
+        steps_tot, cal_out_tot = health_totals_repo.daily_totals(
+            user_id=uid, date=date
+        )
         # Per diagnosi manteniamo events_count dalle minute events
         act_stats = activity_repo.get_daily_stats(uid, date + "T00:00:00Z")
         events_count = act_stats.get("events_count", 0)
@@ -521,7 +293,9 @@ class Query:
         )
         return [ActivityEvent(**dataclasses.asdict(e)) for e in events]
 
-    @strawberry.field(description="Lista delta sync health totals per giorno")  # type: ignore[misc]
+    @strawberry.field(
+        description="Lista delta sync health totals per giorno"
+    )  # type: ignore[misc]
     def sync_entries(
         self,
         info: Info[Any, Any],  # noqa: ARG002
@@ -540,7 +314,9 @@ class Query:
         )
         return [HealthTotalsDelta(**dataclasses.asdict(r)) for r in records]
 
-    @strawberry.field(description="Statistiche cache prodotto")  # type: ignore[misc]
+    @strawberry.field(
+        description="Statistiche cache prodotto"
+    )  # type: ignore[misc]
     def cache_stats(self, info: Info[Any, Any]) -> "CacheStats":  # noqa: ARG002,E501
         s = cache.stats()
         return CacheStats(
@@ -551,17 +327,11 @@ class Query:
 
 
 @strawberry.type
-@dataclasses.dataclass
-class CacheStats:
-    keys: int
-    hits: int
-    misses: int
-
-
-@strawberry.type
 class Mutation:
     @strawberry.mutation(  # type: ignore[misc]
-        description=("Log di un pasto con arricchimento nutrienti se barcode noto")
+        description=(
+            "Log di un pasto con arricchimento nutrienti se barcode noto"
+        )
     )
     async def log_meal(
         self, info: Info[Any, Any], input: LogMealInput
@@ -582,7 +352,9 @@ class Mutation:
         if existing:
             return MealEntry(**dataclasses.asdict(existing))
 
-        nutrients: Dict[str, Optional[float]] = {k: None for k in NUTRIENT_FIELDS}
+        nutrients: Dict[str, Optional[float]] = {
+            k: None for k in NUTRIENT_FIELDS
+        }
 
         prod: Optional[Product] = None
         if input.barcode:
@@ -593,7 +365,7 @@ class Mutation:
             else:
                 try:
                     dto = await adapter.fetch_product(input.barcode)
-                    prod = _map_product(cast("_ProductLike", dto))
+                    prod = _map_product(dto)  # type: ignore[arg-type]
                     cache.set(key, prod, PRODUCT_CACHE_TTL_S)
                 except adapter.ProductNotFound:
                     prod = None
@@ -633,7 +405,9 @@ class Mutation:
         meal_repo.add(meal)
         return MealEntry(**dataclasses.asdict(meal))
 
-    @strawberry.mutation(description="Aggiorna un pasto esistente")  # type: ignore[misc]
+    @strawberry.mutation(
+        description="Aggiorna un pasto esistente"
+    )  # type: ignore[misc]
     async def update_meal(
         self, info: Info[Any, Any], input: UpdateMealInput
     ) -> MealEntry:  # noqa: ARG002
@@ -644,9 +418,17 @@ class Mutation:
         if input.user_id and input.user_id != rec.user_id:
             raise GraphQLError("FORBIDDEN: user mismatch")
         # Decide se serve ricalcolo nutrienti (se barcode o quantity cambiano)
-        new_barcode = input.barcode if input.barcode is not None else rec.barcode
-        new_quantity = input.quantity_g if input.quantity_g is not None else (rec.quantity_g)
-        nutrients: Dict[str, Optional[float]] = {k: getattr(rec, k) for k in NUTRIENT_FIELDS}
+        new_barcode = (
+            input.barcode if input.barcode is not None else rec.barcode
+        )
+        new_quantity = (
+            input.quantity_g
+            if input.quantity_g is not None
+            else rec.quantity_g
+        )
+        nutrients: Dict[str, Optional[float]] = {
+            k: getattr(rec, k) for k in NUTRIENT_FIELDS
+        }
         prod: Optional[Product] = None
         recalc = False
         if new_barcode != rec.barcode or (
@@ -661,7 +443,7 @@ class Mutation:
             else:
                 try:
                     dto = await adapter.fetch_product(new_barcode)
-                    prod = _map_product(cast("_ProductLike", dto))
+                    prod = _map_product(dto)  # type: ignore[arg-type]
                     cache.set(key, prod, PRODUCT_CACHE_TTL_S)
                 except adapter.ProductNotFound:
                     prod = None
@@ -705,7 +487,9 @@ class Mutation:
         return MealEntry(**dataclasses.asdict(updated))
 
     @strawberry.mutation(description="Cancella un pasto")  # type: ignore[misc]
-    def delete_meal(self, info: Info[Any, Any], id: str) -> bool:  # noqa: ARG002
+    def delete_meal(
+        self, info: Info[Any, Any], id: str
+    ) -> bool:  # noqa: ARG002
         ok = meal_repo.delete(id)
         return ok
 
@@ -725,7 +509,8 @@ class Mutation:
         for ev in input:
             raw_ts = ev.ts
             ts_norm = activity_repo.normalize_minute_iso(raw_ts) or raw_ts
-            repo_source = _RepoActivitySource[ev.source.name]
+            src_name = getattr(ev.source, "name", "MANUAL")
+            repo_source = _RepoActivitySource[src_name]
             norm_events.append(
                 _ActivityEventRecord(
                     user_id=uid,
@@ -746,7 +531,9 @@ class Mutation:
             }
             for e in sorted(norm_events, key=lambda r: r.ts)
         ]
-        canonical = _json.dumps(sig_payload, sort_keys=True, separators=(",", ":"))
+        canonical = _json.dumps(
+            sig_payload, sort_keys=True, separators=(",", ":")
+        )
         signature = _hashlib.sha256(canonical.encode("utf-8")).hexdigest()
         # Se la chiave non è fornita generiamo deterministico da signature
         auto_key = None
@@ -760,7 +547,7 @@ class Mutation:
             if existing_sig == signature:
                 # Cached result: convert rejected tuples into GraphQL objects
                 return IngestActivityResult(
-                    accepted=result_dict["accepted"],
+                    accepted=result_dict["accepted"],  # noqa: E501
                     duplicates=result_dict["duplicates"],
                     rejected=[
                         RejectedActivityEvent(index=idx, reason=reason)
@@ -768,9 +555,13 @@ class Mutation:
                     ],
                     idempotency_key_used=idempotency_key,
                 )
-            raise GraphQLError("IdempotencyConflict: key re-used with different payload")
+            raise GraphQLError(
+                "IdempotencyConflict: key re-used with different payload"
+            )
         # Ingest via repository (normalization & dedup inside repo)
-        accepted, duplicates, rejected = activity_repo.ingest_batch(norm_events)
+        accepted, duplicates, rejected = activity_repo.ingest_batch(
+            norm_events
+        )
         # Cache idempotent result
         getattr(activity_repo, "_batch_idempo")[idem_key] = (
             signature,
@@ -783,7 +574,9 @@ class Mutation:
         return IngestActivityResult(
             accepted=accepted,
             duplicates=duplicates,
-            rejected=[RejectedActivityEvent(index=i, reason=r) for i, r in rejected],
+            rejected=[
+                RejectedActivityEvent(index=i, reason=r) for i, r in rejected
+            ],
             idempotency_key_used=idempotency_key,
         )
 
@@ -884,7 +677,9 @@ class Mutation:
                 sodium=pred.sodium,
             )
             # Idempotenza meal: se già creato restituiamo esistente
-            existing = meal_repo.find_by_idempotency(uid, meal.idempotency_key or "")
+            existing = meal_repo.find_by_idempotency(
+                uid, meal.idempotency_key or ""
+            )
             if existing:
                 created.append(MealEntry(**dataclasses.asdict(existing)))
             else:
@@ -900,6 +695,11 @@ schema = strawberry.Schema(
     query=Query,
     mutation=Mutation,
 )
+
+# Esplicit export per mypy/tests
+__all__ = [
+    "Product",
+]
 
 
 @asynccontextmanager
