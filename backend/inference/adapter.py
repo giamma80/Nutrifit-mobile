@@ -30,7 +30,11 @@ from .vision_client import (
     VisionTransientError,
     VisionCallError,
 )
-from metrics.ai_meal_photo import record_fallback, record_error, time_analysis
+from metrics.ai_meal_photo import (
+    record_fallback,
+    record_error,
+    time_analysis,
+)
 
 
 class InferenceAdapter(Protocol):

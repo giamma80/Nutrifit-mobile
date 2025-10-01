@@ -18,6 +18,7 @@ type ActivityEvent {
   steps: Int
   caloriesOut: Float
   hrAvg: Float
+  source: ActivitySource!
 }
 
 input ActivityMinuteInput {
