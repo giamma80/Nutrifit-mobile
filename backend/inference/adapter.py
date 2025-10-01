@@ -35,21 +35,18 @@ try:  # metrics opzionali (non presenti nell'immagine slim)
         record_fallback,
         record_error,
         time_analysis,
-    )  # type: ignore
-except Exception:  # pragma: no cover - fallback leggero
-    def time_analysis(*args, **kwargs):  # type: ignore
-        from contextlib import contextmanager
+    )
+except ImportError:  # pragma: no cover - fallback leggero
+    from contextlib import nullcontext
+    from typing import Any, ContextManager
 
-        @contextmanager
-        def _cm():
-            yield
+    def time_analysis(*_args: Any, **_kwargs: Any) -> ContextManager[None]:
+        return nullcontext()
 
-        return _cm()
-
-    def record_fallback(*args, **kwargs):  # type: ignore
+    def record_fallback(*_args: Any, **_kwargs: Any) -> None:
         return None
 
-    def record_error(*args, **kwargs):  # type: ignore
+    def record_error(*_args: Any, **_kwargs: Any) -> None:
         return None
 
 
