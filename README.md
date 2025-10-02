@@ -20,7 +20,7 @@
 
 > **Nutrifit** è una piattaforma end-to-end per nutrizione intelligente e fitness: un backend GraphQL centralizzato (backend‑centric) che astrae sorgenti esterne (OpenFoodFacts oggi, Robotoff/AI domani) servendo app Mobile Flutter e un Web Sandbox di validazione, con pipeline AI e automazione nutrizionale coerenti.
 
-> Nuovo: flusso AI Meal Photo a due step (`analyzeMealPhoto` → `confirmMealPhoto`), calorie e roadmap unificati documentati in `docs/ai_meal_photo.md` per distinguere suggerimento AI e commit nutrizionale.
+> AI Meal Photo: two‑step (`analyzeMealPhoto` → `confirmMealPhoto`) con adapter GPT‑4V attivo (source=gpt4v) e campi avanzati (`analysisErrors[]`, `failureReason`, `idempotencyKeyUsed`, `totalCalories`) documentati in `docs/ai_meal_photo.md`.
 
 ## � Indice Rapido
 ## 📚 Indice Rapido

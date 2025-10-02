@@ -22,15 +22,18 @@ Ridurre l'attrito nella registrazione dei pasti offrendo un flusso rapido foto �
 10. Cross‑link
 
 ---
-## 1. Stato Attuale (Fase 1 – 2025-09/10)
+## 1. Stato Attuale (Fase 1 – 2025-10)
 | Aspetto | Stato | Note |
 |---------|-------|------|
-| Predictions | Stub + Heuristic + GPT-4V simulato | Flag runtime selezione adapter |
-| Idempotenza analyze | Attiva | Chiave esplicita o auto sha256 trunc user|photo refs |
-| Conferma | Idempotente per analysisId | Duplicati evitati |
+| Adapter attivo | GPT‑4V (source=gpt4v) | Chiamata reale o simulata; fallback chain non ancora implementata |
+| Adapter alternativi | stub (test), heuristic (PLANNED) | Se GPT non configurato si usa stub diretto |
+| Idempotenza analyze | Attiva | Chiave esplicita o auto sha256 trunc user|photo refs (idempotencyKeyUsed) |
+| Conferma | Idempotente per analysisId | Nessun duplicato createdMeals |
 | Calorie item | Calcolate server | Somma coerente totalCalories |
-| Metriche | Requests, latency, fallback, errori | Espandibili |
-| Error taxonomy | Definita, parziale runtime | Fallback degrade → stub |
+| Error handling | failureReason + analysisErrors[] | failureReason solo se status=FAILED |
+| Metriche | Opzionali (no-op fallback) | time_analysis + record_error/fallback (fallback non usato) |
+| Error taxonomy | Definita (vedi tabella) | RATE_LIMITED, INTERNAL_ERROR inclusi |
+| Status supportati | COMPLETED / FAILED | PENDING riservato futuro async |
 
 ---
 ## 2. Flusso Two‑Step
@@ -57,14 +60,17 @@ Migrazione futura: feature flag `AI_IDEMP_HASH_ENABLED` per sostituire progressi
 ## 4. Adapter Layer
 File chiave: `backend/inference/adapter.py`.
 
-Implementazioni attuali:
-- Stub: baseline deterministica (2 item)
-- Heuristic: modifica quantità / aggiunge acqua
-- GPT-4V simulato: prompt + parse JSON + fallback su parse fail
+Implementazioni:
+- GPT‑4V Adapter (attivo): prompt + vision call + parse JSON;
+  - In caso di parse/vision error oggi l'analisi può risultare FAILED (nessuna catena multi‑fallback ancora costruita).
+- Stub Adapter: risposta deterministica per test/dev.
+- Heuristic Adapter (PLANNED): regole quantitative + detection acqua.
+- Remote Model Adapter (PLANNED): modello proprietario / API esterna.
 
-Selezione (priorità): `AI_MEAL_PHOTO_MODE` (gpt4v|heuristic|model|stub) > flag legacy (heuristic/remote) > default stub.
+Selezione (priorità attuale): `AI_MEAL_PHOTO_MODE` (gpt4v|stub) > fallback stub.
+Logica futura: gpt4v → model → heuristic → stub.
 
-`time_analysis()` avvolge ogni chiamata per metriche di latenza + status.
+Instrumentation: `time_analysis()` (latency), `record_error(code, source)`, `record_fallback(reason, source)` (quest'ultimo oggi non invocato).
 
 ---
 ## 5. Calorie: Modello e Aggregazione
@@ -148,38 +154,68 @@ sequenceDiagram
 
 ---
 ## 7. Errori & Fallback
-Categorie principali (vedi taxonomy dedicata): timeout, transient, call error, parse error → degradazione verso stub/heuristic con metriche:
-- `ai_meal_photo_fallback_total{reason=...}`
-- `ai_meal_photo_errors_total{code=PARSE_*}` dove pertinente
-Status oggi sempre `COMPLETED` (anche fallback) salvo futuro stato `FAILED`.
+L'implementazione corrente distingue:
+* `analysisErrors[]`: lista (WARNING o ERROR non terminali)
+* `failureReason`: singolo codice terminale → `status=FAILED` (items ignorati lato conferma)
 
-Campi diagnostici: `analysisErrors[]`, `failureReason` (futuro), `source`.
+Fallback chain multi‑adapter NON ancora implementata: un errore terminale oggi porta direttamente a FAILED (nessun downgrade automatico a stub in runtime produzione – previsto).
+
+### Tabella Codici Errori (MealPhotoAnalysisErrorCode)
+| Codice | Categoria | Terminale | Descrizione Sintetica |
+|--------|-----------|----------|-----------------------|
+| INVALID_IMAGE | INPUT | Sì | Immagine non valida / corrotta |
+| UNSUPPORTED_FORMAT | INPUT | Sì | Formato non supportato |
+| IMAGE_TOO_LARGE | INPUT | Sì | Dimensioni oltre limite consentito |
+| BARCODE_DETECTION_FAILED | DETECTION | No | Impossibile estrarre barcode (warning) |
+| PARSE_EMPTY | PARSE | Sì | Nessun JSON / struttura vuota dal modello |
+| PORTION_INFERENCE_FAILED | PORTION | No | Stima quantità fallita (usa default) |
+| RATE_LIMITED | PLATFORM | Sì | Rate limit provider vision raggiunto |
+| INTERNAL_ERROR | SYSTEM | Sì | Errore generico non classificato |
+
+Severity (non mostrata nella tabella): `ERROR` per terminali, `WARNING` per non terminali.
+
+### Metriche correlate
+| Evento | Metrica | Note |
+|--------|---------|------|
+| Analisi riuscita | requests_total + latency | status=completed |
+| Errore terminale | requests_total(status=failed) + errors_total{code} | failureReason presente |
+| Fallback (futuro) | fallback_total{reason} | Non ancora attivo |
+
+### Campi diagnostici payload
+| Campo | Tipo | Popolamento |
+|-------|------|-------------|
+| source | String! | Adapter usato (gpt4v, stub) |
+| analysisErrors | [MealPhotoAnalysisError!]! | Warnings e errori non terminali |
+| failureReason | MealPhotoAnalysisErrorCode | Solo se status=FAILED |
+| idempotencyKeyUsed | String | Se analisi servita da cache idempotente |
 
 ---
-## 8. Acceptance Criteria
-1. Idempotenza stable per analyze.
-2. Conferma non duplica MealEntry.
-3. Ogni item ha `calories >= 0`.
-4. `totalCalories` = somma items.
-5. Fallback produce comunque items validi.
-6. Metriche: almeno requests + latency + fallback.
-7. `source` riflette adapter.
-8. Parse error non blocca UX.
+## 8. Acceptance Criteria (aggiornati)
+1. Idempotenza: analisi ripetuta con stessa chiave non reinvoca adapter.
+2. Conferma: nessun duplicato MealEntry per stesso `(analysisId, indexes)`.
+3. Nutrizione: ogni item (se presente) ha `calories >= 0`; `totalCalories` coerente.
+4. Error Handling: errori terminali impostano `failureReason` e `status=FAILED`.
+5. Warnings: errori non terminali finiscono in `analysisErrors[]` senza interrompere UX.
+6. Metriche (se modulo presente): latency + requests + errors; nessun crash se assente (no-op).
+7. `source` aderisce all'adapter scelto.
+8. Parse error (PARSE_EMPTY) non genera eccezione non gestita (risposta coerente FAILED). 
+9. IdempotencyKeyUsed presente quando cache reused.
 
 ---
 ## 9. Roadmap & Migrazioni
 | Step | Descrizione | Stato |
 |------|-------------|-------|
 | Adapter abstraction | Protocol + stub | DONE |
-| Heuristic rules | Quantità variabile + acqua | DONE |
-| GPT-4V simulato | Prompt + parse + fallback | DONE |
+| GPT‑4V adapter | Vision + parse | DONE |
 | Calorie base | Densità + aggregation | DONE |
-| Fallback taxonomy estesa | TIMEOUT / TRANSIENT / CALL_ERR | DONE |
+| Error taxonomy estesa | Codici + severity | DONE |
+| Heuristic adapter | Regole locali quantità/acqua | PLANNED |
+| Fallback chain multi‑adapter | gpt4v→model→heuristic→stub | PLANNED |
 | Hash idempotenza dedicato | Flag + migrazione | PLANNED |
-| Remote model adapter | Chiamata reale | PLANNED |
-| Circuit breaker | Error burst protection | PLANNED |
-| Portion refinement | Second pass quantità | PLANNED |
-| Nutrient enrichment avanzato | Macro dettagliate | PLANNED |
+| Remote model adapter | Chiamata modello proprietario | PLANNED |
+| Circuit breaker | Protezione error burst provider | PLANNED |
+| Portion refinement | Stima porzioni avanzata | PLANNED |
+| Nutrient enrichment avanzato | Macro + micro nutrienti | PLANNED |
 
 Migrazione hash: introdurre `photoHash` osservabile → flag → switch definitivo → rimozione chiave legacy.
 
@@ -192,5 +228,6 @@ Migrazione hash: introdurre `photoHash` osservabile → flag → switch definiti
 
 ---
 ## Changelog
+- v3: Aggiornamento per adapter GPT‑4V attivo, tabella errori completa, criteri aggiornati (ott 2025)
 - v2: Unificazione doc evoluzione + flusso two‑step + calorie (ott 2025)
 - v1: Documento iniziale evoluzione (sett 2025)

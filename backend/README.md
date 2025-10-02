@@ -115,6 +115,38 @@ type Mutation {
 }
 ```
 
+##   AI Meal Photo (Two-Step – Estratto)
+
+Mutations (non incluse nell'estratto schema sopra per brevità):
+```graphql
+analyzeMealPhoto(input: AnalyzeMealPhotoInput!): MealPhotoAnalysis!
+confirmMealPhoto(input: ConfirmMealPhotoInput!): ConfirmMealPhotoResult!
+```
+
+Stati analisi: `COMPLETED` / `FAILED` ( `PENDING` riservato a futura pipeline async ).
+
+Campi chiave `MealPhotoAnalysis`:
+| Campo | Descrizione |
+|-------|-------------|
+| id | Identificatore analisi |
+| status | COMPLETED o FAILED |
+| source | Adapter usato (gpt4v, stub) |
+| items | Predizioni alimento (label, confidence, quantityG, macro opzionali) |
+| totalCalories | Somma calcolata lato server |
+| analysisErrors[] | Warning / errori non terminali |
+| failureReason | Codice terminale (se FAILED) |
+| idempotencyKeyUsed | Se analisi servita da cache idempotente |
+
+Confirm flow:
+1. Client chiama `analyzeMealPhoto` con (photoUrl/photoId, facoltativo idempotencyKey).
+2. Riceve analisi COMPLETED (o FAILED se errore terminale).
+3. Utente seleziona indici → `confirmMealPhoto(analysisId, acceptedIndexes, idempotencyKey?)`.
+4. Backend crea MealEntry per gli item selezionati (idempotente sul pair analysisId+indexes).
+
+Error codes (estratto): INVALID_IMAGE, UNSUPPORTED_FORMAT, IMAGE_TOO_LARGE, PARSE_EMPTY, PORTION_INFERENCE_FAILED, RATE_LIMITED, INTERNAL_ERROR.
+
+Documentazione completa: `../docs/ai_meal_photo.md`
+
 ###   Esempi Query / Mutation
 
 Fetch prodotto (cache TTL di default 10 minuti):

@@ -27,7 +27,7 @@ Questo file sostituisce `ussues.md` (rimandare qui e rimuovere duplicazioni). St
 | 21 | Low | Medium | Dockerfile copy nutrients.py | File escluso build | Errore runtime | Aggiunto al COPY | DONE |  |
 | 22 | Medium | High | Attività totalizzazione | Totali da minute events | Drift / incompletezza | Introdotto syncHealthTotals delta source | DONE | ARCH |
 | 23 | Medium | Medium | Idempotency conflitti attività | Approccio differenziato ingest vs sync | Incoerenza flag | Unificata semantica flag (duplicate/conflict/reset) | DONE | ARCH |
-| 24 | Medium | High | backend/graphql analyzeMealPhoto+confirmMealPhoto, docs/ai_meal_photo.md | Introdotto stub AI Meal Photo (source=STUB) | Riduce coupling futuro, definisce boundary pipeline | Endpoint e doc allineati | DONE | ARCH |
+| 24 | Medium | High | backend/graphql analyzeMealPhoto+confirmMealPhoto, docs/ai_meal_photo.md | Introdotto stub AI Meal Photo (source=STUB) → evoluto a GPT (source=gpt4v) | Boundary definito ora con adapter reale | DONE | ARCH |
 | 25 | Medium | High | docs/health_totals_sync.md, README.md | Estratta doc Health Totals Sync dedicata | Migliora governance e riduce drift | Doc separata con link nel README | DONE | DOC |
 | 26 | Medium | Medium | docs/data_ingestion_contract.md | Contratto ingest aggiornato (nutrientSnapshotJson + fallback idempotency) | Evita refactor futuri e duplicati | SDL + sezione idempotenza aggiornate | DONE | DOC |
 | 27 | Low | Medium | docs/ai_* cross-link | Mancavano cross-link tra docs AI (pipeline, prompt, stub) | Navigazione scarsa | Aggiunti link reciproci | DONE | DOC |
@@ -37,6 +37,13 @@ Questo file sostituisce `ussues.md` (rimandare qui e rimuovere duplicazioni). St
 | 31 | Medium | Medium | Meal idempotency logging | Nessun evento esplicito su dedupe pasti | Diagnosi dedupe difficile | Log evento con reason=IDEMPOTENT_DUPLICATE | TODO | OBS |
 | 32 | Medium | Medium | health_totals_delta storage | Stato solo in-memory | Perdita dati su restart | Persistenza (es. tabella Postgres) + migrazione | TODO | ARCH |
 | 33 | Low | Low | AI error taxonomy | Codici errore non definiti (INVALID_IMAGE, PARSE_FALLBACK_USED) | Gestione client incoerente | Enum definito + campi analysisErrors/failureReason esposti + metrics base | DONE | DOC |
+| 34 | Medium | Medium | AI meal photo fallback chain | Assente catena multi-adapter (gpt4v→stub) | Mancato degrad graceful | Implementare decision tree + metriche fallback | TODO | ARCH,OBS |
+| 35 | High | Medium | GPT rate limiting | Assenza throttling per utente/IP | Rischio costi e abuso | Introdurre token bucket + quota giornaliera | TODO | SEC |
+| 36 | Medium | Medium | Portion inference | Stima quantità rudimentale | Nutrienti potenzialmente errati | Introdurre heuristics + test copertura | TODO | ARCH |
+| 37 | Medium | Medium | Persistence MealPhotoAnalysis | In-memory volatile | Perdita analisi / audit gap | Persistenza tabellare + migrazione retrocompatibile | TODO | ARCH |
+| 38 | Medium | Medium | Metrics optional clarity | Mancata nota optionalità in docs storiche | Interpretazioni fuorvianti | Doc aggiornata + flag stato raccolta | DONE | DOC |
+| 39 | Low | Medium | Docs drift roadmap adapter | Roadmap non riflette GPT già attivo | Disallineamento stakeholder | Aggiornata sezione stato corrente | DONE | DOC |
+| 40 | Medium | Medium | Error warnings counting | Warning non sempre contati come metriche | Osservabilità parziale | Aggiungere counter dedicato warnings_total | TODO | OBS |
 
 Legenda Tags: DOC=documentazione, SEC=sicurezza, ARCH=architettura, TEST=test coverage, CI=continuous integration, OBS=observability.
 

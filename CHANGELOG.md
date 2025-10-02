@@ -8,6 +8,24 @@ Formato ispirato a [Keep a Changelog](https://keepachangelog.com/it-IT/1.1.0/) e
 
 ### Added
 - add syncHealthTotals mutation and activity delta queries
+- analyzeMealPhoto & confirmMealPhoto GraphQL mutations (two-step AI meal photo flow)
+- MealPhotoAnalysis fields: source, analysisErrors, failureReason, idempotencyKeyUsed, totalCalories
+- GPT‑4V adapter (vision parse) con gestione failureReason
+- Optional metrics fallback (no-op se modulo metrics assente)
+
+### Changed
+- Modularizzazione schema GraphQL (estrazione tipi meal photo)
+- Docker build include inference/ & ai_models/ directories (risolve import runtime)
+
+### Fixed
+- Mypy internal error refactor (rimosse doppie decorazioni / forward ref fragili)
+- ModuleNotFoundError inference/ e ai_models/ in container
+
+### Metrics
+- Introdotto timing adapter (`time_analysis`) + contatori errors/fallback (fallback chain futura non ancora attiva)
+
+### AI Docs
+- Unificazione documentazione AI meal photo (evoluzione + two-step + calorie) e aggiornamento tabella error codes
 
 ### Docs
 - aggiornata sezione Activity Sync nel README root (fonte primaria dailySummary)

@@ -28,7 +28,10 @@ Priorità: GPT-4V (via AI_MEAL_PHOTO_MODE) > Remote > Heuristic > Stub
 | StubAdapter | `stub` | default | Ritorna lista fissa di 2 item | stabile | N/A |
 
 ### Struttura item (placeholder)
-Ogni adapter restituisce lista di dict con chiavi minime (es. `label`, `confidence`, `quantityG`). Nessuna validazione rigida finché lo schema di output non è stabilizzato.
+Ogni adapter restituisce lista di dict con chiavi minime (es. `label`, `confidence`, `quantityG`). Nessuna validazione rigida finché lo schema di output non è stabilizzato. L'arricchimento macro/micro nutrienti è best‑effort.
+
+### Nota Optionalità Metrics
+Il modulo `metrics.ai_meal_photo` è opzionale: se non importabile le funzioni (`time_analysis`, `record_error`, `record_fallback`, ecc.) sono sostituite da no‑op con stessa firma. Questo garantisce che build/container possano escludere dipendenze di osservabilità senza rompere il flusso runtime. Documentare sempre la differenza “metriche disattivate” quando si analizzano latenze.
 
 ---
 ## 2. Lifecycle Analisi & Idempotenza
@@ -64,7 +67,7 @@ Note:
 ---
 ## 4. Metriche Dettagliate
 
-### Elenco
+### Elenco (Design Attuale)
 | Nome | Tipo | Labels | Descrizione |
 |------|------|--------|-------------|
 | `ai_meal_photo_requests_total` | counter | `phase`, `status`, `source?` | Incrementato a fine fase (o fail) |
@@ -140,7 +143,23 @@ Percorso successo: solo `ai_meal_photo_requests_total{status=completed}` + laten
 | CALL_ERR:* | `fallback_total{reason=CALL_ERR:*}` + success request | Classifica generica; da specializzare |
 | PARSE_* (JSON/validazione) | `fallback_total{reason=PARSE_*}` + `errors_total{code=PARSE_*}` + success request (stub) | Fallback finale a StubAdapter |
 
-> Nota: "success request" indica comunque l'incremento di `ai_meal_photo_requests_total{status=completed}` perché l'analisi produce un output valido (anche se degradato) per la UX.
+> Nota: "success request" indica comunque l'incremento di `ai_meal_photo_requests_total{status=completed}` perché l'analisi produce un output valido (anche se degradato) per la UX. Attualmente (Fase 1) la catena multi‑adapter (gpt4v→model→heuristic→stub) non è implementata: alcuni fallback reason vengono prodotti solo in simulazione / test.
+
+### Error Code Table (Runtime & Planned)
+| Code | Terminale | Categoria | Descrizione breve |
+|------|-----------|-----------|-------------------|
+| INVALID_IMAGE | yes | input | File non decodificabile |
+| UNSUPPORTED_FORMAT | yes | input | Formato non supportato |
+| IMAGE_TOO_LARGE | yes | input | Dimensione supera limite |
+| BARCODE_DETECTION_FAILED | no | detection | Barcode non trovato (warning) |
+| PARSE_EMPTY | yes | parse | Nessun contenuto strutturato dal modello |
+| PORTION_INFERENCE_FAILED | no | portion | Stima quantità fallita (usa default) |
+| RATE_LIMITED | yes | platform | Rate limit provider vision |
+| INTERNAL_ERROR | yes | system | Errore generico inatteso |
+
+Mapping metriche:
+* Terminale → `ai_meal_photo_errors_total{code}` + request con `status=failed`.
+* Non terminale → solo `ai_meal_photo_errors_total{code}` (status=completed) (se implementato nel layer); oggi alcuni warning possono non essere ancora contati.
 
 ---
 ## 7. FAQ / Troubleshooting
@@ -234,11 +253,17 @@ Consente di correlare outliers di latenza senza dover guardare ogni singola metr
 | Circuit breaker | Aprire dopo X TIMEOUT/TRANSIENT consecutivi | Fallback reason dedicato es: `CB_OPEN` |
 
 ### Linee guida future di robustezza
+Integrazioni previste: retry/backoff esponendo contatori `ai_meal_photo_retries_total`, aggiunta `ai_meal_photo_tokens_total` se l'SDK espone usage, circuit breaker (raggruppato con metriche fallback cause `CB_OPEN`).
 
 
 ## Riferimenti Codice
 
 ## Changelog
+| Versione | Modifica |
+|----------|----------|
+| v1 | Documento iniziale metriche + adapter pattern |
+| v2 | Aggiunta tabella fallback reasons e vision client real impl |
+| v3 | Nota optionalità metrics + tabella error codes completa (ott 2025) |
 
 ## Cross-link
-Per il flusso completo, calorie, roadmap e sequence diagram unificati fare riferimento a `../../docs/ai_meal_photo.md` (documento canonicale).
+Per il flusso completo (flusso two‑step, error taxonomy dettagliata, roadmap) fare riferimento a `../../docs/ai_meal_photo.md` (documento canonicale).
