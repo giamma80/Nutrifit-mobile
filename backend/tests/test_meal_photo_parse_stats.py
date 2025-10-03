@@ -2,7 +2,7 @@ import json
 from ai_models.meal_photo_prompt import parse_and_validate_with_stats
 
 
-def test_parse_stats_success_and_clamp():
+def test_parse_stats_success_and_clamp() -> None:
     raw = json.dumps(
         {
             "items": [
@@ -27,7 +27,7 @@ def test_parse_stats_success_and_clamp():
     assert stats.prompt_version >= 2
 
 
-def test_parse_stats_empty_items():
+def test_parse_stats_empty_items() -> None:
     raw = json.dumps({"items": []})
     items, stats = parse_and_validate_with_stats(raw)
     assert items == []
@@ -35,14 +35,14 @@ def test_parse_stats_empty_items():
     assert stats.items_count == 0
 
 
-def test_parse_stats_invalid_json():
+def test_parse_stats_invalid_json() -> None:
     items, stats = parse_and_validate_with_stats("not-json")
     assert items == []
     assert stats.success is False
     assert stats.raw_error is not None
 
 
-def test_parse_stats_missing_items():
+def test_parse_stats_missing_items() -> None:
     items, stats = parse_and_validate_with_stats(json.dumps({"foo": []}))
     assert items == []
     assert stats.success is False

@@ -23,7 +23,8 @@ from ai_models.meal_photo_models import MealPhotoItemPredictionRecord
 from ai_models.meal_photo_prompt import (
     parse_and_validate_with_stats,
     ParseError as MealPhotoParseError,
-    ParseStats,  # type: ignore  # exported for typing only
+    ParseStats,
+    ParsedItem,
 )
 from .vision_client import (
     call_openai_vision,
@@ -419,7 +420,7 @@ class Gpt4vAdapter:
                 record_fallback(self.last_fallback_reason, source=self.name())
                 raw_text = self._simulate_model_output()
             # Parsing con stats (fallback a stub se errore parsing)
-            parsed = []
+            parsed: List[ParsedItem] = []
             stats: Optional[ParseStats] = None
             parsed, stats = parse_and_validate_with_stats(raw_text)
             if not stats.success:
