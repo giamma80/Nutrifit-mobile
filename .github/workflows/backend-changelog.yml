@@ -15,10 +15,9 @@ jobs:
         with:
           fetch-depth: 0
       - name: Install git-cliff
-        run: |
-          curl -sSL https://github.com/orhun/git-cliff/releases/latest/download/git-cliff-x86_64-unknown-linux-gnu.tar.gz \
-            | tar -xz --strip-components=1 git-cliff
-          sudo mv git-cliff /usr/local/bin/git-cliff
+        uses: taiki-e/install-action@v2
+        with:
+          tool: git-cliff
       - name: Generate changelog (backend)
         run: |
           git-cliff --config .github/cliff-backend.toml --output backend/CHANGELOG_PENDING.md
