@@ -20,6 +20,7 @@ Ridurre l'attrito nella registrazione dei pasti offrendo un flusso rapido foto �
 8. Acceptance Criteria
 9. Roadmap & Migrazioni
 10. Cross‑link
+11. Piano Operativo (Fasi 1–9 Dettagliate)
 
 ---
 ## 1. Stato Attuale (Fase 1 – 2025-10)
@@ -225,6 +226,116 @@ Migrazione hash: introdurre `photoHash` osservabile → flag → switch definiti
 - Prompt & pipeline: `ai_food_recognition_prompt.md`, `ai_food_pipeline_README.md`
 - Errori dettagliati: `ai_meal_photo_errors.md`
 - Contratto ingestione: `data_ingestion_contract.md`
+
+---
+## 11. Piano Operativo (Fasi 1–9 Dettagliate)
+Obiettivo: incrementare qualità nutrizionale e resilienza senza introdurre breaking changes prematuri. Le fasi sono concepite per essere **serializzabili**, ognuna con deliverable chiari e criteri di uscita.
+
+Formato sintetico per ogni fase:
+- Scope IN / OUT
+- Deliverable tecnici
+- Metriche / KPI di successo
+- Rischi & Mitigazioni
+- Dipendenze
+
+### Fase 1 – Prompt Enhancement & Parsing Robusto (IN CORSO)
+Scope IN: Migliorare il prompt GPT‑4V per ottenere (label, quantity_guess_g, kcal_100g stimata) + parser JSON resiliente + clamp quantità. Nessuna modifica schema GraphQL.
+Scope OUT: Nuove fonti nutrienti, fallback chain, portion model ML.
+Deliverable:
+- Prompt rivisto con istruzioni esplicite su formato JSON rigido.
+- Parser con: validazione campi, default quantity=100g se assente, clamp >2000g, scarto valori negativi.
+- Metriche: parse_success_total / parse_failed_total, macro_fill_ratio, quantity_clamped_total.
+- Logging strutturato cause parse fail.
+KPI Uscita: >95% analisi COMPLETED senza PARSE_EMPTY su set di test interno; zero eccezioni non gestite.
+Rischi: Hallucination formato → Mitigazione: few-shot + sezione "DO NOT" nel prompt.
+Dipendenze: Adapter GPT‑4V attivo.
+
+### Fase 2 – Nutrient Enrichment (OpenFoodFacts Bridge)
+Scope IN: Arricchire kcal/100g usando mapping label → prodotto OFF (similarità fuzzy + sinonimi); riuso pipeline barcode esistente; metriche coverage.
+Scope OUT: USDA local DB, micronutrienti completi.
+Deliverable: servizio `NutrientEnrichmentService` con strategia prioritaria (OFF → heuristica → default 100). Cache LRU in memoria.
+Metriche: enrichment_hit_ratio, enrichment_latency_seconds, density_fallback_total.
+KPI Uscita: >60% item con densità non-default su dataset interno; latenza extra <150ms p95.
+Rischi: Rumore matching → soglia similarità + audit sampling.
+Dipendenze: Fase 1 completata.
+
+### Fase 3 – Portion Heuristics
+Scope IN: Libreria porzioni tipiche (es. "apple"=150g), rilevazione acqua, regole su unità (slice, piece, cup), scaling quantità.
+Scope OUT: Modelli visione volume 3D.
+Deliverable: modulo `portion_rules.py` + test; arricchimento campo quantity_g prima calorie.
+Metriche: heuristic_applied_total, heuristic_override_ratio.
+KPI Uscita: Riduzione varianza quantità rispetto ground truth di almeno 20% (test annotato piccolo).
+Rischi: Over-generalizzazione → flag feature per rollout graduale.
+Dipendenze: Fase 2.
+
+### Fase 4 – Fallback Chain Multi‑Adapter
+Scope IN: Sequenza gpt4v → heuristic → stub; reason codes fallback; circuit breaker semplice (sliding window error rate).
+Scope OUT: Remote model proprietario.
+Deliverable: `AdapterChain` composable + metriche fallback_total{from,to,reason} + breaker stato esposto.
+Metriche: fallback_total, breaker_open_total, chain_latency_seconds.
+KPI Uscita: Nessuna richiesta fallita per cause GPT isolabili se heuristic/stub disponibili; <5% incremento latenza p95.
+Rischi: Propagazione errori parse multi-livello → incapsulare adattatore in wrapper uniformante.
+Dipendenze: Fase 3.
+
+### Fase 5 – Nutrient Snapshot Persistence
+Scope IN: Persistenza snapshot nutrienti per MealEntry per garantire immutabilità storica; migrazione tabelle.
+Scope OUT: Versionamento schema complesso.
+Deliverable: campo `nutrients_snapshot` JSON (o tabella dedicata) + migrazione + backfill best-effort (flag "legacy").
+Metriche: snapshot_write_total, snapshot_missing_lookup_total.
+KPI Uscita: 100% nuove conferme hanno snapshot; query storiche non cambiano calorie se base DB aggiornata.
+Rischi: Aumento storage → gzip / compressione opzionale.
+Dipendenze: Fase 4.
+
+### Fase 6 – Vision Portion Estimator (Experimental)
+Scope IN: Integrazione model esterno / open-source per volume → massa; feature flag.
+Scope OUT: Addestramento interno modello proprietario.
+Deliverable: `VisionPortionAdapter` opzionale, normalizzazione output grams.
+Metriche: portion_model_latency, portion_model_override_ratio, portion_model_error_estimate (se disponibile ground truth campione).
+KPI Uscita: >10% riduzione MAE quantità rispetto heuristics sole su test annotato.
+Rischi: Costi elevati → guardrail budget.
+Dipendenze: Fase 5.
+
+### Fase 7 – Active Learning Loop
+Scope IN: Storage esempi (input foto → items confermati), anonimizzazione, export batch labeling.
+Scope OUT: UI labeling interna completa.
+Deliverable: `meal_photo_training_examples` + job export CSV/Parquet.
+Metriche: examples_collected_total, label_quality_sampled_ratio.
+KPI Uscita: Dataset >5k esempi puliti; pipeline export automatizzata.
+Rischi: Privacy → hashing user id + rimozione metadati EXIF.
+Dipendenze: Fase 6.
+
+### Fase 8 – Rate Limiting & Cost Guard
+Scope IN: Limiti per utente/giorno, budget monetario orario, degradazione a heuristic/stub.
+Scope OUT: Billing finemente granulare per feature.
+Deliverable: middleware `AiCostGuard` + config limiti + metriche.
+Metriche: requests_blocked_total, downgraded_to_heuristic_total, cost_estimated_total.
+KPI Uscita: Zero sforamenti budget settimanale definito; user experience <3% richieste bloccate.
+Rischi: Config errata → modalità safe-fail (pass-through + warning) iniziale.
+Dipendenze: Fase 7.
+
+### Fase 9 – Osservabilità Completa & SLO
+Scope IN: Dashboard (latency, error rate, fallback ratio, parse success, enrichment coverage, cost per analisi), alerting SLO (es. 99% analyze <3s, success rate >97%).
+Scope OUT: AIOps predittivo.
+Deliverable: Dashboard Grafana / alternative + definizione SLO + runbook incidenti.
+Metriche Aggiuntive: cost_per_meal_histogram, ai_meal_photo_slo_breach_total.
+KPI Uscita: Dashboard pubblicata + runbook versionato + 1 esercitazione incident response.
+Rischi: Rumore alert → tuning iniziale multi-settimana.
+Dipendenze: Fase 8.
+
+### Sintesi Timeline Indicativa
+| Fase | Durata Stimata | Core Outcome |
+|------|----------------|--------------|
+| 1 | 1-2 settimane | Parse robusto + metriche base |
+| 2 | 1 settimana | Copertura kcal migliorata |
+| 3 | 1 settimana | Quantità più realistiche |
+| 4 | 1 settimana | Resilienza errori provider |
+| 5 | 1 settimana | Immutabilità nutrizionale |
+| 6 | 2 settimane (R&D) | Stima porzioni avanzata |
+| 7 | 1 settimana | Dataset continuo esempi |
+| 8 | 1 settimana | Cost control & limiti |
+| 9 | 1 settimana | SLO + visibilità completa |
+
+Note: Fasi 6–9 possono sovrapporsi parzialmente se risorse parallele disponibili.
 
 ---
 ## Changelog
