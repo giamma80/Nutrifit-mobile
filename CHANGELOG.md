@@ -15,7 +15,7 @@ _nessuna voce_
 _nessuna voce_
 
 ### Fixed
-_nessuna voce_
+ - allineata porta integrazione CI (workflow backend-ci ora usa 8000 invece di 8080)
 
 ### Docs / Chore
 _nessuna voce_
