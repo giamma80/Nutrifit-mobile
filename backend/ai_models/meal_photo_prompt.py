@@ -77,7 +77,7 @@ def generate_prompt_v2(*, locale: str = "it") -> str:
         '{"value":<num>,"unit":"g|piece"},"confidence":<0-1>}]}.'
         " DO_NOT: aggiungere testo extra, spiegazioni, markdown, code fences."  # noqa: E501
         " Regole: max 5 items; label concise in italiano minuscolo; "
-        "se nessun cibo: {\"items\": []}. "
+        'se nessun cibo: {"items": []}. '
         " quantity.unit deve essere 'g' oppure 'piece'; se 'piece' value è numero pezzi (interi o decimali)"  # noqa: E501
         " confidence compreso tra 0 e 1."
     )
