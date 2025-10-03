@@ -14,7 +14,7 @@ jobs:
       RUST_LOG: debug
       GIT_CLIFF_DEBUG: 1
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
       - name: Install git-cliff
