@@ -250,6 +250,16 @@ KPI Uscita: >95% analisi COMPLETED senza PARSE_EMPTY su set di test interno; zer
 Rischi: Hallucination formato → Mitigazione: few-shot + sezione "DO NOT" nel prompt.
 Dipendenze: Adapter GPT‑4V attivo.
 
+#### Avanzamento (aggiornamento corrente)
+Implementato:
+1. `parse_and_validate_with_stats` + `ParseStats` (success, items_count, clamped_count, prompt_version, raw_error).
+2. Metriche nuove: `ai_meal_photo_parse_success_total`, `ai_meal_photo_parse_failed_total`, `ai_meal_photo_parse_clamped_total` (etichetta prompt_version, source).
+3. Adapter GPT‑4V aggiornato a usare il wrapper stats e registrare metriche parse + fallback su errore.
+4. Prompt v2 sperimentale (`generate_prompt_v2`) introdotto e versioning (`PROMPT_VERSION=2`). Non ancora forzato di default.
+5. Test unit additivi per edge cases (invalid JSON, missing items, clamp negativo e massivo, empty items) con coverage delle stats.
+
+Pending (resto Fase 1): macro_fill_ratio metric (attesa nutrient enrichment fasi successive) e rollout progressivo prompt v2.
+
 ### Fase 2 – Nutrient Enrichment (OpenFoodFacts Bridge)
 Scope IN: Arricchire kcal/100g usando mapping label → prodotto OFF (similarità fuzzy + sinonimi); riuso pipeline barcode esistente; metriche coverage.
 Scope OUT: USDA local DB, micronutrienti completi.

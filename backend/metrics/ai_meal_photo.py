@@ -43,7 +43,9 @@ def record_fallback(reason: str, *, source: Optional[str] = None) -> None:
 
 def record_latency_ms(ms: float, *, source: Optional[str] = None) -> None:
     if source:
-        registry.histogram("ai_meal_photo_latency_ms", source=source).observe(ms)
+        registry.histogram(
+            "ai_meal_photo_latency_ms", source=source
+        ).observe(ms)
     else:
         registry.histogram("ai_meal_photo_latency_ms").observe(ms)
 
@@ -62,6 +64,44 @@ def record_failed(code: str, *, source: Optional[str] = None) -> None:
     if source:
         tags["source"] = source
     registry.counter("ai_meal_photo_failed_total", **tags).inc()
+
+
+def record_parse_success(
+    items_count: int,
+    *,
+    prompt_version: int,
+    source: Optional[str] = None,
+) -> None:
+    tags = {"items": str(items_count), "prompt_version": str(prompt_version)}
+    if source:
+        tags["source"] = source
+    registry.counter("ai_meal_photo_parse_success_total", **tags).inc()
+
+
+def record_parse_failed(
+    error: str,
+    *,
+    prompt_version: int,
+    source: Optional[str] = None,
+) -> None:
+    tags = {"error": error, "prompt_version": str(prompt_version)}
+    if source:
+        tags["source"] = source
+    registry.counter("ai_meal_photo_parse_failed_total", **tags).inc()
+
+
+def record_parse_clamped(
+    count: int,
+    *,
+    prompt_version: int,
+    source: Optional[str] = None,
+) -> None:
+    if count <= 0:
+        return
+    tags = {"prompt_version": str(prompt_version)}
+    if source:
+        tags["source"] = source
+    registry.counter("ai_meal_photo_parse_clamped_total", **tags).inc(count)
 
 
 @contextmanager

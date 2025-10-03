@@ -11,6 +11,9 @@ MAX_ITEMS = 5
 MAX_QUANTITY_G = 2000.0
 DEFAULT_DENSITY_KCAL_100G = 100.0
 
+# Versione prompt corrente (incrementare quando cambia lo schema / istruzioni).
+PROMPT_VERSION = 2  # incrementato dopo introduzione prompt v2 più restrittivo
+
 DENSITY_MAP = {
     "pollo": 165.0,
     "petto di pollo": 165.0,
@@ -35,6 +38,15 @@ class ParsedItem:
     source_density: str
 
 
+@dataclass(slots=True)
+class ParseStats:
+    success: bool
+    items_count: int
+    clamped_count: int
+    prompt_version: int
+    raw_error: Optional[str] = None
+
+
 class ParseError(Exception):
     pass
 
@@ -53,6 +65,24 @@ def generate_prompt(*, locale: str = "it") -> str:
     return "".join(parts)
 
 
+def generate_prompt_v2(*, locale: str = "it") -> str:
+    """Prompt versione 2 con regole più esplicite e MUST/DO_NOT per il modello.
+
+    Non sostituisce ancora il prompt legacy; usato in sperimentazione
+    controllata.
+    """
+    return (
+        "MUST: restituisci SOLO JSON valido UTF-8 con schema esatto "
+        '{"items":[{"label":"string","quantity":'
+        '{"value":<num>,"unit":"g|piece"},"confidence":<0-1>}]}.'
+        " DO_NOT: aggiungere testo extra, spiegazioni, markdown, code fences."  # noqa: E501
+        " Regole: max 5 items; label concise in italiano minuscolo; "
+        "se nessun cibo: {\"items\": []}. "
+        " quantity.unit deve essere 'g' oppure 'piece'; se 'piece' value è numero pezzi (interi o decimali)"  # noqa: E501
+        " confidence compreso tra 0 e 1."
+    )
+
+
 def generate_fallback_prompt() -> str:
     return (
         'Riprova. SOLO JSON: {"items":[{"label":"<cibo>",'  # noqa: E501
@@ -66,7 +96,7 @@ def _safe_json_extract(text: str) -> Dict[str, Any]:
     last = text.rfind("}")
     if first == -1 or last == -1 or last <= first:
         raise ParseError("NO_JSON_OBJECT")
-    snippet = text[first : last + 1]
+    snippet = text[first:last + 1]
     try:
         obj = json.loads(snippet)
         if not isinstance(obj, dict):
@@ -168,10 +198,83 @@ def parse_and_validate(raw_text: str) -> List[ParsedItem]:
     return parsed
 
 
+def parse_and_validate_with_stats(
+    raw_text: str,
+) -> Tuple[List[ParsedItem], ParseStats]:
+    """Wrapper non invasivo che arricchisce parse con statistiche.
+
+    Non modifica la logica di parsing esistente; cattura eventuali errori e
+    restituisce lista vuota + stats con success False. Usato per metriche.
+    """
+    clamped_total = 0
+    try:
+        data = _safe_json_extract(raw_text)
+        items_raw = data.get("items")
+        if items_raw is None:
+            raise ParseError("MISSING_ITEMS_ARRAY")
+        if not isinstance(items_raw, list):
+            raise ParseError("ITEMS_NOT_LIST")
+        parsed: List[ParsedItem] = []
+        for raw in items_raw:
+            if len(parsed) >= MAX_ITEMS:
+                break
+            if not isinstance(raw, dict):
+                continue
+            label_raw = raw.get("label")
+            quantity_obj = raw.get("quantity")
+            confidence_raw = raw.get("confidence")
+            if not isinstance(label_raw, str):
+                continue
+            label_norm = _normalize_label(label_raw)
+            q = _convert_quantity(quantity_obj)
+            if q is None:
+                continue
+            q_clamped, was_clamped = _clamp_quantity(q)
+            if was_clamped:
+                clamped_total += 1
+            q = q_clamped
+            if not isinstance(confidence_raw, (int, float)):
+                confidence = 0.5
+            else:
+                confidence = float(confidence_raw)
+            if confidence < 0 or confidence > 1:
+                confidence = max(0.0, min(1.0, confidence))
+            density, density_src = _resolve_density(label_norm)
+            calories = int(round(q * density / 100.0))
+            parsed.append(
+                ParsedItem(
+                    label=label_norm,
+                    quantity_g=q,
+                    confidence=confidence,
+                    calories=calories,
+                    source_density=density_src,
+                )
+            )
+        stats = ParseStats(
+            success=True,
+            items_count=len(parsed),
+            clamped_count=clamped_total,
+            prompt_version=PROMPT_VERSION,
+        )
+        return parsed, stats
+    except ParseError as exc:
+        stats = ParseStats(
+            success=False,
+            items_count=0,
+            clamped_count=0,
+            prompt_version=PROMPT_VERSION,
+            raw_error=str(exc),
+        )
+        return [], stats
+
+
 __all__ = [
     "generate_prompt",
+    "generate_prompt_v2",
     "generate_fallback_prompt",
     "parse_and_validate",
+    "parse_and_validate_with_stats",
     "ParsedItem",
+    "ParseStats",
     "ParseError",
 ]

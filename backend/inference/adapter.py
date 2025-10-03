@@ -21,8 +21,9 @@ import json
 
 from ai_models.meal_photo_models import MealPhotoItemPredictionRecord
 from ai_models.meal_photo_prompt import (
-    parse_and_validate,  # noqa: F401
-    ParseError as MealPhotoParseError,  # noqa: F401
+    parse_and_validate_with_stats,
+    ParseError as MealPhotoParseError,
+    ParseStats,  # type: ignore  # exported for typing only
 )
 from .vision_client import (
     call_openai_vision,
@@ -33,9 +34,12 @@ from .vision_client import (
 
 try:  # metrics opzionali (non presenti nell'immagine slim)
     from metrics.ai_meal_photo import (
-        record_fallback,
-        record_error,
-        time_analysis,
+        record_fallback,  # noqa: F401
+        record_error,  # noqa: F401
+        time_analysis,  # noqa: F401
+        record_parse_success,  # noqa: F401
+        record_parse_failed,  # noqa: F401
+        record_parse_clamped,  # noqa: F401
     )
 except ImportError:  # pragma: no cover - fallback leggero
     from contextlib import contextmanager
@@ -54,6 +58,16 @@ except ImportError:  # pragma: no cover - fallback leggero
         return None
 
     def record_error(code: str, *, source: Optional[str] = None) -> None:
+        return None
+
+    # Metriche parse no-op
+    def record_parse_success(*args, **kwargs):  # type: ignore
+        return None
+
+    def record_parse_failed(*args, **kwargs):  # type: ignore
+        return None
+
+    def record_parse_clamped(*args, **kwargs):  # type: ignore
         return None
 
 
@@ -404,19 +418,37 @@ class Gpt4vAdapter:
                 self.last_fallback_reason = str(exc)
                 record_fallback(self.last_fallback_reason, source=self.name())
                 raw_text = self._simulate_model_output()
-            try:
-                parsed = parse_and_validate(raw_text)
-            except MealPhotoParseError as exc:
-                reason = f"PARSE_{str(exc)}"
+            # Parsing con stats (fallback a stub se errore parsing)
+            parsed = []
+            stats: Optional[ParseStats] = None
+            parsed, stats = parse_and_validate_with_stats(raw_text)
+            if not stats.success:
+                reason = "PARSE_" + (stats.raw_error or "UNKNOWN")
                 self.last_fallback_reason = reason
                 record_fallback(reason, source=self.name())
                 record_error(reason, source=self.name())
+                record_parse_failed(
+                    stats.raw_error or "UNKNOWN",
+                    prompt_version=stats.prompt_version,
+                    source=self.name(),
+                )
                 return await StubAdapter().analyze_async(
                     user_id=user_id,
                     photo_id=photo_id,
                     photo_url=photo_url,
                     now_iso=now_iso,
                 )
+            # Metriche parse success
+            record_parse_success(
+                stats.items_count,
+                prompt_version=stats.prompt_version,
+                source=self.name(),
+            )
+            record_parse_clamped(
+                stats.clamped_count,
+                prompt_version=stats.prompt_version,
+                source=self.name(),
+            )
             out: List[MealPhotoItemPredictionRecord] = []
             for p in parsed:
                 out.append(
