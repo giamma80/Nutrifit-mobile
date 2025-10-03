@@ -1,6 +1,6 @@
-# AI Food Recognition Pipeline (Fase 0 Stub)
+# AI Food Recognition Pipeline (Fase 2 Attiva)
 
-Stato Attuale: implementato STUB iniziale con coppia di mutation `analyzeMealPhoto` e `confirmMealPhoto` che non eseguono ancora inference reale ma preparano contratto e idempotenza futura. Il client può già integrare il flusso UI (upload → analisi stub → conferma → logMeal derivato) senza dipendere da GPT.
+**Stato Attuale (Ottobre 2025)**: Pipeline completa GPT-4V + Nutrient Enrichment attiva. Le mutation `analyzeMealPhoto` e `confirmMealPhoto` eseguono inference reale con arricchimento automatico macronutrienti e fallback robusto.
 
 Obiettivo Fase 0: definire boundary chiari e semantica campi (`source=STUB`) per permettere sviluppo parallelo mobile mentre la pipeline AI reale è in design.
 
@@ -17,13 +17,40 @@ Obiettivo Fase 0: definire boundary chiari e semantica campi (`source=STUB`) per
 | 1 | Upload immagine (placeholder) | Upload + basic validation | Upload + on-device preprocessing |
 | 2 | `analyzeMealPhoto` restituisce lista stub (1–2 item fissi) | Barcode detect + GPT-4V prompt | Vision model custom + fallback GPT |
 | 3 | Items hanno campi minimi (name, quantityGuess=null, confidence=1.0, source=STUB) | JSON GPT normalizzato | Fuzzy + embedding matching OFF + dizionario |
-| 4 | Nessun nutrient inference | Stima porzioni (euristiche) | Portion refinement + volume heuristics |
-| 5 | `confirmMealPhoto` crea MealEntry con `name` & `quantityG` passata | idem + snapshot nutriente via barcode se presente | idem + nutrient inference fallback |
+| 4 | **✅ Nutrient enrichment heuristic + default** | **✅ Macronutrienti automatici (protein, carbs, fat, fiber)** | Portion refinement + volume heuristics |
+| 5 | `confirmMealPhoto` crea MealEntry con `name` & `quantityG` passata | **✅ idem + macronutrienti arricchiti** | idem + nutrient inference fallback |
 | 6 | — | Metriche base | Metriche avanzate + quality scoring |
 
 Subscription non ancora implementata (roadmap B6).
 
-Riferimenti correlati: [AI Meal Photo Analysis Stub](ai_meal_photo.md) · [Prompt Draft GPT-4V](ai_food_recognition_prompt.md) · [Error Taxonomy](ai_meal_photo_errors.md)
+## **✅ Phase 2 Architecture (Attiva - Ottobre 2025)**
+
+### Nutrient Enrichment Pipeline
+
+```
+GPT-4V Response → ParsedItem[] → NutrientEnrichmentService → EnrichmentResult[] → MealPhotoItemPredictionRecord[]
+```
+
+**Strategia Fallback**:
+1. **Heuristic Lookup**: Dizionario statico `HEURISTIC_NUTRIENTS` per alimenti comuni
+2. **Default Values**: Valori nutrizionali generici se item non trovato
+
+**Dati Integrati**:
+- `pollo`: 25.0g protein, 0.0g carbs, 4.0g fat, 0.0g fiber (per 100g)
+- `riso`: 3.0g protein, 78.0g carbs, 0.5g fat, 1.0g fiber (per 100g)  
+- `verdure`: 2.0g protein, 6.0g carbs, 0.3g fat, 3.0g fiber (per 100g)
+- **Default**: 2.0g protein, 10.0g carbs, 1.0g fat, 1.0g fiber (per 100g)
+
+**Metriche Attive**:
+- `ai_meal_photo_enrichment_success_total`: Counter batch enrichment
+- `ai_meal_photo_enrichment_latency_ms`: Histogram tempo processing
+- `ai_meal_photo_macro_fill_ratio`: Coverage campi popolati
+
+**Test Coverage**: 
+- Unit tests: `test_nutrient_enrichment.py` (7 test cases)
+- Integration tests: `test_gpt4v_adapter_enrichment.py` (end-to-end)
+
+Riferimenti correlati: [AI Meal Photo Analysis](ai_meal_photo.md) · [Prompt Draft GPT-4V](ai_food_recognition_prompt.md) · [Error Taxonomy](ai_meal_photo_errors.md)
 
 ## Schema (Stub Attuale – Estratto)
 

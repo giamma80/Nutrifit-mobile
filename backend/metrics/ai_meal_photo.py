@@ -125,6 +125,51 @@ def time_analysis(
         record_latency_ms(elapsed_ms, source=source)
 
 
+# Metriche Enrichment (Phase 2)
+
+
+def record_enrichment_success(
+    items_count: int,
+    hit_heuristic: int,
+    hit_default: int,
+    *,
+    source: Optional[str] = None,
+) -> None:
+    """Record enrichment batch results."""
+    tags = {
+        "items": str(items_count),
+        "hit_heuristic": str(hit_heuristic),
+        "hit_default": str(hit_default),
+    }
+    if source:
+        tags["source"] = source
+    registry.counter("ai_meal_photo_enrichment_success_total", **tags).inc()
+
+
+def record_enrichment_latency_ms(ms: float, *, source: Optional[str] = None) -> None:
+    """Record enrichment processing time."""
+    if source:
+        hist = registry.histogram("ai_meal_photo_enrichment_latency_ms", source=source)
+        hist.observe(ms)
+    else:
+        registry.histogram("ai_meal_photo_enrichment_latency_ms").observe(ms)
+
+
+def record_macro_fill_ratio(
+    filled_fields: int,
+    total_fields: int,
+    *,
+    source: Optional[str] = None,
+) -> None:
+    """Record macro field fill ratio (Phase 1 pending)."""
+    if total_fields > 0:
+        ratio = filled_fields / total_fields
+        tags = {"filled": str(filled_fields), "total": str(total_fields)}
+        if source:
+            tags["source"] = source
+        registry.histogram("ai_meal_photo_macro_fill_ratio", **tags).observe(ratio)
+
+
 def snapshot() -> RegistrySnapshot:  # pragma: no cover - passthrough
     return registry.snapshot()
 

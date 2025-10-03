@@ -26,6 +26,7 @@ from ai_models.meal_photo_prompt import (
     ParseStats,
     ParsedItem,
 )
+from ai_models.nutrient_enrichment import NutrientEnrichmentService
 from .vision_client import (
     call_openai_vision,
     VisionTimeoutError,
@@ -41,10 +42,22 @@ try:  # metrics opzionali (non presenti nell'immagine slim)
         record_parse_success,  # noqa: F401
         record_parse_failed,  # noqa: F401
         record_parse_clamped,  # noqa: F401
+        record_enrichment_success,  # noqa: F401
+        record_enrichment_latency_ms,  # noqa: F401
+        record_macro_fill_ratio,  # noqa: F401
     )
 except ImportError:  # pragma: no cover - fallback leggero
     from contextlib import contextmanager
-    from typing import Iterator
+    from typing import Iterator, Any
+
+    def record_enrichment_success(*args: Any, **kwargs: Any) -> None:  # type: ignore # noqa
+        pass
+
+    def record_enrichment_latency_ms(*args: Any, **kwargs: Any) -> None:  # type: ignore # noqa
+        pass
+
+    def record_macro_fill_ratio(*args: Any, **kwargs: Any) -> None:  # type: ignore # noqa
+        pass
 
     @contextmanager
     def time_analysis(
@@ -403,6 +416,7 @@ class Gpt4vAdapter:
 
     def __init__(self) -> None:
         self.last_fallback_reason: Optional[str] = None
+        self.enrichment_service = NutrientEnrichmentService()
 
     async def analyze_async(
         self,
@@ -450,16 +464,58 @@ class Gpt4vAdapter:
                 prompt_version=stats.prompt_version,
                 source=self.name(),
             )
+
+            # Enrichment nutrizionale (Phase 2)
+            start_enrich = time.perf_counter()
+            enr_svc = self.enrichment_service
+            enrichment_results = await enr_svc.enrich_parsed_items(parsed)
+            enrich_time_ms = (time.perf_counter() - start_enrich) * 1000.0
+
+            # Metriche enrichment
+            enrich_stats = enr_svc.get_stats()
+            record_enrichment_success(
+                items_count=len(parsed),
+                hit_heuristic=enrich_stats["hit_heuristic"],
+                hit_default=enrich_stats["hit_default"],
+                source=self.name(),
+            )
+            record_enrichment_latency_ms(enrich_time_ms, source=self.name())
+
             out: List[MealPhotoItemPredictionRecord] = []
-            for p in parsed:
+            filled_fields_total = 0
+            total_fields_possible = 0
+
+            for p, enrich in zip(parsed, enrichment_results):
+                # Campi macro: protein, carbs, fat, fiber
+                macro_fields = [
+                    enrich.protein if enrich.success else None,
+                    enrich.carbs if enrich.success else None,
+                    enrich.fat if enrich.success else None,
+                    getattr(enrich, "fiber", None) if enrich.success else None,
+                ]
+                filled_fields_total += sum(1 for f in macro_fields if f is not None)
+                total_fields_possible += len(macro_fields)
+
                 out.append(
                     MealPhotoItemPredictionRecord(
                         label=p.label,
                         confidence=p.confidence,
                         quantity_g=p.quantity_g,
                         calories=p.calories,
+                        protein=macro_fields[0],
+                        carbs=macro_fields[1],
+                        fat=macro_fields[2],
+                        fiber=macro_fields[3],
                     )
                 )
+
+            # Macro fill ratio metric (Phase 1 pending)
+            record_macro_fill_ratio(
+                filled_fields=filled_fields_total,
+                total_fields=total_fields_possible,
+                source=self.name(),
+            )
+
             return out
 
     def analyze(
