@@ -6,7 +6,7 @@
 sort = "newest"
 # Group similar types
 header = "# Changelog"
-body = "{{#each groups}}{{#if commits}}\n## {{this.title}}\n{{#each commits}}- {{this.message}}{{/each}}\n{{/if}}{{/each}}"
+body = "{% for group in groups %}{% if group.commits | length > 0 %}\n## {{ group.title }}\n{% for commit in group.commits %}- {{ commit.message }}\n{% endfor %}{% endif %}{% endfor %}"
 trim = true
 
 [git]

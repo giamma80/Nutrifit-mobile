@@ -17,6 +17,7 @@ _nessuna voce_
 ### Fixed
  - allineata porta integrazione CI (workflow backend-ci ora usa 8000 invece di 8080)
  - workflow backend-changelog: sostituita installazione manuale git-cliff con action stabile (taiki-e/install-action)
+ - aggiornato template git-cliff (migrazione sintassi Handlebars -> Tera) per risolvere Template parse error nelle preview CI
 
 ### Docs / Chore
 _nessuna voce_
