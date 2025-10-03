@@ -44,43 +44,16 @@ Questo file sostituisce `ussues.md` (rimandare qui e rimuovere duplicazioni). St
 | 38 | Medium | Medium | Metrics optional clarity | Mancata nota optionalità in docs storiche | Interpretazioni fuorvianti | Doc aggiornata + flag stato raccolta | DONE | DOC |
 | 39 | Low | Medium | Docs drift roadmap adapter | Roadmap non riflette GPT già attivo | Disallineamento stakeholder | Aggiornata sezione stato corrente | DONE | DOC |
 | 40 | Medium | Medium | Error warnings counting | Warning non sempre contati come metriche | Osservabilità parziale | Aggiungere counter dedicato warnings_total | TODO | OBS |
+| 41 | Medium | High | GPT-4V prompt formato | Prompt minimale non impone enum unit e struttura rigida | Parse fallimenti potenziali / hallucination | Introdurre prompt v2 con sezione MUST/DO NOT + schema rigido | TODO | ARCH,OBS |
+| 42 | High | High | Parser JSON robustezza | Assenza gestione dettagliata errori (missing keys, tipi) | PARSE_EMPTY frequente → fallback e UX peggiorata | Implementare parser con validazioni granulari + error taxonomy mapping | TODO | ARCH |
+| 43 | Medium | Medium | Quantity clamp enforcement | Clamp implementato ma non metricato | Assenza visibilità input anomali | Aggiungere counters quantity_clamped_total + log debugId | TODO | OBS |
+| 44 | Medium | Medium | Macro fill ratio logging | Nessun tracciamento copertura macro calcolate | Difficile valutare enrichment futuro | Calcolare macro_fill_ratio e log/metric histogram | TODO | OBS |
+| 45 | Medium | Medium | Parse success rate metric | Mancano parse_success_total / parse_failed_total | Non misurabile miglioramento Fase 1 | Aggiungere counters + percentuale derivata in dashboard | TODO | OBS |
+| 46 | Low | Medium | Prompt versioning | Nessun campo version nel payload | Difficoltà correlare regressioni | Aggiungere promptVersion in raw_json o analysisErrors debugId | TODO | DOC,OBS |
 
 Legenda Tags: DOC=documentazione, SEC=sicurezza, ARCH=architettura, TEST=test coverage, CI=continuous integration, OBS=observability.
 
 Indicazioni aggiornamento: ogni PR che chiude o crea un finding aggiorna questa tabella nello stesso commit.
 
-### Piano Prossimi Passi – AI Food Recognition Phase 1 (Heuristic)
-
-Obiettivo Phase 1: passare da stub (source=STUB) a pipeline heuristica/barcode-first senza modelli visione costosi, mantenendo costi ~0 e introducendo osservabilità.
-
-Deliverable principali:
-1. Feature Flag `aiMealPhotoPhase1` (default off) + gating per utente.
-2. Adapter `InferenceAdapter` con implementazioni: `StubAdapter` (attuale), `HeuristicAdapter` (nuovo) – strategy pattern plug-in futura VisionAdapter.
-3. Barcode-first branch: se codice a barre rilevato (libreria mobile / metadata) recupero nutrienti da catalogo locale (TODO dataset) prima di parsing testo.
-4. Heuristic parsing: estrazione alimenti e quantità con regex + mapping dizionario sinonimi → nutrient snapshot aggregation.
-5. Portion estimation euristica (grammi default, moltiplicatori per parole chiave: “piatto”, “cucchiaio”, “bicchiere”).
-6. Error taxonomy introdotta (Issue 33) + surface nel campo `analysisErrors`.
-7. Observability (Issue 29): counters (requests, fallbackUsed), histogram latenza, sampling logging per mismatch conferma utente.
-8. Rate limiting placeholder integrato (Issue 30) – contatore locale in-memory + TODO estensione Redis.
-9. Metrics definizione SLO: p95 < 800ms (heuristic), fallback rate < 15%.
-10. Documentazione: aggiornare `docs/ai_food_pipeline_README.md` sezione Phase 1 + changelog tabella fasi.
-
-Checklist esecuzione (da creare come issues separati collegati a ID audit corrispondenti):
-- [ ] Flag configurazione + toggle runtime
-- [ ] Interfaccia Adapter + wiring DI
-- [ ] Implementazione HeuristicAdapter
-- [ ] Barcode detection hook (stub se mobile non pronto)
-- [ ] Dizionario sinonimi + nutrient mapping seed
-- [ ] Portion heuristics + test unitari
-- [x] Error enum + schema GraphQL update (Issue 33)
-- [ ] Structured logging + metrics (Issue 29)
-- [ ] Rate limit baseline (Issue 30)
-- [ ] Aggiornamento documentazione e prompt note
-- [ ] Test end-to-end analyze→confirm con branch heuristico
-
-Rischi & Mitigazioni:
-- Qualità parsing bassa → A/B gating + metric fallbackUsed.
-- Dizionario incompleto → schema per aggiunte rapide + script rigenerazione.
-- Overfitting heuristico → limitare regole e misurare coverage alimenti reali.
-
-Go/No-Go Criteria per rollout flag ON al 5%: p95 sotto target per 3 giorni, fallback < 20%, nessun errore critico (500) > 0.5% richieste.
+### Note Evolutive
+La precedente sezione "Phase 1 (Heuristic)" è stata rimossa in favore del nuovo Piano Operativo nel documento `docs/ai_meal_photo.md`. Le issue 41–46 tracciano gli obiettivi attuali della Fase 1 (Prompt rigoroso, Parser robusto, Metriche parse, Clamp visibile, Macro fill ratio, Versioning prompt). Le fasi successive restano mappate su issue esistenti (29, 34, 36, 35).
