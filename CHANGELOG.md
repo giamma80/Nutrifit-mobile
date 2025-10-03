@@ -6,6 +6,24 @@ Formato ispirato a [Keep a Changelog](https://keepachangelog.com/it-IT/1.1.0/) e
 
 ## [Unreleased]
 
+Placeholder per nuove modifiche non ancora rilasciate.
+
+### Added
+_nessuna voce_
+
+### Changed
+_nessuna voce_
+
+### Fixed
+_nessuna voce_
+
+### Docs / Chore
+_nessuna voce_
+
+---
+
+## [0.4.3] - 2025-10-03
+
 ### Added
 - add syncHealthTotals mutation and activity delta queries
 - analyzeMealPhoto & confirmMealPhoto GraphQL mutations (two-step AI meal photo flow)
