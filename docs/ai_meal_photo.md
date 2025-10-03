@@ -208,20 +208,28 @@ Severity (non mostrata nella tabella): `ERROR` per terminali, `WARNING` per non 
 
 ---
 ## 9. Roadmap & Migrazioni
-| Step | Descrizione | Stato |
-|------|-------------|-------|
-| Adapter abstraction | Protocol + stub | DONE |
-| GPT‑4V adapter | Vision + parse | DONE |
-| Calorie base | Densità + aggregation | DONE |
-| Error taxonomy estesa | Codici + severity | DONE |
-| Heuristic adapter | Regole locali quantità/acqua | PLANNED |
-| Fallback chain multi‑adapter | gpt4v→model→heuristic→stub | PLANNED |
-| Hash idempotenza dedicato | Flag + migrazione | PLANNED |
-| Remote model adapter | Chiamata modello proprietario | PLANNED |
-| Circuit breaker | Protezione error burst provider | PLANNED |
-| Portion refinement | Stima porzioni avanzata | PLANNED |
-| **Nutrient enrichment base** | **Macronutrienti heuristic + default** | **✅ DONE** |
-| Nutrient enrichment avanzato | OpenFoodFacts + micronutrienti | PLANNED |
+| Step | Descrizione | Stato | Tipo |
+|------|-------------|-------|------|
+| Adapter abstraction | Protocol + stub | DONE | R |
+| GPT‑4V adapter | Vision + parse | DONE | R |
+| Calorie base | Densità + aggregation | DONE | P |
+| Error taxonomy estesa | Codici + severity | DONE | R |
+| **Nutrient enrichment base** | **Macronutrienti heuristic + default** | **✅ DONE** | A |
+| **Fase 2.1 Normalization & Category Mapping** | Category profiles, macro consistency, garnish rules | PROPOSED | A |
+| Heuristic adapter | Regole locali quantità/acqua | PLANNED | A |
+| Fallback chain multi‑adapter | gpt4v→model→heuristic→stub | PLANNED | R |
+| Hash idempotenza dedicato | Flag + migrazione | PLANNED | A |
+| Remote model adapter | Chiamata modello proprietario | PLANNED | A |
+| Circuit breaker | Protezione error burst provider | PLANNED | A |
+| Portion refinement | Stima porzioni avanzata | PLANNED | R |
+| Nutrient enrichment avanzato | OpenFoodFacts + micronutrienti | PLANNED | R |
+| Nutrient snapshot persistence | Snapshot immutabile nutrienti | PLANNED | R |
+| Vision portion estimator | Modello visione porzioni | PLANNED | A |
+| Active learning loop | Dataset training continuo | PLANNED | R |
+| Rate limiting & cost guard | Budget & throttling | PLANNED | R |
+| Osservabilità SLO | Dashboard + SLO + runbook | PLANNED | R |
+
+Legenda Tipo: R = Reale/duraturo, A = Anticipo riusabile, P = Palliativo da sostituire, X = Da rimuovere appena superato.
 
 Migrazione hash: introdurre `photoHash` osservabile → flag → switch definitivo → rimozione chiave legacy.
 
@@ -295,6 +303,50 @@ ParsedItem[] → NutrientEnrichmentService → EnrichmentResult[] → MealPhotoI
 - `riso`: protein=3.0g, carbs=78.0g, fat=0.5g, fiber=1.0g
 - `verdure`: protein=2.0g, carbs=6.0g, fat=0.3g, fiber=3.0g
 - Default: protein=2.0g, carbs=10.0g, fat=1.0g, fiber=1.0g
+
+### Fase 2.1 – Normalization & Category Mapping (**PROPOSTA INTERMEDIA**)
+**Motivazione**: Prima di procedere alle portion heuristics (Fase 3) è necessario evitare propagazione di macro implausibili (es. pesce con carboidrati, garnish sovrastimati). Questa sotto‑fase riduce il debito tecnico nutrizionale.
+
+**Scope IN**:
+- Category mapping da label → categoria normalizzata (es: `fish`, `salmon filet` → `lean_fish`)
+- Profili nutrienti per categoria (≥10): `lean_fish`, `poultry`, `pasta_cooked`, `rice_cooked`, `citrus_garnish`, `herb`, `leafy_salad`, `legume`, `tuber`, `dairy_basic`
+- Portion normalization per garnish/slice (`lemon slice`, `parsley`, `basil`): range tipico 5–10g
+- Hard constraints categoria (es: `lean_fish` → carbs=0 se non forniti)
+- Macro consistency check: se `abs(kcal_computed_from_macros - calories) > 15%` ricalcola calories e marca `calorieCorrected=true`
+- Flag `enrichmentSource` (heuristic|default|category_profile) per auditing
+- Metrica nuova: `ai_meal_photo_macro_corrections_total{reason}`
+
+**Scope OUT** (demandato a fasi successive): Vision portion model, integrazione OpenFoodFacts, micronutrienti, fuzzy multi‑lingua.
+
+**Deliverable**:
+- Modulo `category_profiles.py` (mappa categoria → macro per 100g + kcal)
+- Funzione `normalize_label(label) -> (category, normalized_label)` con ruleset semplice (regex + lowercase + token stripping)
+- Estensione `NutrientEnrichmentService` per: lookup categoria → fallback attuale
+- Validatore macro & calories (`validate_macros(item)`) integrato in pipeline adapter
+- Test: profili categoria, normalization edge cases, macro correction path
+
+**Metriche / KPI**:
+| KPI | Target |
+|-----|--------|
+| Items con categoria riconosciuta | ≥60% (dataset test interno) |
+| Macro implausibili (proteina animale con carbs>2g/100g) | 0 casi |
+| Garnish calorie impact (% su totale) | <10% salvo piatti effettivamente garnish-only |
+| Correzioni macro (fraction) | <30% (sintomo euristiche stabili) |
+
+**Rischi & Mitigazioni**:
+| Rischio | Mitigazione |
+|---------|-------------|
+| Overfitting categorie limitate | Aggiungere fallback `generic_protein`, `generic_carb` |
+| Collisioni label multi-lingua | Normalizzare e lasciare hook per dizionari estesi |
+| Sott/stima garnish | Range fisso + test regressione |
+
+**Dipendenze**: Fase 2 completata. Pre-requisito per Fase 3 (portion heuristics) per evitare amplificazione errori.
+
+**Criterio di Uscita Fase 2.1**:
+- Tabella profili attiva in produzione con metriche >2 giorni
+- Nessun caso di pesce/carni con carbs >2g/100g nelle analisi raccolte
+- Macro consistency check attivo con correzioni loggate
+- Documentazione aggiornata (questa sezione) ✓
 
 ### Fase 3 – Portion Heuristics
 Scope IN: Libreria porzioni tipiche (es. "apple"=150g), rilevazione acqua, regole su unità (slice, piece, cup), scaling quantità.
