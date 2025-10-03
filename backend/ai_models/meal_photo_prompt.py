@@ -96,7 +96,7 @@ def _safe_json_extract(text: str) -> Dict[str, Any]:
     last = text.rfind("}")
     if first == -1 or last == -1 or last <= first:
         raise ParseError("NO_JSON_OBJECT")
-    snippet = text[first:last + 1]
+    snippet = text[first : last + 1]
     try:
         obj = json.loads(snippet)
         if not isinstance(obj, dict):
