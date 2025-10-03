@@ -1,6 +1,7 @@
 import pytest
-from httpx import AsyncClient
-from app import app, Product
+from typing import Any, Dict
+from httpx import AsyncClient, Response
+from app import Product
 from repository.meals import meal_repo
 from repository.activities import activity_repo
 from cache import cache
@@ -32,7 +33,7 @@ def _reset_repo() -> None:
 
 
 @pytest.mark.asyncio
-async def test_daily_summary_empty_day() -> None:
+async def test_daily_summary_empty_day(client: AsyncClient) -> None:
     _reset_repo()
     query = _q(
         """
@@ -50,9 +51,8 @@ async def test_daily_summary_empty_day() -> None:
         } }
         """
     )
-    async with AsyncClient(app=app, base_url="http://test") as ac:
-        resp = await ac.post("/graphql", json={"query": query})
-    data = resp.json()["data"]["dailySummary"]
+    resp: Response = await client.post("/graphql", json={"query": query})
+    data: Dict[str, Any] = resp.json()["data"]["dailySummary"]
     assert data["date"] == "2025-01-10"
     assert data["meals"] == 0
     assert data["calories"] == 0
@@ -65,11 +65,10 @@ async def test_daily_summary_empty_day() -> None:
 
 
 @pytest.mark.asyncio
-async def test_daily_summary_aggregation() -> None:
+async def test_daily_summary_aggregation(client: AsyncClient) -> None:
     _reset_repo()
-    async with AsyncClient(app=app, base_url="http://test") as ac:
-        m1 = _q(
-            """
+    m1 = _q(
+        """
             mutation {
                 logMeal(
                     input:{
@@ -81,9 +80,9 @@ async def test_daily_summary_aggregation() -> None:
                 ) { id }
             }
             """
-        )
-        m2 = _q(
-            """
+    )
+    m2 = _q(
+        """
             mutation {
                 logMeal(
                     input:{
@@ -95,12 +94,12 @@ async def test_daily_summary_aggregation() -> None:
                 ) { id }
             }
             """
-        )
-        await ac.post("/graphql", json={"query": m1})
-        await ac.post("/graphql", json={"query": m2})
-        # Impostiamo i totali activity tramite nuova mutation syncHealthTotals
-        sync = _q(
-            """
+    )
+    await client.post("/graphql", json={"query": m1})
+    await client.post("/graphql", json={"query": m2})
+    # Impostiamo i totali activity tramite nuova mutation syncHealthTotals
+    sync = _q(
+        """
             mutation {
                 syncHealthTotals(
                     input:{
@@ -112,10 +111,10 @@ async def test_daily_summary_aggregation() -> None:
                 ) { accepted duplicate reset }
             }
             """
-        )
-        await ac.post("/graphql", json={"query": sync})
-        query = _q(
-            """
+    )
+    await client.post("/graphql", json={"query": sync})
+    query = _q(
+        """
             { dailySummary(date: \"2025-02-01\") {
                 meals
                 calories
@@ -126,9 +125,9 @@ async def test_daily_summary_aggregation() -> None:
                 caloriesReplenishedPercent
             } }
             """
-        )
-        resp = await ac.post("/graphql", json={"query": query})
-    ds = resp.json()["data"]["dailySummary"]
+    )
+    resp2: Response = await client.post("/graphql", json={"query": query})
+    ds: Dict[str, Any] = resp2.json()["data"]["dailySummary"]
     assert ds["meals"] == 2
     assert isinstance(ds["calories"], int)
     assert ds["activitySteps"] == 50
@@ -141,11 +140,10 @@ async def test_daily_summary_aggregation() -> None:
 
 
 @pytest.mark.asyncio
-async def test_daily_summary_user_isolation() -> None:
+async def test_daily_summary_user_isolation(client: AsyncClient) -> None:
     _reset_repo()
-    async with AsyncClient(app=app, base_url="http://test") as ac:
-        m1 = _q(
-            """
+    m1 = _q(
+        """
             mutation {
                 logMeal(
                     input:{
@@ -156,9 +154,9 @@ async def test_daily_summary_user_isolation() -> None:
                 ) { id }
             }
             """
-        )
-        m2 = _q(
-            """
+    )
+    m2 = _q(
+        """
             mutation {
                 logMeal(
                     input:{
@@ -170,12 +168,12 @@ async def test_daily_summary_user_isolation() -> None:
                 ) { id }
             }
             """
-        )
-        await ac.post("/graphql", json={"query": m1})
-        await ac.post("/graphql", json={"query": m2})
-        # Impostiamo snapshot distinti per due utenti
-        sync_def = _q(
-            """
+    )
+    await client.post("/graphql", json={"query": m1})
+    await client.post("/graphql", json={"query": m2})
+    # Impostiamo snapshot distinti per due utenti
+    sync_def = _q(
+        """
             mutation {
                 syncHealthTotals(
                     input:{
@@ -187,9 +185,9 @@ async def test_daily_summary_user_isolation() -> None:
                 ) { accepted }
             }
             """
-        )
-        sync_u2 = _q(
-            """
+    )
+    sync_u2 = _q(
+        """
             mutation {
                 syncHealthTotals(
                     userId: \"u2\"
@@ -202,11 +200,11 @@ async def test_daily_summary_user_isolation() -> None:
                 ) { accepted }
             }
             """
-        )
-        await ac.post("/graphql", json={"query": sync_def})
-        await ac.post("/graphql", json={"query": sync_u2})
-        q_default = _q(
-            """
+    )
+    await client.post("/graphql", json={"query": sync_def})
+    await client.post("/graphql", json={"query": sync_u2})
+    q_default = _q(
+        """
             { dailySummary(date: \"2025-03-01\") {
                 userId
                 meals
@@ -215,9 +213,9 @@ async def test_daily_summary_user_isolation() -> None:
                 caloriesReplenishedPercent
             } }
             """
-        )
-        q_u2 = _q(
-            """
+    )
+    q_u2 = _q(
+        """
             { dailySummary(date: \"2025-03-01\", userId: \"u2\") {
                 userId
                 meals
@@ -226,11 +224,11 @@ async def test_daily_summary_user_isolation() -> None:
                 caloriesReplenishedPercent
             } }
             """
-        )
-        r_def = await ac.post("/graphql", json={"query": q_default})
-        r_u2 = await ac.post("/graphql", json={"query": q_u2})
-    d_def = r_def.json()["data"]["dailySummary"]
-    d_u2 = r_u2.json()["data"]["dailySummary"]
+    )
+    r_def: Response = await client.post("/graphql", json={"query": q_default})
+    r_u2: Response = await client.post("/graphql", json={"query": q_u2})
+    d_def: Dict[str, Any] = r_def.json()["data"]["dailySummary"]
+    d_u2: Dict[str, Any] = r_u2.json()["data"]["dailySummary"]
     assert d_def["userId"] == "default" and d_def["meals"] == 1
     assert d_u2["userId"] == "u2" and d_u2["meals"] == 1
     assert d_def["activitySteps"] == 10
@@ -240,7 +238,7 @@ async def test_daily_summary_user_isolation() -> None:
 
 
 @pytest.mark.asyncio
-async def test_daily_summary_surplus_and_clamp() -> None:
+async def test_daily_summary_surplus_and_clamp(client: AsyncClient) -> None:
     _reset_repo()
     synthetic = Product(
         barcode="SURPLUS1",
@@ -256,9 +254,8 @@ async def test_daily_summary_surplus_and_clamp() -> None:
         sodium=200.0,
     )
     cache.set("product:SURPLUS1", synthetic, 600)
-    async with AsyncClient(app=app, base_url="http://test") as ac:
-        sync = _q(
-            """
+    sync = _q(
+        """
             mutation {
                 syncHealthTotals(
                     input:{
@@ -270,10 +267,10 @@ async def test_daily_summary_surplus_and_clamp() -> None:
                 ) { accepted }
             }
             """
-        )
-        await ac.post("/graphql", json={"query": sync})
-        meal = _q(
-            """
+    )
+    await client.post("/graphql", json={"query": sync})
+    meal = _q(
+        """
             mutation {
                 logMeal(
                     input:{
@@ -285,10 +282,10 @@ async def test_daily_summary_surplus_and_clamp() -> None:
                 ) { id calories }
             }
             """
-        )
-        await ac.post("/graphql", json={"query": meal})
-        query = _q(
-            """
+    )
+    await client.post("/graphql", json={"query": meal})
+    query = _q(
+        """
             { dailySummary(date: \"2025-04-01\") {
                 calories
                 activityCaloriesOut
@@ -296,9 +293,9 @@ async def test_daily_summary_surplus_and_clamp() -> None:
                 caloriesReplenishedPercent
             } }
             """
-        )
-        resp = await ac.post("/graphql", json={"query": query})
-    ds = resp.json()["data"]["dailySummary"]
+    )
+    resp3: Response = await client.post("/graphql", json={"query": query})
+    ds = resp3.json()["data"]["dailySummary"]
     assert ds["activityCaloriesOut"] == 2.0
     assert isinstance(ds["calories"], int)
     assert ds["caloriesDeficit"] == (ds["activityCaloriesOut"] - ds["calories"])

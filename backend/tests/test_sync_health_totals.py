@@ -1,6 +1,6 @@
 import pytest
-from httpx import AsyncClient
-from app import app
+from typing import Dict, Any
+from httpx import AsyncClient, Response
 from repository.health_totals import health_totals_repo
 
 
@@ -16,7 +16,7 @@ def _reset() -> None:
 
 
 @pytest.mark.asyncio
-async def test_first_snapshot() -> None:
+async def test_first_snapshot(client: AsyncClient) -> None:
     _reset()
     q = _q(
         """
@@ -38,9 +38,8 @@ async def test_first_snapshot() -> None:
         } }
         """
     )
-    async with AsyncClient(app=app, base_url="http://test") as ac:
-        r = await ac.post("/graphql", json={"query": q})
-    res = r.json()["data"]["syncHealthTotals"]
+    r: Response = await client.post("/graphql", json={"query": q})
+    res: Dict[str, Any] = r.json()["data"]["syncHealthTotals"]
     assert res["accepted"] is True and res["duplicate"] is False
     d = res["delta"]
     assert d["stepsDelta"] == 120 and d["stepsTotal"] == 120
@@ -48,11 +47,10 @@ async def test_first_snapshot() -> None:
 
 
 @pytest.mark.asyncio
-async def test_incremental_snapshot() -> None:
+async def test_incremental_snapshot(client: AsyncClient) -> None:
     _reset()
-    async with AsyncClient(app=app, base_url="http://test") as ac:
-        first = _q(
-            """
+    first = _q(
+        """
             mutation { syncHealthTotals(
                 input:{
                     timestamp:"2025-06-02T10:00:00Z"
@@ -62,10 +60,10 @@ async def test_incremental_snapshot() -> None:
                 }
             ) { accepted } }
             """
-        )
-        await ac.post("/graphql", json={"query": first})
-        inc = _q(
-            """
+    )
+    await client.post("/graphql", json={"query": first})
+    inc = _q(
+        """
             mutation { syncHealthTotals(
                 input:{
                     timestamp:"2025-06-02T11:00:00Z"
@@ -83,19 +81,18 @@ async def test_incremental_snapshot() -> None:
                                             }
                         } }
             """
-        )
-        r = await ac.post("/graphql", json={"query": inc})
-    d = r.json()["data"]["syncHealthTotals"]["delta"]
+    )
+    r: Response = await client.post("/graphql", json={"query": inc})
+    d: Dict[str, Any] = r.json()["data"]["syncHealthTotals"]["delta"]
     assert d["stepsDelta"] == 150 and d["stepsTotal"] == 250
     assert d["caloriesOutDelta"] == 24.2 and d["caloriesOutTotal"] == 34.2
 
 
 @pytest.mark.asyncio
-async def test_duplicate_snapshot() -> None:
+async def test_duplicate_snapshot(client: AsyncClient) -> None:
     _reset()
-    async with AsyncClient(app=app, base_url="http://test") as ac:
-        base = _q(
-            """
+    base = _q(
+        """
             mutation { syncHealthTotals(
                 input:{
                     timestamp:"2025-06-03T09:00:00Z"
@@ -105,9 +102,9 @@ async def test_duplicate_snapshot() -> None:
                 }
             ) { accepted } }
             """
-        )
-        dup = _q(
-            """
+    )
+    dup = _q(
+        """
             mutation { syncHealthTotals(
                 input:{
                     timestamp:"2025-06-03T09:05:00Z"
@@ -125,21 +122,20 @@ async def test_duplicate_snapshot() -> None:
                                             }
                         } }
             """
-        )
-        await ac.post("/graphql", json={"query": base})
-        r = await ac.post("/graphql", json={"query": dup})
-    res = r.json()["data"]["syncHealthTotals"]
+    )
+    await client.post("/graphql", json={"query": base})
+    r: Response = await client.post("/graphql", json={"query": dup})
+    res: Dict[str, Any] = r.json()["data"]["syncHealthTotals"]
     assert res["accepted"] is False and res["duplicate"] is True
     d = res["delta"]
     assert d["stepsDelta"] == 0 and d["caloriesOutDelta"] == 0.0
 
 
 @pytest.mark.asyncio
-async def test_idempotency_conflict() -> None:
+async def test_idempotency_conflict(client: AsyncClient) -> None:
     _reset()
-    async with AsyncClient(app=app, base_url="http://test") as ac:
-        a = _q(
-            """
+    a = _q(
+        """
             mutation { syncHealthTotals(
                 idempotencyKey:"K1"
                 input:{
@@ -150,9 +146,9 @@ async def test_idempotency_conflict() -> None:
                 }
             ) { accepted idempotencyConflict } }
             """
-        )
-        b = _q(
-            """
+    )
+    b = _q(
+        """
             mutation { syncHealthTotals(
                 idempotencyKey:"K1"
                 input:{
@@ -163,19 +159,18 @@ async def test_idempotency_conflict() -> None:
                 }
             ) { accepted idempotencyConflict } }
             """
-        )
-        r1 = await ac.post("/graphql", json={"query": a})
-        r2 = await ac.post("/graphql", json={"query": b})
+    )
+    r1: Response = await client.post("/graphql", json={"query": a})
+    r2: Response = await client.post("/graphql", json={"query": b})
     assert r1.json()["data"]["syncHealthTotals"]["accepted"] is True
     assert r2.json()["data"]["syncHealthTotals"]["idempotencyConflict"] is True
 
 
 @pytest.mark.asyncio
-async def test_reset_detection() -> None:
+async def test_reset_detection(client: AsyncClient) -> None:
     _reset()
-    async with AsyncClient(app=app, base_url="http://test") as ac:
-        base = _q(
-            """
+    base = _q(
+        """
             mutation { syncHealthTotals(
                 input:{
                     timestamp:"2025-06-05T09:00:00Z"
@@ -185,9 +180,9 @@ async def test_reset_detection() -> None:
                 }
             ) { accepted } }
             """
-        )
-        dec = _q(
-            """
+    )
+    dec = _q(
+        """
             mutation { syncHealthTotals(
                 input:{
                     timestamp:"2025-06-05T10:00:00Z"
@@ -205,21 +200,20 @@ async def test_reset_detection() -> None:
                             }
                         } }
             """
-        )
-        await ac.post("/graphql", json={"query": base})
-        r = await ac.post("/graphql", json={"query": dec})
-    res = r.json()["data"]["syncHealthTotals"]
+    )
+    await client.post("/graphql", json={"query": base})
+    r: Response = await client.post("/graphql", json={"query": dec})
+    res: Dict[str, Any] = r.json()["data"]["syncHealthTotals"]
     assert res["reset"] is True and res["accepted"] is True
     d = res["delta"]
     assert d["stepsDelta"] == 200 and d["caloriesOutDelta"] == 30
 
 
 @pytest.mark.asyncio
-async def test_daily_summary_integration() -> None:
+async def test_daily_summary_integration(client: AsyncClient) -> None:
     _reset()
-    async with AsyncClient(app=app, base_url="http://test") as ac:
-        s1 = _q(
-            """
+    s1 = _q(
+        """
             mutation { syncHealthTotals(
                 input:{
                     timestamp:"2025-06-06T08:00:00Z"
@@ -229,9 +223,9 @@ async def test_daily_summary_integration() -> None:
                 }
             ) { accepted } }
             """
-        )
-        s2 = _q(
-            """
+    )
+    s2 = _q(
+        """
             mutation { syncHealthTotals(
                 input:{
                     timestamp:"2025-06-06T09:00:00Z"
@@ -241,18 +235,18 @@ async def test_daily_summary_integration() -> None:
                 }
             ) { accepted } }
             """
-        )
-        await ac.post("/graphql", json={"query": s1})
-        await ac.post("/graphql", json={"query": s2})
-        q = _q(
-            """
+    )
+    await client.post("/graphql", json={"query": s1})
+    await client.post("/graphql", json={"query": s2})
+    q = _q(
+        """
             { dailySummary(date:"2025-06-06") {
                 activitySteps
                 activityCaloriesOut
             } }
             """
-        )
-        r = await ac.post("/graphql", json={"query": q})
-    ds = r.json()["data"]["dailySummary"]
+    )
+    r: Response = await client.post("/graphql", json={"query": q})
+    ds: Dict[str, Any] = r.json()["data"]["dailySummary"]
     assert ds["activitySteps"] == 150  # dalte = 100 + 50
     assert ds["activityCaloriesOut"] == 25.0

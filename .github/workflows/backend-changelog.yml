@@ -10,20 +10,39 @@ on:
 jobs:
   changelog:
     runs-on: ubuntu-latest
+    env:
+      RUST_LOG: debug
+      GIT_CLIFF_DEBUG: 1
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
       - name: Install git-cliff
-        run: |
-          curl -sSL https://github.com/orhun/git-cliff/releases/latest/download/git-cliff-x86_64-unknown-linux-gnu.tar.gz \
-            | tar -xz --strip-components=1 git-cliff
-          sudo mv git-cliff /usr/local/bin/git-cliff
+        uses: taiki-e/install-action@v2
+        with:
+          tool: git-cliff
       - name: Generate changelog (backend)
         run: |
-          git-cliff --config .github/cliff-backend.toml --output backend/CHANGELOG_PENDING.md
+          set -euxo pipefail
+          echo 'git-cliff version:'
+          git-cliff --version || true
+          echo 'Recent commits (HEAD -> 15):'
+          git --no-pager log -n 15 --pretty=oneline || true
+          echo 'Config file:'
+          sed -n '1,120p' .github/cliff-backend.toml
+          echo 'Running git-cliff with verbosity'
+          git-cliff -vv --config .github/cliff-backend.toml --output backend/CHANGELOG_PENDING.md
           echo '--- Preview (first 60 lines) ---'
           head -n 60 backend/CHANGELOG_PENDING.md
+      - name: Debug failure context
+        if: failure()
+        run: |
+          echo 'Listing backend directory:'
+          ls -al backend || true
+          echo 'Partial generated file (if exists):'
+          sed -n '1,120p' backend/CHANGELOG_PENDING.md || true
+          echo 'Show environment variables (filtered)'
+          env | grep -E 'GIT_CLIFF|RUST_LOG' || true
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:

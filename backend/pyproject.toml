@@ -11,7 +11,9 @@ dependencies = [
   "uvicorn==0.30.1",
   "strawberry-graphql==0.211.1",
   "httpx==0.27.0",
-  "pyyaml==6.0.2"
+  "pyyaml==6.0.2",
+  "openai==1.45.0",
+  "flake8>=7.3.0",
 ]
 
 [project.optional-dependencies]
@@ -59,5 +61,6 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["openfoodfacts*", "rules*", "*"]
+# Include tutti i pacchetti top-level (directory con __init__.py) ad eccezione dei test
+include = ["*"]
 exclude = ["tests*"]

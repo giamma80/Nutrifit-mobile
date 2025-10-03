@@ -1,7 +1,7 @@
 import json
 import pytest
-from httpx import AsyncClient
-from app import app
+from typing import Any, Dict, List
+from httpx import AsyncClient, Response
 from repository.meals import meal_repo
 
 
@@ -18,7 +18,9 @@ def _reset() -> None:
 
 
 @pytest.mark.asyncio
-async def test_log_meal_idempotent_without_timestamp() -> None:
+async def test_log_meal_idempotent_without_timestamp(
+    client: AsyncClient,
+) -> None:
     _reset()
     query = """
     mutation {
@@ -31,16 +33,17 @@ async def test_log_meal_idempotent_without_timestamp() -> None:
       }
     }
     """
-    async with AsyncClient(app=app, base_url="http://test") as ac:
-        r1 = await ac.post("/graphql", json={"query": query})
-        r2 = await ac.post("/graphql", json={"query": query})
-    d1 = r1.json()["data"]["logMeal"]
-    d2 = r2.json()["data"]["logMeal"]
+    r1: Response = await client.post("/graphql", json={"query": query})
+    r2: Response = await client.post("/graphql", json={"query": query})
+    d1: Dict[str, Any] = r1.json()["data"]["logMeal"]
+    d2: Dict[str, Any] = r2.json()["data"]["logMeal"]
     assert d1["id"] == d2["id"]
 
 
 @pytest.mark.asyncio
-async def test_log_meal_different_timestamp_not_idempotent() -> None:
+async def test_log_meal_different_timestamp_not_idempotent(
+    client: AsyncClient,
+) -> None:
     _reset()
     q1 = """
     mutation {
@@ -64,16 +67,17 @@ async def test_log_meal_different_timestamp_not_idempotent() -> None:
       ) { id }
     }
     """
-    async with AsyncClient(app=app, base_url="http://test") as ac:
-        r1 = await ac.post("/graphql", json={"query": q1})
-        r2 = await ac.post("/graphql", json={"query": q2})
-    id1 = r1.json()["data"]["logMeal"]["id"]
-    id2 = r2.json()["data"]["logMeal"]["id"]
+    r1: Response = await client.post("/graphql", json={"query": q1})
+    r2: Response = await client.post("/graphql", json={"query": q2})
+    id1: str = r1.json()["data"]["logMeal"]["id"]
+    id2: str = r2.json()["data"]["logMeal"]["id"]
     assert id1 != id2
 
 
 @pytest.mark.asyncio
-async def test_log_meal_explicit_idempotency_key_wins() -> None:
+async def test_log_meal_explicit_idempotency_key_wins(
+    client: AsyncClient,
+) -> None:
     _reset()
     q1 = """
     mutation {
@@ -97,17 +101,16 @@ async def test_log_meal_explicit_idempotency_key_wins() -> None:
       ) { id quantityG }
     }
     """
-    async with AsyncClient(app=app, base_url="http://test") as ac:
-        r1 = await ac.post("/graphql", json={"query": q1})
-        r2 = await ac.post("/graphql", json={"query": q2})
-    d1 = r1.json()["data"]["logMeal"]
-    d2 = r2.json()["data"]["logMeal"]
+    r1: Response = await client.post("/graphql", json={"query": q1})
+    r2: Response = await client.post("/graphql", json={"query": q2})
+    d1: Dict[str, Any] = r1.json()["data"]["logMeal"]
+    d2: Dict[str, Any] = r2.json()["data"]["logMeal"]
     assert d1["id"] == d2["id"]
     assert d2["quantityG"] == 120
 
 
 @pytest.mark.asyncio
-async def test_snapshot_present_only_with_barcode() -> None:
+async def test_snapshot_present_only_with_barcode(client: AsyncClient) -> None:
     _reset()
     q_no = """
     mutation {
@@ -123,11 +126,10 @@ async def test_snapshot_present_only_with_barcode() -> None:
       ) { id nutrientSnapshotJson }
     }
     """
-    async with AsyncClient(app=app, base_url="http://test") as ac:
-        r_no = await ac.post("/graphql", json={"query": q_no})
-        r_bc = await ac.post("/graphql", json={"query": q_bc})
-    snap_no = r_no.json()["data"]["logMeal"]["nutrientSnapshotJson"]
-    snap_bc = r_bc.json()["data"]["logMeal"]["nutrientSnapshotJson"]
+    r_no: Response = await client.post("/graphql", json={"query": q_no})
+    r_bc: Response = await client.post("/graphql", json={"query": q_bc})
+    snap_no: Any = r_no.json()["data"]["logMeal"]["nutrientSnapshotJson"]
+    snap_bc: Any = r_bc.json()["data"]["logMeal"]["nutrientSnapshotJson"]
     assert snap_no is None
     if snap_bc is not None:
         parsed = json.loads(snap_bc)
@@ -144,7 +146,9 @@ async def test_snapshot_present_only_with_barcode() -> None:
 
 
 @pytest.mark.asyncio
-async def test_multiple_entries_with_different_idempotency_keys() -> None:
+async def test_multiple_entries_with_different_idempotency_keys(
+    client: AsyncClient,
+) -> None:
     """Due pasti identici ma con idempotencyKey diverso devono creare
     due record distinti e risultare nella lista."""
     _reset()
@@ -165,13 +169,12 @@ async def test_multiple_entries_with_different_idempotency_keys() -> None:
     list_query = """
     { mealEntries(limit:10){ id idempotencyKey name quantityG } }
     """
-    async with AsyncClient(app=app, base_url="http://test") as ac:
-        r1 = await ac.post("/graphql", json={"query": q1})
-        r2 = await ac.post("/graphql", json={"query": q2})
-        rl = await ac.post("/graphql", json={"query": list_query})
-    id1 = r1.json()["data"]["logMeal"]["id"]
-    id2 = r2.json()["data"]["logMeal"]["id"]
+    r1: Response = await client.post("/graphql", json={"query": q1})
+    r2: Response = await client.post("/graphql", json={"query": q2})
+    rl: Response = await client.post("/graphql", json={"query": list_query})
+    id1: str = r1.json()["data"]["logMeal"]["id"]
+    id2: str = r2.json()["data"]["logMeal"]["id"]
     assert id1 != id2
-    entries = rl.json()["data"]["mealEntries"]
+    entries: List[Dict[str, Any]] = rl.json()["data"]["mealEntries"]
     keys = {e["idempotencyKey"] for e in entries}
     assert "A1" in keys and "A2" in keys

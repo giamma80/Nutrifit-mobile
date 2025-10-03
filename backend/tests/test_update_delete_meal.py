@@ -1,6 +1,6 @@
 import pytest
-from httpx import AsyncClient
-from app import app
+from typing import Any, Dict
+from httpx import AsyncClient, Response
 from repository.meals import meal_repo
 
 
@@ -17,7 +17,7 @@ def _reset() -> None:
 
 
 @pytest.mark.asyncio
-async def test_update_meal_name_and_quantity() -> None:
+async def test_update_meal_name_and_quantity(client: AsyncClient) -> None:
     _reset()
     create = """
     mutation {
@@ -26,9 +26,8 @@ async def test_update_meal_name_and_quantity() -> None:
       }
     }
     """
-    async with AsyncClient(app=app, base_url="http://test") as ac:
-        r_create = await ac.post("/graphql", json={"query": create})
-    meal_id = r_create.json()["data"]["logMeal"]["id"]
+    r_create: Response = await client.post("/graphql", json={"query": create})
+    meal_id: str = r_create.json()["data"]["logMeal"]["id"]
     upd = f"""
         mutation {{
             updateMeal(
@@ -42,26 +41,23 @@ async def test_update_meal_name_and_quantity() -> None:
       }}
     }}
     """
-    async with AsyncClient(app=app, base_url="http://test") as ac:
-        r_upd = await ac.post("/graphql", json={"query": upd})
-    body = r_upd.json()["data"]["updateMeal"]
+    r_upd: Response = await client.post("/graphql", json={"query": upd})
+    body: Dict[str, Any] = r_upd.json()["data"]["updateMeal"]
     assert body["name"] == "Pasta Integrale"
     assert body["quantityG"] == 150
 
 
 @pytest.mark.asyncio
-async def test_delete_meal() -> None:
+async def test_delete_meal(client: AsyncClient) -> None:
     _reset()
     create = """
     mutation { logMeal(input:{name:"Juice", quantityG:50}) { id } }
     """
-    async with AsyncClient(app=app, base_url="http://test") as ac:
-        r_create = await ac.post("/graphql", json={"query": create})
-    meal_id = r_create.json()["data"]["logMeal"]["id"]
+    r_create: Response = await client.post("/graphql", json={"query": create})
+    meal_id: str = r_create.json()["data"]["logMeal"]["id"]
     delete_q = f'mutation {{ deleteMeal(id: "{meal_id}") }}'
-    async with AsyncClient(app=app, base_url="http://test") as ac:
-        r_del = await ac.post("/graphql", json={"query": delete_q})
-        # seconda delete deve restituire false
-        r_del2 = await ac.post("/graphql", json={"query": delete_q})
+    r_del: Response = await client.post("/graphql", json={"query": delete_q})
+    # seconda delete deve restituire false
+    r_del2: Response = await client.post("/graphql", json={"query": delete_q})
     assert r_del.json()["data"]["deleteMeal"] is True
     assert r_del2.json()["data"]["deleteMeal"] is False

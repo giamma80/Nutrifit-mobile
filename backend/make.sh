@@ -9,8 +9,15 @@ set -euo pipefail
 TARGET=${1:-help}; shift || true
 
 PROJECT_NAME="nutrifit-backend"
-IMAGE_NAME="nutrifit-backend:dev"
-CONTAINER_NAME="nutrifit-backend-dev"
+# Docker image naming strategy (unificata)
+# Repository fisso: nutifit-backend
+# TAG di default: dev (override con TAG=latest, TAG=$(pyproject_version), ecc.)
+IMAGE_REPO="nutrifit-backend"
+DEFAULT_TAG="dev"
+IMAGE_TAG="${TAG:-$DEFAULT_TAG}"
+IMAGE_NAME="${IMAGE_REPO}:${IMAGE_TAG}"
+# Container name derivato dal tag per evitare collisioni tra tag diversi contemporanei
+CONTAINER_NAME="${IMAGE_REPO}-${IMAGE_TAG}"
 SERVER_PID_FILE=".server.pid"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 VERSION_FILE="${SCRIPT_DIR}/pyproject.toml"
@@ -290,8 +297,8 @@ Targets disponibili:
 
   # Docker
   check-docker      Verifica disponibilità demone Docker
-  docker-build      Build immagine locale (${IMAGE_NAME})
-  docker-run        Esegui container (porta 8080)
+  docker-build      Build immagine locale (nutrifit-backend:<TAG> default dev) es: TAG=latest ./make.sh docker-build
+  docker-run        Esegui container (porta 8000) con tag corrente (TAG=... opzionale)
   docker-stop       Stop & remove container
   docker-logs       Segui log container
   docker-restart    Restart container
@@ -328,7 +335,13 @@ EOF
     header "Dev server (foreground)"
     mkdir -p "$LOG_DIR"
     echo "# $(date -Iseconds) START (fg)" >> "$SERVER_LOG_FILE"
-    uv run uvicorn app:app --reload --port 8080 2>&1 | tee -a "$SERVER_LOG_FILE"
+    if [ -f .env ]; then
+      info "Rilevato .env → export variabili (uvicorn --env-file)"
+      ENV_FILE_ARG="--env-file .env"
+    else
+      ENV_FILE_ARG=""
+    fi
+    uv run uvicorn app:app --reload --port 8080 $ENV_FILE_ARG 2>&1 | tee -a "$SERVER_LOG_FILE"
     ;;
 
   run-bg)
@@ -336,7 +349,13 @@ EOF
     if server_running; then warn "Server già in esecuzione (PID $(cat $SERVER_PID_FILE))"; exit 0; fi
     mkdir -p "$LOG_DIR"
     echo "# $(date -Iseconds) START (bg)" >> "$SERVER_LOG_FILE"
-    (uv run uvicorn app:app --reload --port 8080 >>"$SERVER_LOG_FILE" 2>&1 & echo $! > "$SERVER_PID_FILE")
+    if [ -f .env ]; then
+      info "Rilevato .env → export variabili (uvicorn --env-file)"
+      ENV_FILE_ARG="--env-file .env"
+    else
+      ENV_FILE_ARG=""
+    fi
+    (uv run uvicorn app:app --reload --port 8080 $ENV_FILE_ARG >>"$SERVER_LOG_FILE" 2>&1 & echo $! > "$SERVER_PID_FILE")
     sleep 1
     if server_running; then info "Server avviato PID $(cat $SERVER_PID_FILE)"; else err "Avvio server fallito"; exit 1; fi
     ;;
@@ -355,20 +374,29 @@ EOF
   docker-build)
     $0 check-docker
     header "Docker build ${IMAGE_NAME}"
+    info "Repository: ${IMAGE_REPO}  Tag: ${IMAGE_TAG}"
+    info "Esempi: TAG=latest ./make.sh docker-build | TAG=$(pyproject_version) ./make.sh docker-build"
     docker build -t "${IMAGE_NAME}" .
+    info "Immagine disponibile: ${IMAGE_NAME} (lista: docker images | grep ${IMAGE_REPO})"
     ;;
 
   docker-run)
     $0 check-docker
     header "Docker run ${CONTAINER_NAME} (porta 8000)"
+    info "Usando immagine: ${IMAGE_NAME} (override TAG=<tag> per cambiare)"
     if docker_running; then warn "Container già attivo"; exit 0; fi
     # Verifica esistenza immagine, altrimenti build
     if ! docker image inspect "${IMAGE_NAME}" >/dev/null 2>&1; then
       warn "Immagine ${IMAGE_NAME} non trovata: eseguo build rapida"
       docker build -t "${IMAGE_NAME}" .
     fi
-    # Usa CMD del Dockerfile (porta definita lì), esponendo 8000
-    docker run -d --rm -p 8000:8000 --name "${CONTAINER_NAME}" "${IMAGE_NAME}"
+    # Se presente .env passalo come --env-file (solo variabili non commentate)
+    DOCKER_ENV_ARGS=""
+    if [ -f .env ]; then
+      info "Rilevato .env → passaggio come --env-file (ATTENZIONE: commenti ignorati)"
+      DOCKER_ENV_ARGS="--env-file .env"
+    fi
+    docker run -d --rm -p 8000:8000 $DOCKER_ENV_ARGS --name "${CONTAINER_NAME}" "${IMAGE_NAME}"
     info "Container avviato (http://localhost:8000)"
     ;;
 
@@ -380,7 +408,12 @@ EOF
       warn "Immagine ${IMAGE_NAME} non trovata: eseguo build rapida"
       docker build -t "${IMAGE_NAME}" .
     fi
-    docker run -d -p 8000:8000 --name "${CONTAINER_NAME}" "${IMAGE_NAME}"
+    DOCKER_ENV_ARGS=""
+    if [ -f .env ]; then
+      info "Rilevato .env → passaggio come --env-file"
+      DOCKER_ENV_ARGS="--env-file .env"
+    fi
+    docker run -d -p 8000:8000 $DOCKER_ENV_ARGS --name "${CONTAINER_NAME}" "${IMAGE_NAME}"
     info "Container avviato in modalità debug (non verrà rimosso automaticamente)"
     info "Logs: docker logs -f ${CONTAINER_NAME} | Shell: docker exec -it ${CONTAINER_NAME} sh"
     ;;

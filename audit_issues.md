@@ -27,7 +27,33 @@ Questo file sostituisce `ussues.md` (rimandare qui e rimuovere duplicazioni). St
 | 21 | Low | Medium | Dockerfile copy nutrients.py | File escluso build | Errore runtime | Aggiunto al COPY | DONE |  |
 | 22 | Medium | High | Attività totalizzazione | Totali da minute events | Drift / incompletezza | Introdotto syncHealthTotals delta source | DONE | ARCH |
 | 23 | Medium | Medium | Idempotency conflitti attività | Approccio differenziato ingest vs sync | Incoerenza flag | Unificata semantica flag (duplicate/conflict/reset) | DONE | ARCH |
+| 24 | Medium | High | backend/graphql analyzeMealPhoto+confirmMealPhoto, docs/ai_meal_photo.md | Introdotto stub AI Meal Photo (source=STUB) → evoluto a GPT (source=gpt4v) | Boundary definito ora con adapter reale | DONE | ARCH |
+| 25 | Medium | High | docs/health_totals_sync.md, README.md | Estratta doc Health Totals Sync dedicata | Migliora governance e riduce drift | Doc separata con link nel README | DONE | DOC |
+| 26 | Medium | Medium | docs/data_ingestion_contract.md | Contratto ingest aggiornato (nutrientSnapshotJson + fallback idempotency) | Evita refactor futuri e duplicati | SDL + sezione idempotenza aggiornate | DONE | DOC |
+| 27 | Low | Medium | docs/ai_* cross-link | Mancavano cross-link tra docs AI (pipeline, prompt, stub) | Navigazione scarsa | Aggiunti link reciproci | DONE | DOC |
+| 28 | Low | Medium | docs/recommendation_engine.md | Draft non marcato "non-runtime" | Potenziale confusione stato feature | Stato esplicitato (non runtime) | DONE | DOC |
+| 29 | Medium | Medium | AI pipeline observability | Assenza tracing strutturato & metriche (latency, fallback usage) | Difficile tuning e debug fasi successive | Introdurre logging strutturato + OpenTelemetry + counters | TODO | ARCH |
+| 30 | High | Medium | Futuro modello visione | Mancano rate limiting & cost guard | Rischio costi / abuso | Implementare rate limit per utente/IP + budget giornaliero | TODO | SEC |
+| 31 | Medium | Medium | Meal idempotency logging | Nessun evento esplicito su dedupe pasti | Diagnosi dedupe difficile | Log evento con reason=IDEMPOTENT_DUPLICATE | TODO | OBS |
+| 32 | Medium | Medium | health_totals_delta storage | Stato solo in-memory | Perdita dati su restart | Persistenza (es. tabella Postgres) + migrazione | TODO | ARCH |
+| 33 | Low | Low | AI error taxonomy | Codici errore non definiti (INVALID_IMAGE, PARSE_FALLBACK_USED) | Gestione client incoerente | Enum definito + campi analysisErrors/failureReason esposti + metrics base | DONE | DOC |
+| 34 | Medium | Medium | AI meal photo fallback chain | Assente catena multi-adapter (gpt4v→stub) | Mancato degrad graceful | Implementare decision tree + metriche fallback | TODO | ARCH,OBS |
+| 35 | High | Medium | GPT rate limiting | Assenza throttling per utente/IP | Rischio costi e abuso | Introdurre token bucket + quota giornaliera | TODO | SEC |
+| 36 | Medium | Medium | Portion inference | Stima quantità rudimentale | Nutrienti potenzialmente errati | Introdurre heuristics + test copertura | TODO | ARCH |
+| 37 | Medium | Medium | Persistence MealPhotoAnalysis | In-memory volatile | Perdita analisi / audit gap | Persistenza tabellare + migrazione retrocompatibile | TODO | ARCH |
+| 38 | Medium | Medium | Metrics optional clarity | Mancata nota optionalità in docs storiche | Interpretazioni fuorvianti | Doc aggiornata + flag stato raccolta | DONE | DOC |
+| 39 | Low | Medium | Docs drift roadmap adapter | Roadmap non riflette GPT già attivo | Disallineamento stakeholder | Aggiornata sezione stato corrente | DONE | DOC |
+| 40 | Medium | Medium | Error warnings counting | Warning non sempre contati come metriche | Osservabilità parziale | Aggiungere counter dedicato warnings_total | TODO | OBS |
+| 41 | Medium | High | GPT-4V prompt formato | Prompt minimale non impone enum unit e struttura rigida | Parse fallimenti potenziali / hallucination | Introdurre prompt v2 con sezione MUST/DO NOT + schema rigido | TODO | ARCH,OBS |
+| 42 | High | High | Parser JSON robustezza | Assenza gestione dettagliata errori (missing keys, tipi) | PARSE_EMPTY frequente → fallback e UX peggiorata | Implementare parser con validazioni granulari + error taxonomy mapping | TODO | ARCH |
+| 43 | Medium | Medium | Quantity clamp enforcement | Clamp implementato ma non metricato | Assenza visibilità input anomali | Aggiungere counters quantity_clamped_total + log debugId | TODO | OBS |
+| 44 | Medium | Medium | Macro fill ratio logging | Nessun tracciamento copertura macro calcolate | Difficile valutare enrichment futuro | Calcolare macro_fill_ratio e log/metric histogram | TODO | OBS |
+| 45 | Medium | Medium | Parse success rate metric | Mancano parse_success_total / parse_failed_total | Non misurabile miglioramento Fase 1 | Aggiungere counters + percentuale derivata in dashboard | TODO | OBS |
+| 46 | Low | Medium | Prompt versioning | Nessun campo version nel payload | Difficoltà correlare regressioni | Aggiungere promptVersion in raw_json o analysisErrors debugId | TODO | DOC,OBS |
 
-Legenda Tags: DOC=documentazione, SEC=sicurezza, ARCH=architettura, TEST=test coverage, CI=continuous integration.
+Legenda Tags: DOC=documentazione, SEC=sicurezza, ARCH=architettura, TEST=test coverage, CI=continuous integration, OBS=observability.
 
 Indicazioni aggiornamento: ogni PR che chiude o crea un finding aggiorna questa tabella nello stesso commit.
+
+### Note Evolutive
+La precedente sezione "Phase 1 (Heuristic)" è stata rimossa in favore del nuovo Piano Operativo nel documento `docs/ai_meal_photo.md`. Le issue 41–46 tracciano gli obiettivi attuali della Fase 1 (Prompt rigoroso, Parser robusto, Metriche parse, Clamp visibile, Macro fill ratio, Versioning prompt). Le fasi successive restano mappate su issue esistenti (29, 34, 36, 35).

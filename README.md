@@ -20,104 +20,9 @@
 
 > **Nutrifit** è una piattaforma end-to-end per nutrizione intelligente e fitness: un backend GraphQL centralizzato (backend‑centric) che astrae sorgenti esterne (OpenFoodFacts oggi, Robotoff/AI domani) servendo app Mobile Flutter e un Web Sandbox di validazione, con pipeline AI e automazione nutrizionale coerenti.
 
-## 🔄 Activity Sync (Health Totals)
-La mutation `syncHealthTotals` è ora implementata (in sviluppo su main) ed è la fonte primaria dei totali attività per `dailySummary`, sostituendo le aggregazioni dirette delle minute events. La release minor che consoliderà ufficialmente il cambio fonte è pianificata come `0.5.0`.
+> AI Meal Photo: two‑step (`analyzeMealPhoto` → `confirmMealPhoto`) con adapter GPT‑4V attivo (source=gpt4v) e campi avanzati (`analysisErrors[]`, `failureReason`, `idempotencyKeyUsed`, `totalCalories`) documentati in `docs/ai_meal_photo.md`.
 
-Motivazione:
-- I provider salute (Apple Health / Google Fit) espongono snapshot cumulativi giornalieri robusti.
-- Le minute events possono essere incomplete / duplicate / arrivate fuori ordine.
-- Normalizzare a snapshot + delta permette recupero resiliente dopo offline e resync riducendo drift.
-
-### Nuovi Concetti
-| Concetto | Descrizione |
-|----------|-------------|
-| Snapshot | Stato cumulativo (steps, caloriesOut, hrAvgSession opzionale) in un istante. |
-| Delta | Differenza tra snapshot corrente e precedente (o identico se primo / reset). |
-| Reset | Rilevato quando un contatore cumulativo torna a un valore minore del precedente (es. rollover giorno / clear device). Nel reset il delta = snapshot (come primo evento). |
-| Idempotenza | Signature costruita su (date, steps, caloriesOut, userId) – hrAvgSession escluso; snapshot identico ripetuto → `duplicate=true`. Signature diversa con stessa chiave → `idempotencyConflict=true` nel payload. |
-
-### API Principali
-```graphql
-extend type Mutation {
-  syncHealthTotals(input: HealthTotalsInput!, idempotencyKey: ID): SyncHealthTotalsResult!
-}
-
-input HealthTotalsInput {
-  timestamp: DateTime!      # istante raccolta snapshot
-  date: Date!               # giorno a cui i contatori appartengono (timezone-normalized lato client)
-  steps: Int!
-  caloriesOut: Float!
-  hrAvgSession: Float       # opzionale, NON parte della firma idempotenza
-  userId: ID
-}
-
-type SyncHealthTotalsResult {
-  accepted: Boolean!        # true se delta registrato
-  duplicate: Boolean!       # true se snapshot identico già registrato
-  reset: Boolean!           # true se rilevato reset contatori
-  idempotencyKeyUsed: ID!
-  idempotencyConflict: Boolean!  # true se chiave riusata con payload diverso
-  delta: HealthTotalsDelta  # valorizzato se accepted o duplicate
-}
-
-type HealthTotalsDelta {
-  id: ID!
-  date: Date!
-  timestamp: DateTime!
-  stepsDelta: Int!
-  caloriesOutDelta: Float!
-  stepsTotal: Int!
-  caloriesOutTotal: Float!
-  hrAvgSession: Float
-  userId: ID!
-}
-
-extend type Query {
-  activityEntries(after: String, before: String, limit: Int=100, userId: ID): [ActivityEntry!]!
-  syncEntries(date: Date!, after: String, limit: Int=200, userId: ID): [HealthTotalsDelta!]!
-}
-
-# Esistente (immutato nella prima fase)
-type ActivityEntry { ts: DateTime!, steps: Int!, caloriesOut: Float, hrAvg: Float, source: ActivitySource! }
-```
-
-### Comportamento `dailySummary` (Attuale)
-- `activitySteps` = somma `stepsDelta` del giorno.
-- `activityCaloriesOut` = somma `caloriesOutDelta` del giorno.
-- `activityEvents` continuerà a contare le minute events (`ingestActivityEvents`) per diagnosi, ma NON influenzerà i totali.
-- I campi energetici già introdotti (`caloriesDeficit`, `caloriesReplenishedPercent`) restano invariati, usando i nuovi totali per il bilancio.
-
-### Stati & Edge Cases
-| Scenario | Delta Calcolato | Flag Result |
-|----------|-----------------|-------------|
-| Primo snapshot giornata | stepsDelta=steps, caloriesOutDelta=caloriesOut | accepted=true, reset=false |
-| Incremento normale | differenza positiva vs precedente | accepted=true |
-| Snapshot identico | 0 & 0 | duplicate=true, accepted=false |
-| Reset (contatori più bassi) | delta = nuovi valori | reset=true, accepted=true |
-| Idempotency conflict (chiave diversa payload) | nessun delta nuovo | idempotencyConflict=true, accepted=false |
-
-### Motivazione Esclusione `hrAvgSession` dalla Firma
-L’average HR di sessione può subire micro‑ricalcoli retroattivi; mantenerlo fuori dalla signature evita conflitti spurii preservando idempotenza basata sui contatori monotoni principali.
-
-### Versioning
-Il cambio fonte è classificato MINOR: sarà incluso nella release `0.5.0`. Fino al tag ufficiale eventuali client legacy che non inviano snapshot vedranno `activitySteps` e `activityCaloriesOut` = 0.
-Steps futuri:
-1. Implementazione repository in‑memory (`HealthTotalsRepository`).
-2. Mutation + queries + adattamento resolver `dailySummary`.
-3. Test integrazione (delta chain, reset, duplicate, conflict, dailySummary). 
-4. Aggiornamento schema + mirror + changelog (sezione Added + Changed). 
-5. Release minor dopo verifica backward compatibility lato client.
-
-### Backward Compatibility
-I client che non chiamano `syncHealthTotals` vedranno `activitySteps` e `activityCaloriesOut` a 0 (non più riempiti da minute events) → requisito: aggiornare app a inviare snapshot entro rollout. Periodo di transizione consigliato: gating feature flag temporaneo lato server (non pianificato per MVP interno).
-
-### Esempio Flusso Client
-1. Ottieni snapshot attuale da HealthKit (steps=4200, caloriesOut=310.5) → chiama `syncHealthTotals` (delta=4200 / 310.5).
-2. Dopo 10 minuti: nuovo snapshot (steps=4700, caloriesOut=323.1) → delta=500 / 12.6.
-3. Reset giorno seguente (steps=350, caloriesOut=5.2) → delta=350 / 5.2 con `reset=true`.
-
----
-````markdown
+## � Indice Rapido
 ## 📚 Indice Rapido
 
 1. [Componenti del Monorepo](#-componenti-del-monorepo)
@@ -195,10 +100,11 @@ Nota evolutiva imminente / stato attuale:
 | Architettura Backend | [docs/backend_architecture_plan.md](docs/backend_architecture_plan.md) | Roadmap B0–B9 (backend‑centric), SLO, data model |
 | Policy Contratto Schema | [docs/schema_contract_policy.md](docs/schema_contract_policy.md) | Regole evoluzione schema, deprecation, label PR |
 | Diff Semantico Schema | [docs/schema_diff.md](docs/schema_diff.md) | Classificazione aligned/additive/breaking, output JSON, roadmap |
-| Contratto Ingestion Dati | (coming soon) [docs/data_ingestion_contract.md](docs/data_ingestion_contract.md) | Evento `logMeal`, idempotenza, validazioni |
+| Contratto Ingestion Dati | [docs/data_ingestion_contract.md](docs/data_ingestion_contract.md) | Log/CRUD pasti, idempotenza fallback, nutrient snapshot, activity vs health totals |
 | Sprint Plan | (coming soon) [docs/sprint_plan.md](docs/sprint_plan.md) | Sequenza milestone tecniche & deliverables |
 | Pipeline AI Food Recognition | [docs/ai_food_pipeline_README.md](docs/ai_food_pipeline_README.md) | Flusso inference + enrichment futuro |
 | Prompt AI Vision | [docs/ai_food_recognition_prompt.md](docs/ai_food_recognition_prompt.md) | Prompt primario e fallback GPT-4V |
+| AI Meal Photo Error Taxonomy | [docs/ai_meal_photo_errors.md](docs/ai_meal_photo_errors.md) | Codici errore analisi foto e severità |
 | Changelog Versioni | [CHANGELOG.md](CHANGELOG.md) | Cronologia modifiche & release semver |
 
 ## 🏗 Architettura High-Level (Backend‑Centric)
@@ -269,9 +175,15 @@ Legenda: ✔ disponibile · ✖ non ancora · (noti) evoluzioni.
 
 ```text
 Mobile   M0 ████░░░░ (20%)   → M1 → M2 → M3 ...
-Backend  B0 ████░░░░ (20%)   → B1 → B2 → B3 ...
-AI       POC ███░░░░ (15%)   → Baseline → Autofill
+Backend  B3 ██████░░ (60%)   CRUD + Activity Sync + Snapshot Nutrients
+AI       F0 Stub █░░░░░ (10%) analyzeMealPhoto/confirmMealPhoto (source=STUB)
 ```
+
+Aggiornamenti Recenti Chiave:
+1. Data Ingestion Contract formalizzato (meal CRUD + idempotenza fallback) – vedi documento dedicato.
+2. Health Totals Sync introdotto come fonte autoritativa attività (delta steps/caloriesOut).
+3. AI Meal Photo Analysis Stub (`analyzeMealPhoto` / `confirmMealPhoto`) – prepara boundary per Vision pipeline futura.
+4. Introduzione campi `caloriesDeficit` e `caloriesReplenishedPercent` nel `dailySummary` per logiche recommendation.
 
 Dettagli granulari nelle rispettive roadmap dei documenti.
 
@@ -525,7 +437,23 @@ Easter Egg Roadmap: quando AI autofill >70% adoption → attivare modalità "Hyp
 
 ---
 
-## 🔎 Esempi Query Runtime (Snapshot Attuale)
+## 🩺 Activity Sync (Health Totals) – Sintesi
+`syncHealthTotals` è la mutation AUTORITATIVA per alimentare i campi attività di `dailySummary` (steps / caloriesOut). Converte snapshot cumulativi giornalieri in delta affidabili, gestendo duplicate, reset e conflitti di idempotenza.
+
+Punti chiave rapidissimi:
+* Snapshot → Delta: ogni snapshot genera un delta (differenza col precedente) oppure, se primo/reset, delta = snapshot.
+* Idempotenza: stesso snapshot ⇒ `duplicate=true` (nessun nuovo delta). Stessa chiave ma payload diverso ⇒ `idempotencyConflict=true`.
+* Reset detection: se i contatori diminuiscono, delta = nuovo snapshot e `reset=true`.
+* Aggregazione: `dailySummary.activitySteps` = somma `stepsDelta`; `activityCaloriesOut` = somma `caloriesOutDelta` del giorno.
+* Minute events (`ingestActivityEvents`) restano diagnostici (non usati per i totali).
+
+Per schema SDL completo, algoritmi, state machine, edge cases e linee guida client leggi la guida dedicata:
+
+➡️ Documentazione Estesa: [docs/health_totals_sync.md](docs/health_totals_sync.md)
+
+---
+
+## �🔎 Esempi Query Runtime (Snapshot Attuale)
 
 ### Log Meal
 ```graphql

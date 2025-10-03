@@ -35,10 +35,29 @@ enum ActivitySource {
   MANUAL
 }
 
+input AnalyzeMealPhotoInput {
+  photoId: String = null
+  photoUrl: String = null
+  userId: String = null
+  idempotencyKey: String = null
+}
+
 type CacheStats {
   keys: Int!
   hits: Int!
   misses: Int!
+}
+
+input ConfirmMealPhotoInput {
+  analysisId: String!
+  acceptedIndexes: [Int!]!
+  userId: String = null
+  idempotencyKey: String = null
+}
+
+type ConfirmMealPhotoResult {
+  analysisId: String!
+  createdMeals: [MealEntry!]!
 }
 
 type DailySummary {
@@ -114,6 +133,63 @@ type MealEntry {
   sodium: Float
 }
 
+type MealPhotoAnalysis {
+  id: String!
+  userId: String!
+  status: MealPhotoAnalysisStatus!
+  createdAt: String!
+  source: String!
+  items: [MealPhotoItemPrediction!]!
+  rawJson: String
+  idempotencyKeyUsed: String
+  totalCalories: Int
+  analysisErrors: [MealPhotoAnalysisError!]!
+  failureReason: MealPhotoAnalysisErrorCode
+}
+
+type MealPhotoAnalysisError {
+  code: MealPhotoAnalysisErrorCode!
+  message: String!
+  severity: MealPhotoErrorSeverity!
+  debugId: String
+  fallbackApplied: Boolean!
+}
+
+enum MealPhotoAnalysisErrorCode {
+  INVALID_IMAGE
+  UNSUPPORTED_FORMAT
+  IMAGE_TOO_LARGE
+  BARCODE_DETECTION_FAILED
+  PARSE_EMPTY
+  PORTION_INFERENCE_FAILED
+  RATE_LIMITED
+  INTERNAL_ERROR
+}
+
+enum MealPhotoAnalysisStatus {
+  PENDING
+  COMPLETED
+  FAILED
+}
+
+enum MealPhotoErrorSeverity {
+  ERROR
+  WARNING
+}
+
+type MealPhotoItemPrediction {
+  label: String!
+  confidence: Float!
+  quantityG: Float
+  calories: Int
+  protein: Float
+  carbs: Float
+  fat: Float
+  fiber: Float
+  sugar: Float
+  sodium: Float
+}
+
 type Mutation {
   """Log di un pasto con arricchimento nutrienti se barcode noto"""
   logMeal(input: LogMealInput!): MealEntry!
@@ -129,6 +205,12 @@ type Mutation {
 
   """Sincronizza snapshot cumulativi attività"""
   syncHealthTotals(input: HealthTotalsInput!, idempotencyKey: String = null, userId: String = null): SyncHealthTotalsResult!
+
+  """Analizza una foto (stub deterministico)"""
+  analyzeMealPhoto(input: AnalyzeMealPhotoInput!): MealPhotoAnalysis!
+
+  """Conferma items analisi foto e crea MealEntry"""
+  confirmMealPhoto(input: ConfirmMealPhotoInput!): ConfirmMealPhotoResult!
 }
 
 type Product {

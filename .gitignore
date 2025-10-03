@@ -29,6 +29,7 @@ logs/
 
 # Backend example files: non versionare file .env reali (solo template)
 backend/example-files/.env
+backend/.env
 
 # Local Flutter SDK (se scaricato in repo per comodità di sviluppo) – NON versionare
 flutter/

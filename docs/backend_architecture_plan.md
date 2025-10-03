@@ -14,7 +14,7 @@ Costruire un backend GraphQL centralizzato che astrae sorgenti esterne di nutrie
 - Evoluzione Misurata: introdurre caching, metriche e poi (solo se necessario) service decomposition.
 - Snapshot Immutabili: ogni `meal_entry` contiene `nutrient_snapshot_json` per eliminare drift da fonti esterne.
 - Schema First: aggiunte non breaking versionate; breaking → release semver major backend.
-- Idempotenza: mutation critiche (`logMeal`, future batch) accettano `idempotency_key` obbligatorio.
+- Idempotenza: `logMeal` supporta chiave esplicita ma usa fallback deterministico se non fornita (più resiliente ad offline retry). Future batch possono richiedere chiave esplicita.
 - Osservabilità nativa: trace id propagato in ogni resolver e call esterna.
 - Sicurezza difensiva: no secret negli header client, rotate key esterne (OFF/AI) lato backend.
 
@@ -61,11 +61,12 @@ Prime fasi mirate a fornire subito la query prodotto (barcode) centralizzata, mu
 
 Lo schema runtime espone attualmente: `product`, `logMeal`, `updateMeal`, `deleteMeal`, `mealEntries`, `dailySummary` (totali attività da health totals delta), `cacheStats`, `ingestActivityEvents`, `syncHealthTotals`. Le altre query/mutation del draft rimangono deferred.
 
-**Aggiornamenti recenti (v0.2.8+):**
+**Aggiornamenti recenti (v0.4.x):**
 1. **CRUD Completo Pasti**: `updateMeal` permette aggiornamento nome/quantità/timestamp/barcode con ricalcolo automatico nutrienti quando cambiano barcode o quantità. `deleteMeal` per rimozione pasti.
 2. **Nutrient Constants**: centralizzati in `backend/nutrients.py` (calories, protein, carbs, fat, fiber, sugar, sodium) per consistenza.
 3. **Cache Observability**: query `cacheStats` espone keys/hits/misses per diagnostiche performance OpenFoodFacts.
 4. **Repository Pattern Esteso**: `InMemoryMealRepository` con `get`, `update`, `delete` oltre ai precedenti `add`/`list`.
+5. **AI Meal Photo Stub**: aggiunte mutation `analyzeMealPhoto` / `confirmMealPhoto` con `source=STUB` per preparare boundary pipeline.
 
 Aggiornamenti pianificati (prossime milestone):
 1. Evoluzione `dailySummary`: breakdown macro avanzato, target dinamici e gap (B4+).
@@ -86,14 +87,16 @@ Tabelle principali (Postgres):
 - `users` (Auth0 subject mapping)
 - `nutrition_plan` (user_id, targets, strategy, updated_at)
 - `food_item` (id, name, category, nutrients_json, brand)
-- `meal_entry` (id, user_id, occurred_at, meal_type, source, quantity_value, quantity_unit, energy_kcal, protein_g, carb_g, sugars_g, fat_g, sat_fat_g, fiber_g, sodium_mg, micros_json, completeness_score, quality_score, flags[], source_chain, idempotency_key, created_at)
+- `meal_entry` (id, user_id, occurred_at, meal_type, source, quantity_value, quantity_unit, energy_kcal, protein_g, carb_g, sugars_g, fat_g, sat_fat_g, fiber_g, sodium_mg, micros_json, nutrient_snapshot_json, completeness_score, quality_score, flags[], source_chain, idempotency_key, created_at)
 - `daily_intake_summary` (user_id, date, energy_kcal_total, energy_kcal_target, energy_kcal_remaining, predicted_evening_consumption_kcal, macro_split_json, protein_target_g, protein_gap_g, sugar_spike, flags[], generated_at)
 - `ai_inference` (id, user_id, raw_label, status, confidence, created_at, items_json)
 - `event_log` (id, user_id, type, payload_json, created_at)
  - `notification_log` (id, user_id, rule_id, channel, delivered_at, tapped_at)
  - `activity_event_minute` (user_id, ts, steps, calories_out, hr_avg, hr_min, hr_max, source)
+ - `health_totals_delta` (id, user_id, date, timestamp, steps_delta, calories_out_delta, steps_total, calories_out_total, hr_avg_session, idempotency_key, reset, duplicate, conflict)
  - Aggregati: `meal_type_daily_agg`, `rolling_intake_window`, (views) energy balance, pending quality
  - `recommendations` (id, user_id, emitted_at, category, trigger_type, message, payload, status, acknowledged_at)
+ - `ai_inference` (id, user_id, stub_items_json, source='STUB', created_at)  # stub attuale (verrà esteso)
 ### 5.1 Activity Time-Series & Aggregation Layer
 
 Obiettivi:
