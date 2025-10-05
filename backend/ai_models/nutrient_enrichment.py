@@ -53,21 +53,21 @@ class NutrientEnrichmentService:
     ) -> List[EnrichmentResult]:
         """
         Arricchisce lista ParsedItem con timeout e batch processing.
-        
+
         Args:
             items: Lista di ParsedItem da arricchire
             timeout: Timeout in secondi per l'operazione
-            
+
         Returns:
             Lista di EnrichmentResult
         """
         start_time = time.time()
-        
+
         try:
             # Batch processing per performance con multipli items
             batch_size = min(50, len(items))  # Limite batch size
             results = []
-            
+
             for i in range(0, len(items), batch_size):
                 # Check timeout
                 if time.time() - start_time > timeout:
@@ -76,30 +76,28 @@ class NutrientEnrichmentService:
                     for item in remaining_items:
                         results.append(self._create_default_result(item))
                     break
-                    
-                batch = items[i:i + batch_size]
+
+                batch = items[i : i + batch_size]
                 batch_results = await self._process_batch(batch)
                 results.extend(batch_results)
-                
+
                 # Yield control per operazioni async
                 if len(results) % 10 == 0:
                     await asyncio.sleep(0)  # Yield to event loop
-                    
+
             return results
-            
+
         except Exception:
             # Fallback su timeout o errore
             return [self._create_default_result(item) for item in items]
 
-    async def _process_batch(
-        self, batch: List[ParsedItem]
-    ) -> List[EnrichmentResult]:
+    async def _process_batch(self, batch: List[ParsedItem]) -> List[EnrichmentResult]:
         """Processa un batch di items."""
         results = []
         for item in batch:
             # Usa cache LRU per lookup nutrienti
             nutrients = get_nutrient_values(item.label)
-            
+
             if nutrients:
                 factor = item.quantity_g / 100.0
                 result = EnrichmentResult(
@@ -114,10 +112,10 @@ class NutrientEnrichmentService:
             else:
                 result = self._create_default_result(item)
                 self.stats_hit_default += 1
-                
+
             results.append(result)
             self.stats_enriched += 1
-            
+
         return results
 
     def _create_default_result(self, item: ParsedItem) -> EnrichmentResult:

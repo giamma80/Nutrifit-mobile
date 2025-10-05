@@ -27,6 +27,10 @@ from ai_models.meal_photo_prompt import (
     ParsedItem,
 )
 from ai_models.nutrient_enrichment import NutrientEnrichmentService
+from rules.category_profiles import (
+    NormalizedItem,
+    normalize as normalize_items,
+)
 from .vision_client import (
     call_openai_vision,
     VisionTimeoutError,
@@ -418,6 +422,9 @@ class Gpt4vAdapter:
         self.last_fallback_reason: Optional[str] = None
         self.enrichment_service = NutrientEnrichmentService()
 
+    # Normalization feature flag:
+    # AI_NORMALIZATION_MODE (off|dry_run|enforce)
+
     async def analyze_async(
         self,
         *,
@@ -515,7 +522,68 @@ class Gpt4vAdapter:
                 total_fields=total_fields_possible,
                 source=self.name(),
             )
+            # --- Normalization Phase 2.1 ---
+            norm_mode = os.getenv("AI_NORMALIZATION_MODE", "off").strip().lower()
+            try:
+                norm_items = [
+                    NormalizedItem(
+                        label=o.label,
+                        quantity_g=float(o.quantity_g or 0.0),
+                        calories=(float(o.calories) if o.calories is not None else None),
+                        protein=o.protein,
+                        carbs=o.carbs,
+                        fat=o.fat,
+                        fiber=o.fiber,
+                        sugar=o.sugar,
+                        sodium=o.sodium,
+                    )
+                    for o in out
+                ]
+                norm_result = normalize_items(items=norm_items, mode=norm_mode)
+                if norm_mode == "enforce":
+                    # Apply back normalized values
+                    for o, n in zip(out, norm_result.items):
+                        o.label = n.label
+                        o.quantity_g = n.quantity_g
+                        if n.calories is not None:
+                            try:
+                                o.calories = int(round(n.calories))
+                            except Exception:
+                                pass
+                        o.protein = n.protein
+                        o.carbs = n.carbs
+                        o.fat = n.fat
+                        o.fiber = n.fiber
+                        o.sugar = n.sugar if n.sugar is not None else o.sugar
+                        o.sodium = (
+                            n.sodium if n.sodium is not None else o.sodium
+                        )
+                        o.enrichment_source = (
+                            n.enrichment_source or o.enrichment_source
+                        )
+                        if n.calorie_corrected:
+                            o.calorie_corrected = True
+                # Metrics placeholder (future): corrections & clamps stats
+                setattr(
+                    self,
+                    "_last_normalization_stats",
+                    {
+                        "mode": norm_result.mode,
+                        "corrections": norm_result.corrections,
+                        "garnish_clamped": norm_result.garnish_clamped,
+                        "macro_recomputed": norm_result.macro_recomputed,
+                    },
+                )
+            except Exception:
+                # Fail-safe: never break analysis for normalization issues
+                setattr(self, "_last_normalization_error", True)
 
+            # Heuristic dishName (issue #56 placeholder): combina max 3 label
+            top_labels = [p.label for p in parsed[:3]]
+            candidate = None
+            if top_labels:
+                candidate = " ".join(lbl.lower() for lbl in top_labels)
+            setattr(self, "_last_dish_name", candidate)
             return out
 
     def analyze(

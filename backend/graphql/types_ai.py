@@ -26,6 +26,8 @@ class MealPhotoItemPrediction:
     fiber: Optional[float] = None
     sugar: Optional[float] = None
     sodium: Optional[float] = None
+    enrichment_source: Optional[str] = None
+    calorie_corrected: Optional[bool] = None
 
 
 @strawberry.enum
@@ -56,17 +58,23 @@ class MealPhotoAnalysisError:
 
 
 @strawberry.type
+@strawberry.type
 class MealPhotoAnalysis:
     id: str
     user_id: str
     status: MealPhotoAnalysisStatus
     created_at: str
     source: str
+    # Alias GraphQL camelCase tramite 'name' per evitare mismatch schema vs runtime
+    photo_url: Optional[str] = strawberry.field(name="photoUrl", default=None)
+    dish_name: Optional[str] = strawberry.field(name="dishName", default=None)
     items: List[MealPhotoItemPrediction]
     raw_json: Optional[str] = None
     idempotency_key_used: Optional[str] = None
     total_calories: Optional[int] = None
-    analysis_errors: List["MealPhotoAnalysisError"] = strawberry.field(default_factory=list)
+    analysis_errors: List["MealPhotoAnalysisError"] = strawberry.field(
+        default_factory=list
+    )
     failure_reason: Optional["MealPhotoAnalysisErrorCode"] = None
 
 

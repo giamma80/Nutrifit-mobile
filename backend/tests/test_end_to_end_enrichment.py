@@ -1,11 +1,9 @@
 """
 Test end-to-end per pipeline completo di analisi foto pasto con enrichment.
 """
+
 import pytest
-from ai_models.nutrient_enrichment import (
-    NutrientEnrichmentService,
-    HEURISTIC_NUTRIENTS
-)
+from ai_models.nutrient_enrichment import NutrientEnrichmentService, HEURISTIC_NUTRIENTS
 
 
 def test_enrichment_service_initialization() -> None:
@@ -61,12 +59,7 @@ def test_enrichment_result_dataclass() -> None:
 
     # Test creazione con tutti i valori
     result_full = EnrichmentResult(
-        success=True,
-        source="test",
-        protein=25.0,
-        carbs=50.0,
-        fat=10.0,
-        fiber=5.0
+        success=True, source="test", protein=25.0, carbs=50.0, fat=10.0, fiber=5.0
     )
     assert result_full.protein == 25.0
     assert result_full.carbs == 50.0
@@ -80,8 +73,8 @@ async def test_enrichment_service_interface() -> None:
     service = NutrientEnrichmentService()
 
     # Verifica che il metodo esista
-    assert hasattr(service, 'enrich_parsed_items')
-    assert callable(getattr(service, 'enrich_parsed_items'))
+    assert hasattr(service, "enrich_parsed_items")
+    assert callable(getattr(service, "enrich_parsed_items"))
 
     # Verifica che get_stats esista e funzioni
     stats = service.get_stats()
@@ -99,8 +92,8 @@ def test_nutrient_calculations() -> None:
     fat_expected = pollo_nutrients["fat"] * factor_100g
 
     assert protein_expected == 25.0  # 25.0 * 1.0
-    assert carbs_expected == 0.0     # 0.0 * 1.0
-    assert fat_expected == 4.0       # 4.0 * 1.0
+    assert carbs_expected == 0.0  # 0.0 * 1.0
+    assert fat_expected == 4.0  # 4.0 * 1.0
 
     # Test calcolo per 150g di pollo
     factor_150g = 150.0 / 100.0  # 1.5
@@ -109,7 +102,7 @@ def test_nutrient_calculations() -> None:
     fat_150g = pollo_nutrients["fat"] * factor_150g
 
     assert protein_150g == 37.5  # 25.0 * 1.5
-    assert fat_150g == 6.0       # 4.0 * 1.5
+    assert fat_150g == 6.0  # 4.0 * 1.5
 
 
 def test_end_to_end_validation_pipeline() -> None:
@@ -128,8 +121,8 @@ def test_end_to_end_validation_pipeline() -> None:
     assert stats["enriched"] == 0
 
     # 4. Interfaccia complete
-    assert hasattr(service, 'enrich_parsed_items')
-    assert hasattr(service, 'get_stats')
+    assert hasattr(service, "enrich_parsed_items")
+    assert hasattr(service, "get_stats")
 
     print("✅ Pipeline end-to-end validation completata con successo!")
 
@@ -141,7 +134,7 @@ def test_lru_cache_performance() -> None:
     # Test cache hit
     result1 = get_nutrient_values("pollo")
     result2 = get_nutrient_values("pollo")  # Dovrebbe essere da cache
-    
+
     assert result1 is not None
     assert result1 == result2
     assert result1["protein"] == 25.0
@@ -161,14 +154,15 @@ async def test_performance_optimizations() -> None:
     service = NutrientEnrichmentService()
 
     # Test che il metodo accetti timeout parameter
-    assert hasattr(service, 'enrich_parsed_items')
+    assert hasattr(service, "enrich_parsed_items")
 
     # Test metodi interni per batch processing
-    assert hasattr(service, '_process_batch')
-    assert hasattr(service, '_create_default_result')
+    assert hasattr(service, "_process_batch")
+    assert hasattr(service, "_create_default_result")
 
     # Test che la cache function sia disponibile
     from ai_models.nutrient_enrichment import get_nutrient_values
+
     assert callable(get_nutrient_values)
 
     print("✅ Performance optimizations implementate correttamente!")

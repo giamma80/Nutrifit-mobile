@@ -18,6 +18,8 @@ class MealPhotoItemPredictionRecord:
     fiber: Optional[float] = None
     sugar: Optional[float] = None
     sodium: Optional[float] = None
+    enrichment_source: Optional[str] = None
+    calorie_corrected: Optional[bool] = None
 
 
 @dataclass(slots=True)
@@ -30,3 +32,5 @@ class MealPhotoAnalysisRecord:
     items: List[MealPhotoItemPredictionRecord]
     raw_json: Optional[str] = None
     idempotency_key_used: Optional[str] = None
+    dish_name: Optional[str] = None
+    photo_url: Optional[str] = None

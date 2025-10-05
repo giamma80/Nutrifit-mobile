@@ -83,6 +83,9 @@ class InMemoryMealPhotoAnalysisRepository:
             items=items,
             raw_json=None,
             idempotency_key_used=idempotency_key,
+            # Usa eventuale nome piatto euristico generato dall'adapter
+            dish_name=getattr(adapter, "_last_dish_name", None),
+            photo_url=photo_url,
         )
         self._analyses[(user_id, analysis_id)] = rec
         self._idemp[key] = analysis_id

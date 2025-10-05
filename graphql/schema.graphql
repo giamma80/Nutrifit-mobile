@@ -139,6 +139,8 @@ type MealPhotoAnalysis {
   status: MealPhotoAnalysisStatus!
   createdAt: String!
   source: String!
+  photoUrl: String
+  dishName: String
   items: [MealPhotoItemPrediction!]!
   rawJson: String
   idempotencyKeyUsed: String
@@ -188,6 +190,8 @@ type MealPhotoItemPrediction {
   fiber: Float
   sugar: Float
   sodium: Float
+  enrichmentSource: String
+  calorieCorrected: Boolean
 }
 
 type Mutation {
