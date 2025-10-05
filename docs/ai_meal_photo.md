@@ -23,13 +23,14 @@ Ridurre l'attrito nella registrazione dei pasti offrendo un flusso rapido foto �
 11. Piano Operativo (Fasi 1–9 Dettagliate)
 
 ---
-## 1. Stato Attuale (Fase 2 – 2025-10)
+## 1. Stato Attuale (Fase 2 / Avvio 2.1 – 2025-10)
 | Aspetto | Stato | Note |
 |---------|-------|------|
 | Adapter attivo | GPT‑4V (source=gpt4v) | Chiamata reale o simulata; fallback chain non ancora implementata |
 | Adapter alternativi | stub (test), heuristic (PLANNED) | Se GPT non configurato si usa stub diretto |
 | Nutrient Enrichment | **ATTIVO** | **NutrientEnrichmentService integrato in Gpt4vAdapter** |
 | Macronutrienti | **POPOLATI** | **protein, carbs, fat, fiber arricchiti automaticamente** |
+| Normalization Phase 2.1 | In preparazione (Issues #47–#55) | Category profiles + label normalization + macro consistency + garnish clamp (dry-run flag) |
 | Idempotenza analyze | Attiva | Chiave esplicita o auto sha256 trunc user|photo refs (idempotencyKeyUsed) |
 | Conferma | Idempotente per analysisId | Nessun duplicato createdMeals |
 | Calorie item | Calcolate server | Somma coerente totalCalories |
@@ -37,6 +38,8 @@ Ridurre l'attrito nella registrazione dei pasti offrendo un flusso rapido foto �
 | Metriche | Opzionali (no-op fallback) + **Enrichment** | **time_analysis + enrichment_success + macro_fill_ratio** |
 | Error taxonomy | Definita (vedi tabella) | RATE_LIMITED, INTERNAL_ERROR inclusi |
 | Status supportati | COMPLETED / FAILED | PENDING riservato futuro async |
+| dishName aggregato | PLANNED (#56) | Campo high-level piatto derivato dal prompt |
+| photoUrl persistence | PLANNED (#57) | Persistenza url per audit + conferma |
 
 ---
 ## 2. Flusso Two‑Step
@@ -205,6 +208,10 @@ Severity (non mostrata nella tabella): `ERROR` per terminali, `WARNING` per non 
 7. `source` aderisce all'adapter scelto.
 8. Parse error (PARSE_EMPTY) non genera eccezione non gestita (risposta coerente FAILED). 
 9. IdempotencyKeyUsed presente quando cache reused.
+10. (Post Issue #57) `photoUrl` persiste identico tra analyze e confirm.
+11. (Post Issue #56) `dishName` popolato se almeno 1 item significativo (altrimenti null) senza introdurre breaking change.
+12. (Phase 2.1 Dry-run) Normalization non modifica output esterno quando `AI_NORMALIZATION_MODE=dry_run` ma registra metriche.
+13. (Phase 2.1 Enforce) Macro incoerenti corrette e garnish clamp applicata con flag metrica `macro_corrections_total` e nessun item protein-animal con carbs>2g.
 
 ---
 ## 9. Roadmap & Migrazioni
@@ -315,6 +322,8 @@ ParsedItem[] → NutrientEnrichmentService → EnrichmentResult[] → MealPhotoI
 - Macro consistency check: se `abs(kcal_computed_from_macros - calories) > 15%` ricalcola calories e marca `calorieCorrected=true`
 - Flag `enrichmentSource` (heuristic|default|category_profile) per auditing
 - Metrica nuova: `ai_meal_photo_macro_corrections_total{reason}`
+- Whitelist domini `photoUrl` (issue #54) per prevenire misuse / SSRF
+- Feature flag `AI_NORMALIZATION_MODE` (off|dry_run|enforce) per rollout (issue #55)
 
 **Scope OUT** (demandato a fasi successive): Vision portion model, integrazione OpenFoodFacts, micronutrienti, fuzzy multi‑lingua.
 
@@ -324,6 +333,7 @@ ParsedItem[] → NutrientEnrichmentService → EnrichmentResult[] → MealPhotoI
 - Estensione `NutrientEnrichmentService` per: lookup categoria → fallback attuale
 - Validatore macro & calories (`validate_macros(item)`) integrato in pipeline adapter
 - Test: profili categoria, normalization edge cases, macro correction path
+- Estensione schema GraphQL (issue #56, #57) per `dishName` e `photoUrl` persisted
 
 **Metriche / KPI**:
 | KPI | Target |
@@ -347,6 +357,8 @@ ParsedItem[] → NutrientEnrichmentService → EnrichmentResult[] → MealPhotoI
 - Nessun caso di pesce/carni con carbs >2g/100g nelle analisi raccolte
 - Macro consistency check attivo con correzioni loggate
 - Documentazione aggiornata (questa sezione) ✓
+- Whitelist domini operativa e testata (solo host attesi)
+- Flag rollout completato: passaggio `dry_run` → `enforce` senza regressioni metriche parse
 
 ### Fase 3 – Portion Heuristics
 Scope IN: Libreria porzioni tipiche (es. "apple"=150g), rilevazione acqua, regole su unità (slice, piece, cup), scaling quantità.

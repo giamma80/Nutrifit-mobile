@@ -112,6 +112,48 @@ type MealTypeTrend { mealType: MealType! avgEnergyKcal: Float avgProteinG: Float
 type MealQualityInsight { flag: String! occurrenceCount: Int suggestion: String }
 
 type Recommendation { id: ID! emittedAt: DateTime! category: RecommendationCategory! triggerType: RecommendationTrigger! message: String! }
+
+# AI Meal Photo (Draft Extension)
+# Issues correlati: #47–#57 (Phase 2.1 normalization, dishName, photoUrl persistence)
+type MealPhotoAnalysis {
+  id: ID!
+  status: MealPhotoAnalysisStatus!
+  source: String!              # adapter usato (gpt4v, stub)
+  photoUrl: String             # URL immagine (persistito) – issue #57
+  dishName: String             # Nome aggregato piatto – issue #56
+  items: [MealPhotoItemPrediction!]!
+  totalCalories: Float!
+  analysisErrors: [MealPhotoAnalysisError!]!
+  failureReason: MealPhotoAnalysisErrorCode
+  idempotencyKeyUsed: String
+  createdAt: DateTime!
+}
+
+type MealPhotoItemPrediction {
+  label: String!
+  quantityG: Int!
+  calories: Float!
+  protein: Float
+  carbs: Float
+  fat: Float
+  fiber: Float
+  enrichmentSource: String     # heuristic|default|category_profile (issue #52)
+  calorieCorrected: Boolean    # true se ricalcolato per macro consistency (issue #51)
+}
+
+enum MealPhotoAnalysisStatus { COMPLETED FAILED }
+
+type MealPhotoAnalysisError { code: MealPhotoAnalysisErrorCode! message: String severity: String! }
+enum MealPhotoAnalysisErrorCode { INVALID_IMAGE UNSUPPORTED_FORMAT IMAGE_TOO_LARGE BARCODE_DETECTION_FAILED PARSE_EMPTY PORTION_INFERENCE_FAILED RATE_LIMITED INTERNAL_ERROR }
+
+extend type Mutation {
+  analyzeMealPhoto(input: AnalyzeMealPhotoInput!): MealPhotoAnalysis!
+  confirmMealPhoto(input: ConfirmMealPhotoInput!): ConfirmMealPhotoResult!
+}
+
+input AnalyzeMealPhotoInput { photoUrl: String idempotencyKey: ID }
+input ConfirmMealPhotoInput { analysisId: ID! acceptedIndexes: [Int!]! }
+type ConfirmMealPhotoResult { analysis: MealPhotoAnalysis! createdMeals: [MealEntry!]! }
 ```
 
 ## Inputs

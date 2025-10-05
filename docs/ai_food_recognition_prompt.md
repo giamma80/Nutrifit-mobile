@@ -1,11 +1,11 @@
 # AI Food Recognition Prompt (GPT-4V)
 
-Version: v0.1-spec (Allineato al design – non attivo runtime)
-Stato Corrente: la pipeline runtime usa uno STUB (`source=STUB`) e NON invoca ancora GPT-4V. Questo documento definisce il prompt previsto per la Fase 1.
+Version: v0.2-spec (dish_name draft, normalization prep)
+Stato Corrente: runtime attuale usa GPT‑4V adapter (source=gpt4v) con prompt v2 in valutazione A/B; il campo `dishName` (issue #56) non è ancora esposto nello schema GraphQL (PLANNED). Questo documento definisce lo schema target imminente.
 
 Documento correlato (stub corrente): [AI Meal Photo Analysis](ai_meal_photo.md)
 
-## Primary Prompt (Draft)
+## Primary Prompt (Draft v0.2)
 
 ```text
 Sei un assistente per ESTRARRE alimenti da una FOTO.
@@ -18,17 +18,23 @@ REGOLE IMPORTANTI:
 - Rispondi SOLO con JSON valido.
 SCHEMA OUTPUT:
 {
+  "dish_name": "string | null",
   "items": [
     { "label": "string", "portion_grams": 120 | null, "confidence": 0.73 }
   ]
 }
+
+Linee Guida dish_name:
+- Rappresenta il piatto complessivo (es: "grilled salmon with rice", "chicken salad").
+- Se gli alimenti non formano un piatto coerente lascia null.
+- Non inventare ingredienti non visibili. Evitare aggettivi superflui ("delicious", "tasty").
 ```
 
 ## Fallback Prompt (Parse Error)
 
 ```text
 Identifica gli alimenti visibili (max 5). JSON:
-{"items":[{"label":"string","portion_grams":123|null,"confidence":0.5}]}
+{"dish_name":null,"items":[{"label":"string","portion_grams":123|null,"confidence":0.5}]}
 ```
 
 ## Validation Rules (Da Implementare)
@@ -42,6 +48,7 @@ Identifica gli alimenti visibili (max 5). JSON:
 
 | Campo | Azione |
 |-------|-------|
+| dish_name | lowercase, trim, multi-spaces→singolo, null se stringa vuota |
 | label | lowercase, trim, remove adjectives superflui |
 | portion_grams | se >2000 scarta (probabile errore) |
 | confidence | clamp 0..1 |
@@ -56,8 +63,9 @@ Identifica gli alimenti visibili (max 5). JSON:
 - L'immagine potrebbe essere stata offuscata (volti/background) prima dell'invio.
 
 ## Evoluzioni Future (Note)
-- Aggiungere bounding boxes SOLO quando disponibile segmentazione per sfruttare portion heuristics (riduce prompt size).
-- Introdurre campi opzionali `container_type`, `is_mixed_dish` per modulare stima porzioni.
+- Bounding boxes quando disponibile segmentazione per portion heuristics.
+- Campi opzionali `container_type`, `is_mixed_dish` per modulare stima porzioni.
+- Integrazione Phase 2.1: category hints (NON richieste al modello, derivano da normalizzazione server-side).
 
 ## Integrazione Pipeline
 | Fase | Uso Prompt | Note |
@@ -65,6 +73,7 @@ Identifica gli alimenti visibili (max 5). JSON:
 | 0 (Stub) | Nessuno | Items sintetici deterministici |
 | 1 | Primary + fallback | Introduzione detection errori + retry limit 1 |
 | 2 | Primary adattivo | Prompt modulato da risultati barcode / dizionario locale |
+| 2.1 | Primary v0.2 | dish_name estratto; normalization server (dry-run) |
 
 ## Linee Guida Stabilità
 * NO cambi di schema output senza bump versione prompt + aggiornamento parser.

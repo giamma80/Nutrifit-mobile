@@ -50,6 +50,17 @@ Questo file sostituisce `ussues.md` (rimandare qui e rimuovere duplicazioni). St
 | 44 | Medium | Medium | Macro fill ratio logging | Nessun tracciamento copertura macro calcolate | Difficile valutare enrichment futuro | Calcolare macro_fill_ratio e log/metric histogram | TODO | OBS |
 | 45 | Medium | Medium | Parse success rate metric | Mancano parse_success_total / parse_failed_total | Non misurabile miglioramento Fase 1 | Aggiungere counters + percentuale derivata in dashboard | TODO | OBS |
 | 46 | Low | Medium | Prompt versioning | Nessun campo version nel payload | Difficoltà correlare regressioni | Aggiungere promptVersion in raw_json o analysisErrors debugId | TODO | DOC,OBS |
+| 47 | Medium | High | backend/nutrient_enrichment/, docs/ai_meal_photo.md | Category profiles assenti (lean_fish, poultry, pasta_cooked, ecc.) | Macro incoerenti e impossibile normalizzare nutrienti | Introdurre modulo category_profiles.py con ≥10 profili documentati | TODO | ARCH,OBS |
+| 48 | Medium | High | backend/nutrient_enrichment/, docs/ai_meal_photo.md | Label normalization mancante (regex/token) | Bassa hit rate profili categoria | Implementare normalize_label + test coverage edge cases | TODO | ARCH,TEST |
+| 49 | Medium | Medium | backend/nutrient_enrichment/ | Garnish quantity non normalizzata (lemon slice, parsley) | Calorie gonfiate da garnish | Range fisso 5–10g + clamp e metric garnish_clamped_total | TODO | ARCH,OBS |
+| 50 | Medium | Medium | backend/nutrient_enrichment/ | Hard constraints macro mancanti (carbs>0 per pesce) | Macro implausibili propagate | Regole categoria: lean_fish & poultry carbs=0 se >2g | TODO | ARCH |
+| 51 | Medium | Medium | backend/inference/adapter.py | Macro/calorie consistency check assente | Calories divergenti dai macro → trust errato | Recompute calories se delta>15% + flag calorieCorrected | TODO | ARCH,OBS |
+| 52 | Low | Medium | backend/nutrient_enrichment/ | Mancanza campo enrichmentSource | Audit difficile provenienza nutrienti | Aggiungere enum enrichmentSource (heuristic|default|category_profile) | TODO | ARCH,DOC |
+| 53 | Medium | Medium | backend/metrics/, docs/ai_meal_photo_metrics.md | Metriche correzioni macro inesistenti | Impossibile misurare efficacia normalization | Aggiungere ai_meal_photo_macro_corrections_total{reason} | TODO | OBS |
+| 54 | High | Medium | backend/inference/adapter.py | Nessun whitelist dominio photoUrl | Rischio SSRF / abuse GPT-4V | Validare photoUrl dominio (es. firebase storage) + error code INVALID_IMAGE | TODO | SEC,ARCH |
+| 55 | Medium | Medium | feature flags config | Assente feature flag rollout (dry_run→enforce) per normalization | Rollout rischio regressioni | Introdurre flag AI_NORMALIZATION_MODE (off|dry_run|enforce) | TODO | ARCH,OPS |
+| 56 | Medium | High | backend/inference/adapter.py, schema GraphQL | Mancanza dishName aggregato | UX meno leggibile / niente label piatto | Estrarre high-level dishName via prompt + esporre campo | TODO | ARCH,UX |
+| 57 | Medium | High | backend/inference/adapter.py, persistence repo | photoUrl non persistita in analysis & confirm | Perdita tracciabilità immagine | Aggiungere storage e campo photoUrl in MealPhotoAnalysis | TODO | ARCH,DOC |
 
 Legenda Tags: DOC=documentazione, SEC=sicurezza, ARCH=architettura, TEST=test coverage, CI=continuous integration, OBS=observability.
 

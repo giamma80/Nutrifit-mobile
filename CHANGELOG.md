@@ -9,7 +9,8 @@ Formato ispirato a [Keep a Changelog](https://keepachangelog.com/it-IT/1.1.0/) e
 Placeholder per nuove modifiche non ancora rilasciate.
 
 ### Added
-_nessuna voce_
+ - Phase 2.1 groundwork (issues #47-#55): category profiles draft, label normalization design, macro consistency & garnish clamp plan, enrichmentSource enum, macro corrections metric, domain whitelist & normalization feature flag specs
+ - AI Meal Photo: pianificazione campo `dishName` (issue #56) e persistenza `photoUrl` (issue #57) con estensione schema draft
 
 ### Changed
 _nessuna voce_
@@ -20,7 +21,7 @@ _nessuna voce_
  - aggiornato template git-cliff (migrazione sintassi Handlebars -> Tera) per risolvere Template parse error nelle preview CI
 
 ### Docs / Chore
-_nessuna voce_
+ - Aggiornati: `audit_issues.md` (aggiunte issue #47-#57), `docs/ai_meal_photo.md` (Acceptance Criteria ampliati, Phase 2.1 dettagli), `docs/ai_food_recognition_prompt.md` (schema v0.2 con dish_name), `docs/graphql_schema_draft.md` (MealPhotoAnalysis esteso con dishName & photoUrl)
 
 ---
 
