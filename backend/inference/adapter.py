@@ -12,7 +12,7 @@ enrichment, fallback chain).
 
 from __future__ import annotations
 
-from typing import List, Optional, Protocol
+from typing import List, Optional, Protocol, Tuple
 import os
 import hashlib
 import time
@@ -268,13 +268,7 @@ class RemoteModelAdapter:
     * Applicare fallback automatico (heuristic → stub) se timeout o errore.
     * Non sollevare eccezioni verso il repository (robustezza UX).
 
-    Implementazione attuale: mock che attende fino a `REMOTE_LATENCY_MS` e
-                setattr(
-                    self,
-                    "_last_dish_name",
-                    self._generate_dish_name(parsed, out),
-                )
-            return out
+    Implementazione attuale: mock che attende fino a `REMOTE_LATENCY_MS`.
     * REMOTE_FAIL_RATE (default 0.0)  # probabilità di fallire la chiamata
     * REMOTE_JITTER_MS (default 150)
     """
@@ -534,7 +528,9 @@ class Gpt4vAdapter:
                         label=o.label,
                         quantity_g=float(o.quantity_g or 0.0),
                         calories=(
-                            float(o.calories) if o.calories is not None else None
+                            float(o.calories)
+                            if o.calories is not None
+                            else None
                         ),
                         protein=o.protein,
                         carbs=o.carbs,
@@ -583,7 +579,66 @@ class Gpt4vAdapter:
             except Exception:
                 # Fail-safe: never break analysis for normalization issues
                 setattr(self, "_last_normalization_error", True)
+            # Dish name heuristic (must not be None for enforce mode tests)
+            try:
+                dish = self._generate_dish_name(parsed, out)
+            except Exception:
+                dish = None
+            if not dish:
+                # Fallback semplice: primi 3 label originali
+                base_labels = [p.label.lower() for p in parsed[:3]]
+                dish = " ".join(base_labels) if base_labels else None
+            setattr(self, "_last_dish_name", dish)
             return out
+
+    # --- Dish name generation heuristic ---
+    def _generate_dish_name(
+        self,
+        parsed: List[ParsedItem],
+        items: List[MealPhotoItemPredictionRecord],
+    ) -> Optional[str]:
+        if not parsed:
+            return None
+        garnish = {"parsley", "basil", "basilico", "limone", "lemon", "lime"}
+        ranked: List[Tuple[str, float]] = []
+        for p, it in zip(parsed, items):
+            label = p.label.lower().strip()
+            score = 0.0
+            if it.calories is not None:
+                score = float(it.calories)
+            else:
+                # Macro fallback
+                if it.protein:
+                    score += it.protein * 4
+                if it.carbs:
+                    score += it.carbs * 4
+                if it.fat:
+                    score += it.fat * 9
+                if score == 0 and p.quantity_g:
+                    score = p.quantity_g
+            ranked.append((label, score))
+        # Filtra garnish
+        core = [r for r in ranked if r[0] not in garnish]
+        if not core:
+            core = ranked
+        core.sort(key=lambda t: t[1], reverse=True)
+        top = [c[0] for c in core[:3]]
+        if not top:
+            return None
+        # De-pluralization naive
+        norm: List[str] = []
+        for t in top:
+            w = t
+            if w.endswith("es") and len(w) > 4:
+                w = w[:-2]
+            elif w.endswith("s") and len(w) > 3:
+                w = w[:-1]
+            if not norm or norm[-1] != w:
+                norm.append(w)
+        name = " ".join(norm)
+        if len(norm) > 1:
+            name = f"{name} bowl"
+        return name or None
 
     def analyze(
         self,
