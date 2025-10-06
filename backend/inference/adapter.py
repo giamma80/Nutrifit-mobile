@@ -494,9 +494,7 @@ class Gpt4vAdapter:
                     enrich.fat if enrich.success else None,
                     getattr(enrich, "fiber", None) if enrich.success else None,
                 ]
-                filled_fields_total += sum(
-                    1 for f in macro_fields if f is not None
-                )
+                filled_fields_total += sum(1 for f in macro_fields if f is not None)
                 total_fields_possible += len(macro_fields)
 
                 out.append(
@@ -519,19 +517,13 @@ class Gpt4vAdapter:
                 source=self.name(),
             )
             # --- Normalization Phase 2.1 ---
-            norm_mode = (
-                os.getenv("AI_NORMALIZATION_MODE", "off").strip().lower()
-            )
+            norm_mode = os.getenv("AI_NORMALIZATION_MODE", "off").strip().lower()
             try:
                 norm_items = [
                     NormalizedItem(
                         label=o.label,
                         quantity_g=float(o.quantity_g or 0.0),
-                        calories=(
-                            float(o.calories)
-                            if o.calories is not None
-                            else None
-                        ),
+                        calories=(float(o.calories) if o.calories is not None else None),
                         protein=o.protein,
                         carbs=o.carbs,
                         fat=o.fat,
@@ -558,12 +550,8 @@ class Gpt4vAdapter:
                         o.fat = n.fat
                         o.fiber = n.fiber
                         o.sugar = n.sugar if n.sugar is not None else o.sugar
-                        o.sodium = (
-                            n.sodium if n.sodium is not None else o.sodium
-                        )
-                        o.enrichment_source = (
-                            n.enrichment_source or o.enrichment_source
-                        )
+                        o.sodium = n.sodium if n.sodium is not None else o.sodium
+                        o.enrichment_source = n.enrichment_source or o.enrichment_source
                         if n.calorie_corrected:
                             o.calorie_corrected = True
                 else:

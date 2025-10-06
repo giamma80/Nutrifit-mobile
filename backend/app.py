@@ -28,6 +28,21 @@ import logging as _logging
 from inference.adapter import (
     get_active_adapter,
 )  # import locale per evitare cicli
+
+# --- Basic logging configuration (minimal) ---
+_LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
+try:
+    _logging.basicConfig(
+        level=getattr(_logging, _LOG_LEVEL, _logging.INFO),
+        format="%(asctime)s %(levelname)s %(name)s %(message)s",
+    )
+except Exception:  # pragma: no cover
+    _logging.basicConfig(level=_logging.INFO)
+
+for _ln in ("startup", "ai.normalize"):
+    _lg = _logging.getLogger(_ln)
+    if _lg.level == 0:  # not set explicitly
+        _lg.setLevel(getattr(_logging, _LOG_LEVEL, _logging.INFO))
 from contextlib import asynccontextmanager
 from nutrients import NUTRIENT_FIELDS
 from graphql.types_meal import (
@@ -684,6 +699,11 @@ __all__ = [
 
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> Any:  # pragma: no cover osservabilità
+    """Startup hook: log adapter e (se debug) snapshot env.
+
+    Non logghiamo mai valori sensibili (OPENAI_API_KEY) ma solo presenza
+    e maschera.
+    """
     adapter = get_active_adapter()
     name = adapter.name()
     real_flag = os.getenv("AI_GPT4V_REAL_ENABLED")
@@ -694,7 +714,8 @@ async def lifespan(_: FastAPI) -> Any:  # pragma: no cover osservabilità
             masked_key = api_key[:4] + "..." + api_key[-4:]
         else:
             masked_key = "***"
-    _logging.getLogger("startup").info(
+    logger = _logging.getLogger("startup")
+    logger.info(
         "adapter.selected",
         extra={
             "adapter": name,
@@ -704,6 +725,27 @@ async def lifespan(_: FastAPI) -> Any:  # pragma: no cover osservabilità
             "openai_key_masked": masked_key,
         },
     )
+
+    # Snapshot esteso solo se debug attivo
+    if os.getenv("AI_MEAL_PHOTO_DEBUG") == "1":
+        env_keys = [
+            "AI_MEAL_PHOTO_MODE",
+            "AI_GPT4V_REAL_ENABLED",
+            "OPENAI_VISION_MODEL",
+            "AI_NORMALIZATION_MODE",
+            "AI_PHOTO_URL_ALLOWED_HOSTS",
+            "AI_USDA_ENABLED",
+            "AI_USDA_SNAPSHOT",
+            "AI_USDA_COOKING",
+            "AI_USDA_MICROS",
+            "AI_METRICS_PARSE",
+            "AI_METRICS_NORMALIZATION",
+            "AI_GPT_DAILY_QUOTA",
+            "AI_GPT_RATE_LIMIT_PER_MIN",
+            "AI_MEAL_PHOTO_DEBUG",
+        ]
+        snapshot = {k: os.getenv(k) for k in env_keys}
+        logger.info("env.snapshot", extra={"env": snapshot})
     yield
 
 

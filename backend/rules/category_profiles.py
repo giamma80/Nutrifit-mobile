@@ -19,6 +19,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Optional, Dict, Tuple, List
 import re
+import os
+import logging
 
 
 # ---- Data Structures ----
@@ -191,6 +193,7 @@ def apply_category_profile(item: NormalizedItem) -> None:
         if current < target * weak_factor:
             return True
         return False
+
     if need_override(item.protein, "protein") or allow_override:
         item.protein = prof["protein"] * factor
     if need_override(item.carbs, "carbs") or allow_override:
@@ -240,6 +243,13 @@ class NormalizationResult:
     mode: str  # off|dry_run|enforce
 
 
+logger = logging.getLogger("ai.normalize")
+
+
+def _debug_enabled() -> bool:
+    return os.getenv("AI_MEAL_PHOTO_DEBUG") == "1"
+
+
 def normalize(
     *,
     items: List[NormalizedItem],
@@ -277,18 +287,73 @@ def normalize(
         after_macro = (it.protein, it.carbs, it.fat, it.fiber)
         if before_macro != after_macro:
             corrections += 1
+            if _debug_enabled():
+                try:
+                    logger.info(
+                        "macro.override",
+                        extra={
+                            "label": it.label,
+                            "category": it.category,
+                            "before": {
+                                "protein": before_macro[0],
+                                "carbs": before_macro[1],
+                                "fat": before_macro[2],
+                                "fiber": before_macro[3],
+                            },
+                            "after": {
+                                "protein": after_macro[0],
+                                "carbs": after_macro[1],
+                                "fat": after_macro[2],
+                                "fiber": after_macro[3],
+                            },
+                            "garnish_clamped": it.garnish_clamped,
+                        },
+                    )
+                except Exception:  # pragma: no cover - logging best effort
+                    pass
         # Hard constraints
         before_carbs = it.carbs
         apply_hard_constraints(it)
         if before_carbs != it.carbs:
             corrections += 1
+            if _debug_enabled():
+                try:
+                    logger.info(
+                        "carbs.hard_constraint",
+                        extra={
+                            "label": it.label,
+                            "category": it.category,
+                            "from": before_carbs,
+                            "to": it.carbs,
+                        },
+                    )
+                except Exception:  # pragma: no cover
+                    pass
         # Recompute calories
+        old_cal = it.calories
         new_cal, corrected = recompute_calories(it)
         if corrected:
             macro_recomp += 1
             if mode == "enforce":
                 it.calories = new_cal
             it.calorie_corrected = True
+            if _debug_enabled():
+                try:
+                    logger.info(
+                        "calories.corrected",
+                        extra={
+                            "label": it.label,
+                            "category": it.category,
+                            "old_calories": old_cal,
+                            "new_calories": new_cal,
+                            "protein": it.protein,
+                            "carbs": it.carbs,
+                            "fat": it.fat,
+                            "quantity_g": it.quantity_g,
+                        },
+                    )
+                except Exception:  # pragma: no cover
+                    pass
     return NormalizationResult(
         items=work,
         corrections=corrections,

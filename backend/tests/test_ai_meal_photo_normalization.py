@@ -146,9 +146,7 @@ async def test_domain_whitelist_allows_and_blocks(
     r_ok: Response = await client.post("/graphql", json={"query": allowed_mut})
     payload_ok = r_ok.json()
     assert "errors" not in payload_ok, payload_ok.get("errors")
-    assert payload_ok["data"]["analyzeMealPhoto"]["photoUrl"].startswith(
-        "https://firebase"
-    )
+    assert payload_ok["data"]["analyzeMealPhoto"]["photoUrl"].startswith("https://firebase")
 
     monkeypatch.setenv("AI_PHOTO_URL_ALLOWED_HOSTS", "images.example.com")
     blocked_mut = _q(
@@ -160,9 +158,7 @@ async def test_domain_whitelist_allows_and_blocks(
         }
         """
     )
-    r_block: Response = await client.post(
-        "/graphql", json={"query": blocked_mut}
-    )
+    r_block: Response = await client.post("/graphql", json={"query": blocked_mut})
     payload_block = r_block.json()
     assert "errors" in payload_block, payload_block
     msg = payload_block["errors"][0]["message"]
