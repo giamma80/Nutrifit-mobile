@@ -1,17 +1,26 @@
 from __future__ import annotations
 
+# Standard library
+import os
+import uuid
+import datetime
+import dataclasses
+import hashlib as _hashlib  # NEW
+import json as _json  # NEW
+import logging as _logging
+from contextlib import asynccontextmanager
+from typing import Final, Any, Optional, Dict, List, cast
+
+# Third-party
 import strawberry
 from fastapi import FastAPI
 from strawberry.fastapi import GraphQLRouter
-import datetime
-import dataclasses
-import os
-import uuid
-from typing import Final, Any, Optional, Dict, List, cast
 from strawberry.types import Info
 from graphql import GraphQLError
 
+# Local application imports
 from cache import cache
+from nutrients import NUTRIENT_FIELDS
 from openfoodfacts import adapter
 from repository.meals import meal_repo, MealRecord  # NEW
 from repository.activities import (
@@ -21,30 +30,7 @@ from repository.activities import (
 )  # NEW
 from repository.health_totals import health_totals_repo  # NEW
 from repository.ai_meal_photo import meal_photo_repo
-import hashlib as _hashlib  # NEW
-import json as _json  # NEW
-import logging as _logging
-
-from inference.adapter import (
-    get_active_adapter,
-)  # import locale per evitare cicli
-
-# --- Basic logging configuration (minimal) ---
-_LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
-try:
-    _logging.basicConfig(
-        level=getattr(_logging, _LOG_LEVEL, _logging.INFO),
-        format="%(asctime)s %(levelname)s %(name)s %(message)s",
-    )
-except Exception:  # pragma: no cover
-    _logging.basicConfig(level=_logging.INFO)
-
-for _ln in ("startup", "ai.normalize"):
-    _lg = _logging.getLogger(_ln)
-    if _lg.level == 0:  # not set explicitly
-        _lg.setLevel(getattr(_logging, _LOG_LEVEL, _logging.INFO))
-from contextlib import asynccontextmanager
-from nutrients import NUTRIENT_FIELDS
+from inference.adapter import get_active_adapter
 from graphql.types_meal import (
     MealEntry,
     DailySummary,
@@ -70,6 +56,21 @@ from graphql.types_activity_health import (
     CacheStats,
 )
 from graphql.types_product import Product, map_product
+
+# --- Basic logging configuration (minimal) ---
+_LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
+try:
+    _logging.basicConfig(
+        level=getattr(_logging, _LOG_LEVEL, _logging.INFO),
+        format="%(asctime)s %(levelname)s %(name)s %(message)s",
+    )
+except Exception:  # pragma: no cover
+    _logging.basicConfig(level=_logging.INFO)
+
+for _ln in ("startup", "ai.normalize"):
+    _lg = _logging.getLogger(_ln)
+    if _lg.level == 0:  # not set explicitly
+        _lg.setLevel(getattr(_logging, _LOG_LEVEL, _logging.INFO))
 
 # TTL in secondi per la cache del prodotto (default 10 minuti)
 PRODUCT_CACHE_TTL_S = float(os.getenv("PRODUCT_CACHE_TTL_S", "600"))
@@ -335,9 +336,9 @@ class Query:
 
 @strawberry.type
 class Mutation:
-    @strawberry.mutation(  # type: ignore[misc]
+    @strawberry.mutation(
         description=("Log di un pasto con arricchimento nutrienti se barcode noto")
-    )
+    )  # type: ignore[misc]
     async def log_meal(
         self, info: Info[Any, Any], input: LogMealInput
     ) -> MealEntry:  # noqa: ARG002
