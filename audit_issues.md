@@ -61,6 +61,8 @@ Questo file sostituisce `ussues.md` (rimandare qui e rimuovere duplicazioni). St
 | 55 | Medium | Medium | feature flags config | Assente feature flag rollout (dry_run→enforce) per normalization | Rollout rischio regressioni | Introdurre flag AI_NORMALIZATION_MODE (off|dry_run|enforce) | TODO | ARCH,OPS |
 | 56 | Medium | High | backend/inference/adapter.py, schema GraphQL | Mancanza dishName aggregato | UX meno leggibile / niente label piatto | Estrarre high-level dishName via prompt + esporre campo | TODO | ARCH,UX |
 | 57 | Medium | High | backend/inference/adapter.py, persistence repo | photoUrl non persistita in analysis & confirm | Perdita tracciabilità immagine | Aggiungere storage e campo photoUrl in MealPhotoAnalysis | TODO | ARCH,DOC |
+| 58 | High | High | docs/nutrifit_nutrition_guide.md | Sezione "Fonti nutrienti e priorità" assente | Governance sorgenti nutrienti non formalizzata | Aggiungere sezione con gerarchia (user_override > off_barcode > usda_generic > ciqual > category_profile > heuristic > gpt_guess) | TODO | DOC,ARCH |
+| 59 | Critical | High | enrichment pipeline, new module usda_adapter.py | Assenza integrazione USDA (FoodData Central) per alimenti generici | Macro/calorie meno accurate per alimenti non confezionati | Implementare lookup FDC (ricerca descrizione → fdc_id, normalizzazione per 100g, caching, tagging source=usda_generic/usda_exact) | TODO | ARCH,DATA |
 
 Legenda Tags: DOC=documentazione, SEC=sicurezza, ARCH=architettura, TEST=test coverage, CI=continuous integration, OBS=observability.
 
