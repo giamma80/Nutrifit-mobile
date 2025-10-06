@@ -269,12 +269,12 @@ class RemoteModelAdapter:
     * Non sollevare eccezioni verso il repository (robustezza UX).
 
     Implementazione attuale: mock che attende fino a `REMOTE_LATENCY_MS` e
-    genera piccola variazione sulle quantità. Se la latenza simulata supera
-    `REMOTE_TIMEOUT_MS` viene attivato fallback.
-
-    Variabili ambiente supportate:
-    * REMOTE_TIMEOUT_MS (default 1200)
-    * REMOTE_LATENCY_MS (default 600)
+                setattr(
+                    self,
+                    "_last_dish_name",
+                    self._generate_dish_name(parsed, out),
+                )
+            return out
     * REMOTE_FAIL_RATE (default 0.0)  # probabilità di fallire la chiamata
     * REMOTE_JITTER_MS (default 150)
     """
@@ -500,7 +500,9 @@ class Gpt4vAdapter:
                     enrich.fat if enrich.success else None,
                     getattr(enrich, "fiber", None) if enrich.success else None,
                 ]
-                filled_fields_total += sum(1 for f in macro_fields if f is not None)
+                filled_fields_total += sum(
+                    1 for f in macro_fields if f is not None
+                )
                 total_fields_possible += len(macro_fields)
 
                 out.append(
@@ -523,13 +525,17 @@ class Gpt4vAdapter:
                 source=self.name(),
             )
             # --- Normalization Phase 2.1 ---
-            norm_mode = os.getenv("AI_NORMALIZATION_MODE", "off").strip().lower()
+            norm_mode = (
+                os.getenv("AI_NORMALIZATION_MODE", "off").strip().lower()
+            )
             try:
                 norm_items = [
                     NormalizedItem(
                         label=o.label,
                         quantity_g=float(o.quantity_g or 0.0),
-                        calories=(float(o.calories) if o.calories is not None else None),
+                        calories=(
+                            float(o.calories) if o.calories is not None else None
+                        ),
                         protein=o.protein,
                         carbs=o.carbs,
                         fat=o.fat,
@@ -577,13 +583,6 @@ class Gpt4vAdapter:
             except Exception:
                 # Fail-safe: never break analysis for normalization issues
                 setattr(self, "_last_normalization_error", True)
-
-            # Heuristic dishName (issue #56 placeholder): combina max 3 label
-            top_labels = [p.label for p in parsed[:3]]
-            candidate = None
-            if top_labels:
-                candidate = " ".join(lbl.lower() for lbl in top_labels)
-            setattr(self, "_last_dish_name", candidate)
             return out
 
     def analyze(
