@@ -72,9 +72,7 @@ class MealPhotoAnalysis:
     raw_json: Optional[str] = None
     idempotency_key_used: Optional[str] = None
     total_calories: Optional[int] = None
-    analysis_errors: List["MealPhotoAnalysisError"] = strawberry.field(
-        default_factory=list
-    )
+    analysis_errors: List["MealPhotoAnalysisError"] = strawberry.field(default_factory=list)
     failure_reason: Optional["MealPhotoAnalysisErrorCode"] = None
 
 

@@ -98,6 +98,8 @@ def _map_analysis(rec) -> MealPhotoAnalysis:  # type: ignore[no-untyped-def]
             fiber=i.fiber,
             sugar=i.sugar,
             sodium=i.sodium,
+            enrichment_source=getattr(i, "enrichment_source", None),
+            calorie_corrected=getattr(i, "calorie_corrected", None),
         )
         for i in rec.items
     ]
@@ -108,6 +110,8 @@ def _map_analysis(rec) -> MealPhotoAnalysis:  # type: ignore[no-untyped-def]
         status=MealPhotoAnalysisStatus(rec.status),
         created_at=rec.created_at,
         source=rec.source,
+        photo_url=getattr(rec, "photo_url", None),
+        dish_name=getattr(rec, "dish_name", None),
         items=items,
         raw_json=rec.raw_json,
         idempotency_key_used=rec.idempotency_key_used,
@@ -593,6 +597,20 @@ class Mutation:
         """
         uid = input.user_id or DEFAULT_USER_ID
         now_iso = datetime.datetime.utcnow().isoformat() + "Z"
+        # Domain whitelist (issue #54)
+        if input.photo_url:
+            try:
+                from urllib.parse import urlparse
+
+                parsed = urlparse(input.photo_url)
+                host = parsed.netloc.lower()
+                allowed = os.getenv("AI_PHOTO_URL_ALLOWED_HOSTS")
+                if allowed:
+                    allow_hosts = [h.strip().lower() for h in allowed.split(",") if h.strip()]
+                    if host not in allow_hosts:
+                        raise GraphQLError("INVALID_IMAGE: domain not allowed")
+            except ValueError:
+                raise GraphQLError("INVALID_IMAGE: malformed URL")
         rec = await meal_photo_repo.create_or_get_async(
             user_id=uid,
             photo_id=input.photo_id,
