@@ -6,6 +6,12 @@ Formato ispirato a [Keep a Changelog](https://keepachangelog.com/it-IT/1.1.0/) e
 
 ## [Unreleased]
 
+### Chore
+- bump strawberry-graphql from 0.211.1 to 0.283.0 in /backend (#12)
+
+## [0.4.4] - 2025-10-06
+
+
 Placeholder per nuove modifiche non ancora rilasciate.
 
 ### Added
