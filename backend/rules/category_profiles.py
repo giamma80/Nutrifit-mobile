@@ -47,44 +47,84 @@ class NormalizedItem:
 CATEGORY_PROFILES: Dict[str, Dict[str, float]] = {
     # valori sugar/sodium indicativi (g per 100g) – fine tuning futuro
     "lean_fish": {
-        "protein": 22.0, "carbs": 0.0, "fat": 2.0, "fiber": 0.0,
-        "sugar": 0.0, "sodium": 0.05,
+        "protein": 22.0,
+        "carbs": 0.0,
+        "fat": 2.0,
+        "fiber": 0.0,
+        "sugar": 0.0,
+        "sodium": 0.05,
     },
     "poultry": {
-        "protein": 25.0, "carbs": 0.0, "fat": 4.0, "fiber": 0.0,
-        "sugar": 0.0, "sodium": 0.07,
+        "protein": 25.0,
+        "carbs": 0.0,
+        "fat": 4.0,
+        "fiber": 0.0,
+        "sugar": 0.0,
+        "sodium": 0.07,
     },
     "pasta_cooked": {
-        "protein": 5.0, "carbs": 30.0, "fat": 1.5, "fiber": 2.0,
-        "sugar": 1.0, "sodium": 0.01,
+        "protein": 5.0,
+        "carbs": 30.0,
+        "fat": 1.5,
+        "fiber": 2.0,
+        "sugar": 1.0,
+        "sodium": 0.01,
     },
     "rice_cooked": {
-        "protein": 3.0, "carbs": 28.0, "fat": 0.5, "fiber": 0.5,
-        "sugar": 0.1, "sodium": 0.0,
+        "protein": 3.0,
+        "carbs": 28.0,
+        "fat": 0.5,
+        "fiber": 0.5,
+        "sugar": 0.1,
+        "sodium": 0.0,
     },
     "legume": {
-        "protein": 8.0, "carbs": 20.0, "fat": 1.0, "fiber": 6.0,
-        "sugar": 3.0, "sodium": 0.01,
+        "protein": 8.0,
+        "carbs": 20.0,
+        "fat": 1.0,
+        "fiber": 6.0,
+        "sugar": 3.0,
+        "sodium": 0.01,
     },
     "tuber": {
-        "protein": 2.0, "carbs": 17.0, "fat": 0.1, "fiber": 2.0,
-        "sugar": 1.0, "sodium": 0.01,
+        "protein": 2.0,
+        "carbs": 17.0,
+        "fat": 0.1,
+        "fiber": 2.0,
+        "sugar": 1.0,
+        "sodium": 0.01,
     },
     "leafy_salad": {
-        "protein": 2.0, "carbs": 3.0, "fat": 0.3, "fiber": 2.5,
-        "sugar": 0.8, "sodium": 0.02,
+        "protein": 2.0,
+        "carbs": 3.0,
+        "fat": 0.3,
+        "fiber": 2.5,
+        "sugar": 0.8,
+        "sodium": 0.02,
     },
     "dairy_basic": {
-        "protein": 3.5, "carbs": 5.0, "fat": 3.5, "fiber": 0.0,
-        "sugar": 5.0, "sodium": 0.05,
+        "protein": 3.5,
+        "carbs": 5.0,
+        "fat": 3.5,
+        "fiber": 0.0,
+        "sugar": 5.0,
+        "sodium": 0.05,
     },
     "citrus_garnish": {
-        "protein": 1.0, "carbs": 9.0, "fat": 0.2, "fiber": 2.0,
-        "sugar": 2.0, "sodium": 0.0,
+        "protein": 1.0,
+        "carbs": 9.0,
+        "fat": 0.2,
+        "fiber": 2.0,
+        "sugar": 2.0,
+        "sodium": 0.0,
     },
     "herb": {
-        "protein": 3.0, "carbs": 7.0, "fat": 0.6, "fiber": 4.0,
-        "sugar": 0.5, "sodium": 0.02,
+        "protein": 3.0,
+        "carbs": 7.0,
+        "fat": 0.6,
+        "fiber": 4.0,
+        "sugar": 0.5,
+        "sodium": 0.02,
     },
 }
 
@@ -121,9 +161,7 @@ def classify_category(label: str) -> Optional[str]:
     return None
 
 
-def garnish_clamp(
-    quantity_g: float, category: Optional[str]
-) -> Tuple[float, bool]:
+def garnish_clamp(quantity_g: float, category: Optional[str]) -> Tuple[float, bool]:
     if category in GARNISH_CATEGORIES:
         if quantity_g < GARNISH_MIN_G:
             return GARNISH_MIN_G, True
@@ -138,19 +176,33 @@ def apply_category_profile(item: NormalizedItem) -> None:
     prof = CATEGORY_PROFILES.get(item.category)
     if not prof:
         return
-    # Se già presenti macro lasciamo invariato (future override policy?)
     factor = item.quantity_g / 100.0 if item.quantity_g else 1.0
-    if item.protein is None:
+    # Regole override:
+    # - valore mancante
+    # - oppure <30% del profilo
+    # - oppure enrichment_source heuristico/default
+    weak_factor = 0.3
+    allow_override = item.enrichment_source in {None, "heuristic", "default"}
+
+    def need_override(current: Optional[float], key: str) -> bool:
+        if current is None:
+            return True
+        target = prof[key] * factor
+        if current < target * weak_factor:
+            return True
+        return False
+    if need_override(item.protein, "protein") or allow_override:
         item.protein = prof["protein"] * factor
-    if item.carbs is None:
+    if need_override(item.carbs, "carbs") or allow_override:
         item.carbs = prof["carbs"] * factor
-    if item.fat is None:
+    if need_override(item.fat, "fat") or allow_override:
         item.fat = prof["fat"] * factor
-    if item.fiber is None:
+    if need_override(item.fiber, "fiber") or allow_override:
         item.fiber = prof["fiber"] * factor
-    if item.sugar is None and "sugar" in prof:
+    # sugar / sodium sempre se mancanti
+    if (item.sugar is None) and ("sugar" in prof):
         item.sugar = prof["sugar"] * factor
-    if item.sodium is None and "sodium" in prof:
+    if (item.sodium is None) and ("sodium" in prof):
         item.sodium = prof["sodium"] * factor
     item.enrichment_source = "category_profile"
 

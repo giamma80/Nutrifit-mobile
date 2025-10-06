@@ -36,7 +36,7 @@ async def test_normalization_modes_garnish_and_macro(
 
     from inference.adapter import Gpt4vAdapter
 
-    def fake_simulate(self: Gpt4vAdapter) -> str:  # type: ignore
+    def fake_simulate(self: Gpt4vAdapter) -> str:
         items = [
             {
                 "label": "parsley",
@@ -59,7 +59,10 @@ async def test_normalization_modes_garnish_and_macro(
         return _json.dumps({"items": items})
 
     monkeypatch.setattr(
-        Gpt4vAdapter, "_simulate_model_output", fake_simulate, raising=True
+        Gpt4vAdapter,
+        "_simulate_model_output",
+        fake_simulate,
+        raising=True,
     )
 
     # f-string: solo sostituzione {mode}
@@ -109,6 +112,14 @@ async def test_normalization_modes_garnish_and_macro(
         # Niente clamp in off/dry_run
         assert parsley["quantityG"] == 50
         assert (salmon.get("carbs") or 0) > 0
+        # In dry_run i valori sugar/sodium devono essere popolati via
+        # category profile (propagazione non distruttiva). In off restano None.
+        if mode == "dry_run":
+            assert parsley.get("sugar") is not None
+            assert salmon.get("sodium") is not None
+        else:  # off
+            assert parsley.get("sugar") is None
+            assert salmon.get("sodium") is None
 
 
 # --- Domain whitelist ---
@@ -203,7 +214,7 @@ async def test_calorie_corrected_true_case(
 
     from inference.adapter import Gpt4vAdapter
 
-    def fake_simulate(self: Gpt4vAdapter) -> str:  # type: ignore
+    def fake_simulate(self: Gpt4vAdapter) -> str:
         # Nessuna calorie dichiarata → ricalcolo e flag True
         items = [
             {
@@ -217,7 +228,10 @@ async def test_calorie_corrected_true_case(
         return _json.dumps({"items": items})
 
     monkeypatch.setattr(
-        Gpt4vAdapter, "_simulate_model_output", fake_simulate, raising=True
+        Gpt4vAdapter,
+        "_simulate_model_output",
+        fake_simulate,
+        raising=True,
     )
     mutation = _q(
         """

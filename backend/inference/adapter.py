@@ -538,6 +538,7 @@ class Gpt4vAdapter:
                         fiber=o.fiber,
                         sugar=o.sugar,
                         sodium=o.sodium,
+                        enrichment_source=o.enrichment_source,
                     )
                     for o in out
                 ]
@@ -565,6 +566,13 @@ class Gpt4vAdapter:
                         )
                         if n.calorie_corrected:
                             o.calorie_corrected = True
+                else:
+                    # In dry_run/off copia solo sugar/sodium se assenti
+                    for o, n in zip(out, norm_result.items):
+                        if o.sugar is None and n.sugar is not None:
+                            o.sugar = n.sugar
+                        if o.sodium is None and n.sodium is not None:
+                            o.sodium = n.sodium
                 # Metrics placeholder (future): corrections & clamps stats
                 setattr(
                     self,
