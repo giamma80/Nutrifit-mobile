@@ -6,6 +6,18 @@ Formato ispirato a [Keep a Changelog](https://keepachangelog.com/it-IT/1.1.0/) e
 
 ## [Unreleased]
 
+### Fixed
+- resolve OpenAI client httpx 0.28+ compatibility
+
+### Chore
+- bump fastapi from 0.111.0 to 0.118.0 in /backend (#7)
+- bump httpx from 0.27.0 to 0.28.1 in /backend (#2)
+- bump pyyaml from 6.0.2 to 6.0.3 in /backend (#10)
+- bump uvicorn from 0.30.1 to 0.37.0 in /backend (#9)
+
+## [0.4.5] - 2025-10-07
+
+
 ### Chore
 - bump strawberry-graphql from 0.211.1 to 0.283.0 in /backend (#12)
 

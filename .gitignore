@@ -150,3 +150,4 @@ app.*.symbols
 # Legacy duplicate schema path (prevent accidental recreation)
 backend/backend/
 backend/backend/graphql/schema.graphql
+backend/.server.pid
