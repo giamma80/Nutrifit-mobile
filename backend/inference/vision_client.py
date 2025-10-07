@@ -66,7 +66,18 @@ async def call_openai_vision(
     if not image_url:
         raise VisionCallError("IMAGE_URL_MISSING")
 
-    client = OpenAI(api_key=api_key)
+    # Fix per compatibilità httpx 0.28+: evita parametri problematici
+    try:
+        client = OpenAI(api_key=api_key)
+    except TypeError as e:
+        if "proxies" in str(e):
+            # Fallback: crea client con httpx esplicito senza parametri
+            import httpx
+
+            http_client = httpx.Client()
+            client = OpenAI(api_key=api_key, http_client=http_client)
+        else:
+            raise
 
     # Costruiamo i messages e li castiamo ad Iterable generico per mypy.
     # Per compat con SDK openai>=1.x usiamo struttura minimale e cast a Any.
