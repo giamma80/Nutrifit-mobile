@@ -13,7 +13,6 @@ from datetime import datetime
 from domain.nutrition.model import (
     NutritionPlan,
     UserPhysicalData,
-    ActivityLevel,
     GoalStrategy,
     MacroTargets,
 )
@@ -25,28 +24,28 @@ logger = logging.getLogger("domain.nutrition.adapters.nutrition_plan")
 
 class NutritionPlanAdapter(NutritionPlanPort):
     """Stub adapter per nutrition plans - in-memory storage."""
-    
-    def __init__(self):
+
+    def __init__(self) -> None:
         # In-memory storage per testing/demo
         self._plans: dict[str, NutritionPlan] = {}
-    
+
     def get_by_user_id(self, user_id: str) -> Optional[NutritionPlan]:
         """Recupera piano utente (stub)."""
         return self._plans.get(user_id)
-    
+
     def save(self, plan: NutritionPlan) -> NutritionPlan:
         """Salva piano (stub in-memory)."""
         self._plans[plan.user_id] = plan
         logger.info(f"Saved nutrition plan for user {plan.user_id}")
         return plan
-    
+
     def create_default_plan(
         self,
         user_id: str,
         physical_data: UserPhysicalData,
     ) -> NutritionPlan:
         """Crea piano default per nuovo utente."""
-        
+
         # Default values per demo
         default_targets = MacroTargets(
             calories=2000,
@@ -55,7 +54,7 @@ class NutritionPlanAdapter(NutritionPlanPort):
             fat_g=67.0,
             fiber_g=28.0,
         )
-        
+
         plan = NutritionPlan(
             user_id=user_id,
             strategy=GoalStrategy.MAINTAIN,
@@ -65,7 +64,7 @@ class NutritionPlanAdapter(NutritionPlanPort):
             tdee=2000.0,  # Will be calculated properly by service
             updated_at=datetime.now(),
         )
-        
+
         return self.save(plan)
 
 

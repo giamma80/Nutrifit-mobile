@@ -7,7 +7,7 @@ Implementazioni concrete in adapters/.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Optional, Dict, List
+from typing import Any, Optional, Dict, List, Tuple
 
 from domain.nutrition.model import (
     NutritionPlan,
@@ -20,17 +20,17 @@ from domain.nutrition.model import (
 
 class NutritionPlanPort(ABC):
     """Port per persistenza e retrieval piani nutrizionali."""
-    
+
     @abstractmethod
     def get_by_user_id(self, user_id: str) -> Optional[NutritionPlan]:
         """Recupera piano nutrizionale utente corrente."""
         pass
-    
+
     @abstractmethod
     def save(self, plan: NutritionPlan) -> NutritionPlan:
         """Salva piano nutrizionale aggiornato."""
         pass
-    
+
     @abstractmethod
     def create_default_plan(
         self,
@@ -43,12 +43,12 @@ class NutritionPlanPort(ABC):
 
 class MealDataPort(ABC):
     """Port per accesso dati pasti e aggregazioni."""
-    
+
     @abstractmethod
-    def get_daily_meals(self, user_id: str, date: str) -> List[Dict]:
+    def get_daily_meals(self, user_id: str, date: str) -> List[Dict[str, Any]]:
         """Recupera tutti i pasti per data (YYYY-MM-DD)."""
         pass
-    
+
     @abstractmethod
     def get_daily_totals(
         self,
@@ -61,7 +61,7 @@ class MealDataPort(ABC):
 
 class ActivityDataPort(ABC):
     """Port per dati attività fisica e calorie consumate."""
-    
+
     @abstractmethod
     def get_daily_activity(
         self,
@@ -70,7 +70,7 @@ class ActivityDataPort(ABC):
     ) -> Dict[str, float]:
         """Recupera steps e calories_out per data."""
         pass
-    
+
     @abstractmethod
     def get_weekly_activity_avg(
         self,
@@ -83,26 +83,31 @@ class ActivityDataPort(ABC):
 
 class CategoryProfilePort(ABC):
     """Port per profili nutrizionali categoria."""
-    
+
     @abstractmethod
     def get_profile(self, category: str) -> Optional[CategoryProfile]:
         """Recupera profilo per categoria alimento."""
         pass
-    
+
     @abstractmethod
     def get_all_profiles(self) -> Dict[str, CategoryProfile]:
         """Recupera tutti i profili disponibili."""
         pass
-    
+
     @abstractmethod
     def classify_food(self, food_label: str) -> Optional[str]:
         """Classifica alimento in categoria."""
         pass
 
+    @abstractmethod
+    def apply_garnish_clamp(self, quantity_g: float, category: str) -> Tuple[float, bool]:
+        """Applica clamp per garnish su quantità."""
+        pass
+
 
 class NutritionSummaryPort(ABC):
     """Port per aggregazioni nutrizionali storiche."""
-    
+
     @abstractmethod
     def get_summary(
         self,
@@ -111,12 +116,12 @@ class NutritionSummaryPort(ABC):
     ) -> Optional[DailyNutritionSummary]:
         """Recupera summary giornaliero esistente."""
         pass
-    
+
     @abstractmethod
     def save_summary(self, summary: DailyNutritionSummary) -> None:
         """Persiste summary calcolato."""
         pass
-    
+
     @abstractmethod
     def get_range_summaries(
         self,
