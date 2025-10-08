@@ -613,6 +613,173 @@ class Mutation:
         """
         uid = input.user_id or DEFAULT_USER_ID
         now_iso = datetime.datetime.utcnow().isoformat() + "Z"
+
+        # Feature flag per nuovo domain service
+        use_v2_service = os.getenv("AI_MEAL_ANALYSIS_V2") == "1"
+
+        if use_v2_service:
+            # Nuovo percorso domain-driven
+            from domain.meal.application.meal_analysis_service import MealAnalysisService
+            from domain.meal.model import MealAnalysisRequest
+
+            # Check idempotency prima di procedere
+            if input.idempotency_key:
+                key = (uid, input.idempotency_key)
+                existing_id = meal_photo_repo._idemp.get(key)
+                if existing_id:
+                    existing_analysis = meal_photo_repo._analyses.get((uid, existing_id))
+                    if existing_analysis:
+                        # Restituisce l'analisi esistente convertita in GraphQL format
+                        items = [
+                            MealPhotoItemPrediction(
+                                label=item.label,
+                                confidence=item.confidence,
+                                quantity_g=item.quantity_g,
+                                calories=item.calories,
+                                protein=item.protein,
+                                carbs=item.carbs,
+                                fat=item.fat,
+                                fiber=item.fiber,
+                                sugar=item.sugar,
+                                sodium=item.sodium,
+                                enrichment_source=item.enrichment_source,
+                                calorie_corrected=item.calorie_corrected,
+                            )
+                            for item in existing_analysis.items
+                        ]
+                        return MealPhotoAnalysis(
+                            id=existing_analysis.id,
+                            user_id=existing_analysis.user_id,
+                            status=MealPhotoAnalysisStatus.COMPLETED,
+                            created_at=existing_analysis.created_at,
+                            source=existing_analysis.source,
+                            photo_url=existing_analysis.photo_url,
+                            dish_name=existing_analysis.dish_name,
+                            items=items,
+                            raw_json=existing_analysis.raw_json,
+                            idempotency_key_used=existing_analysis.idempotency_key_used,
+                            total_calories=sum(item.calories or 0 for item in items),
+                            analysis_errors=[],
+                            failure_reason=None,
+                        )
+
+            # Domain whitelist (issue #54)
+            if input.photo_url:
+                try:
+                    from urllib.parse import urlparse
+
+                    parsed = urlparse(input.photo_url)
+                    host = parsed.netloc.lower()
+                    allowed = os.getenv("AI_PHOTO_URL_ALLOWED_HOSTS")
+                    if allowed:
+                        allow_hosts = [h.strip().lower() for h in allowed.split(",") if h.strip()]
+                        if host not in allow_hosts:
+                            raise GraphQLError("INVALID_IMAGE: domain not allowed")
+                except ValueError:
+                    raise GraphQLError("INVALID_IMAGE: malformed URL")
+
+            # Determina modalità normalizzazione
+            norm_mode = os.getenv("AI_NORMALIZATION_MODE", "off").strip().lower()
+
+            service = MealAnalysisService.create_with_defaults()
+            request = MealAnalysisRequest(
+                user_id=uid,
+                photo_id=input.photo_id,
+                photo_url=input.photo_url,
+                now_iso=now_iso,
+                normalization_mode=norm_mode,
+            )
+
+            try:
+                result = await service.analyze_meal_photo(request)
+
+                # Converte da domain a GraphQL response
+                import uuid
+                from ai_models.meal_photo_models import (
+                    MealPhotoAnalysisRecord,
+                    MealPhotoItemPredictionRecord,
+                )
+
+                analysis_id = uuid.uuid4().hex
+                items = [
+                    MealPhotoItemPrediction(
+                        label=item.label,
+                        confidence=item.confidence,
+                        quantity_g=item.quantity_g,
+                        calories=item.calories,
+                        protein=item.protein,
+                        carbs=item.carbs,
+                        fat=item.fat,
+                        fiber=item.fiber,
+                        sugar=item.sugar,
+                        sodium=item.sodium,
+                        enrichment_source=item.enrichment_source,
+                        calorie_corrected=item.calorie_corrected,
+                    )
+                    for item in result.items
+                ]
+
+                # Salva l'analisi nel repository per consentire confirmMealPhoto
+                repo_items = [
+                    MealPhotoItemPredictionRecord(
+                        label=item.label,
+                        confidence=item.confidence,
+                        quantity_g=item.quantity_g,
+                        calories=item.calories,
+                        protein=item.protein,
+                        carbs=item.carbs,
+                        fat=item.fat,
+                        fiber=item.fiber,
+                        sugar=item.sugar,
+                        sodium=item.sodium,
+                        enrichment_source=item.enrichment_source,
+                        calorie_corrected=item.calorie_corrected,
+                    )
+                    for item in result.items
+                ]
+
+                repo_record = MealPhotoAnalysisRecord(
+                    id=analysis_id,
+                    user_id=uid,
+                    status="COMPLETED",
+                    created_at=now_iso,
+                    source=f"{result.source}_v2",
+                    items=repo_items,
+                    raw_json=None,
+                    idempotency_key_used=input.idempotency_key,
+                    dish_name=result.dish_name,
+                    photo_url=input.photo_url,
+                )
+
+                # Salva nel repository in-memory
+                meal_photo_repo._analyses[(uid, analysis_id)] = repo_record
+                if input.idempotency_key:
+                    meal_photo_repo._idemp[(uid, input.idempotency_key)] = analysis_id
+
+                return MealPhotoAnalysis(
+                    id=analysis_id,
+                    user_id=uid,
+                    status=MealPhotoAnalysisStatus.COMPLETED,
+                    created_at=now_iso,
+                    source=f"{result.source}_v2",
+                    photo_url=input.photo_url,
+                    dish_name=result.dish_name,
+                    items=items,
+                    raw_json=None,
+                    idempotency_key_used=input.idempotency_key,
+                    total_calories=result.total_calories,
+                    analysis_errors=[],
+                    failure_reason=None,
+                )
+
+            except Exception as exc:
+                # Fallback a percorso legacy in caso di errore
+                _logging.getLogger("domain.meal").warning(
+                    "domain_service_error_fallback_to_legacy", extra={"error": str(exc)}
+                )
+                # Continua con percorso legacy sotto
+
+        # Percorso legacy esistente
         # Domain whitelist (issue #54)
         if input.photo_url:
             try:
@@ -731,6 +898,7 @@ async def lifespan(_: FastAPI) -> Any:  # pragma: no cover osservabilità
     if os.getenv("AI_MEAL_PHOTO_DEBUG") == "1":
         env_keys = [
             "AI_MEAL_PHOTO_MODE",
+            "AI_MEAL_ANALYSIS_V2",
             "AI_GPT4V_REAL_ENABLED",
             "OPENAI_VISION_MODEL",
             "AI_NORMALIZATION_MODE",
