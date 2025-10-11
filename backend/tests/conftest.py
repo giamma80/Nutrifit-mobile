@@ -42,6 +42,82 @@ def _clear_ai_env() -> Generator[None, None, None]:
         pass
 
 
+@pytest.fixture
+def enable_nutrition_domain_v2() -> Generator[None, None, None]:
+    """Fixture per abilitare temporaneamente AI_NUTRITION_V2 nei test."""
+    import os
+
+    original_value = os.environ.get("AI_NUTRITION_V2")
+    os.environ["AI_NUTRITION_V2"] = "true"
+
+    try:
+        yield
+    finally:
+        if original_value is None:
+            os.environ.pop("AI_NUTRITION_V2", None)
+        else:
+            os.environ["AI_NUTRITION_V2"] = original_value
+
+
+@pytest.fixture
+def enable_activity_domain_v2() -> Generator[None, None, None]:
+    """Fixture per abilitare temporaneamente ACTIVITY_DOMAIN_V2 nei test."""
+    import os
+
+    original_value = os.environ.get("ACTIVITY_DOMAIN_V2")
+    os.environ["ACTIVITY_DOMAIN_V2"] = "true"
+
+    try:
+        yield
+    finally:
+        if original_value is None:
+            os.environ.pop("ACTIVITY_DOMAIN_V2", None)
+        else:
+            os.environ["ACTIVITY_DOMAIN_V2"] = original_value
+
+
+@pytest.fixture
+def nutrition_service() -> Generator[Any, None, None]:
+    """Fixture che restituisce NutritionCalculationService con flag."""
+    import os
+    from domain.nutrition.application.nutrition_service import (
+        get_nutrition_service,
+    )
+
+    original_value = os.environ.get("AI_NUTRITION_V2")
+    os.environ["AI_NUTRITION_V2"] = "true"
+
+    try:
+        service = get_nutrition_service()
+        assert service is not None, "Nutrition service should be available with feature flag"
+        yield service
+    finally:
+        if original_value is None:
+            os.environ.pop("AI_NUTRITION_V2", None)
+        else:
+            os.environ["AI_NUTRITION_V2"] = original_value
+
+
+@pytest.fixture
+def activity_integration_service() -> Generator[Any, None, None]:
+    """Fixture che restituisce ActivityIntegrationService con flag."""
+    import os
+    from domain.activity.integration import get_activity_integration_service
+
+    original_value = os.environ.get("ACTIVITY_DOMAIN_V2")
+    os.environ["ACTIVITY_DOMAIN_V2"] = "true"
+
+    try:
+        service = get_activity_integration_service()
+        assert service is not None, "Activity integration service should be available with flag"
+        yield service
+    finally:
+        if original_value is None:
+            os.environ.pop("ACTIVITY_DOMAIN_V2", None)
+        else:
+            os.environ["ACTIVITY_DOMAIN_V2"] = original_value
+
+
 @pytest.fixture(autouse=True)
 def _reset_metrics() -> Generator[None, None, None]:
     """Reset metriche prima e dopo ogni test per isolamento."""

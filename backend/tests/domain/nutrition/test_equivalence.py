@@ -6,6 +6,7 @@ e app.py daily_summary.
 """
 
 import pytest
+from typing import Any
 from unittest.mock import Mock
 
 from domain.nutrition.application.nutrition_service import (
@@ -28,7 +29,9 @@ from rules.category_profiles import (
 class TestNutritionCalculationEquivalence:
     """Test equivalenza calcoli BMR/TDEE/macro targets."""
 
-    def setup_method(self) -> None:
+    @pytest.fixture(autouse=True)
+    def setup_nutrition_service(self, enable_nutrition_domain_v2: Any) -> None:
+        """Setup service con feature flag abilitato automaticamente."""
         # Mock ports for isolated testing
         self.nutrition_plan_port = Mock()
         self.meal_data_port = Mock()

@@ -1,22 +1,22 @@
 """Quick integration test per nutrition domain vs existing logic."""
 
 import pytest
-
-from domain.nutrition.application.nutrition_service import get_nutrition_service
-from domain.nutrition.model import UserPhysicalData, ActivityLevel, GoalStrategy
-
-
-def test_nutrition_service_initialization() -> None:
-    """Test che il servizio si inizializzi correttamente."""
-    service = get_nutrition_service()
-    assert service is not None
+from typing import Any
+from domain.nutrition.model import (
+    UserPhysicalData,
+    ActivityLevel,
+    GoalStrategy,
+)
 
 
-def test_bmr_tdee_calculations() -> None:
+def test_nutrition_service_initialization(nutrition_service: Any) -> None:
+    """Test che il servizio si inizializzi correttamente con feature flag."""
+    assert nutrition_service is not None
+
+
+def test_bmr_tdee_calculations(nutrition_service: Any) -> None:
     """Test calcoli BMR/TDEE base."""
-    service = get_nutrition_service()
-    if not service:
-        pytest.skip("Nutrition service not available")
+    service = nutrition_service
 
     physical_data = UserPhysicalData(
         age=30,
@@ -35,11 +35,9 @@ def test_bmr_tdee_calculations() -> None:
     assert abs(tdee - 2681.5) < 0.1
 
 
-def test_macro_targets_calculation() -> None:
+def test_macro_targets_calculation(nutrition_service: Any) -> None:
     """Test calcolo target macro per diverse strategie."""
-    service = get_nutrition_service()
-    if not service:
-        pytest.skip("Nutrition service not available")
+    service = nutrition_service
 
     physical_data = UserPhysicalData(
         age=30,
@@ -61,11 +59,9 @@ def test_macro_targets_calculation() -> None:
     assert abs(targets.protein_g - 135.0) < 1.0
 
 
-def test_calorie_recomputation() -> None:
+def test_calorie_recomputation(nutrition_service: Any) -> None:
     """Test recompute calorie da macro."""
-    service = get_nutrition_service()
-    if not service:
-        pytest.skip("Nutrition service not available")
+    service = nutrition_service
 
     from domain.nutrition.model import NutrientValues
 
@@ -85,7 +81,9 @@ def test_calorie_recomputation() -> None:
 
 def test_category_classification() -> None:
     """Test classificazione categoria alimenti."""
-    from domain.nutrition.adapters.category_adapter import CategoryProfileAdapter
+    from domain.nutrition.adapters.category_adapter import (
+        CategoryProfileAdapter,
+    )
 
     adapter = CategoryProfileAdapter()
 
