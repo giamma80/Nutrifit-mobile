@@ -342,6 +342,10 @@ class Mutation:
     async def log_meal(
         self, info: Info[Any, Any], input: LogMealInput
     ) -> MealEntry:  # noqa: ARG002
+        # Feature flag routing to domain integration
+        from graphql.meal_resolver import get_meal_resolver
+
+        return await get_meal_resolver().log_meal(info, input)
         if input.quantity_g <= 0:
             raise GraphQLError("INVALID_QUANTITY: quantity_g deve essere > 0")
         ts = input.timestamp or datetime.datetime.utcnow().isoformat() + "Z"
@@ -369,7 +373,7 @@ class Mutation:
             else:
                 try:
                     dto = await adapter.fetch_product(input.barcode)
-                    prod = _map_product(dto)  # type: ignore[arg-type]
+                    prod = _map_product(dto)
                     cache.set(key, prod, PRODUCT_CACHE_TTL_S)
                 except adapter.ProductNotFound:
                     prod = None
@@ -413,77 +417,17 @@ class Mutation:
     async def update_meal(
         self, info: Info[Any, Any], input: UpdateMealInput
     ) -> MealEntry:  # noqa: ARG002
-        rec = meal_repo.get(input.id)
-        if not rec:
-            raise GraphQLError("NOT_FOUND: meal id inesistente")
-        # user isolation (se specificato user_id deve combaciare)
-        if input.user_id and input.user_id != rec.user_id:
-            raise GraphQLError("FORBIDDEN: user mismatch")
-        # Decide se serve ricalcolo nutrienti (se barcode o quantity cambiano)
-        new_barcode = input.barcode if input.barcode is not None else rec.barcode
-        new_quantity = input.quantity_g if input.quantity_g is not None else rec.quantity_g
-        nutrients: Dict[str, Optional[float]] = {k: getattr(rec, k) for k in NUTRIENT_FIELDS}
-        prod: Optional[Product] = None
-        recalc = False
-        if new_barcode != rec.barcode or (
-            input.quantity_g is not None and input.quantity_g != rec.quantity_g
-        ):
-            recalc = True
-        if recalc and new_barcode:
-            key = f"product:{new_barcode}"
-            cached = cache.get(key)
-            if cached:
-                prod = cast(Product, cached)
-            else:
-                try:
-                    dto = await adapter.fetch_product(new_barcode)
-                    prod = _map_product(dto)  # type: ignore[arg-type]
-                    cache.set(key, prod, PRODUCT_CACHE_TTL_S)
-                except adapter.ProductNotFound:
-                    prod = None
-                except adapter.OpenFoodFactsError:
-                    prod = None
-            if prod:
-                nutrients = _enrich_from_product(prod, new_quantity)
-        # Costruisci campi aggiornati
-        update_fields: Dict[str, Any] = {}
-        if input.name is not None:
-            update_fields["name"] = input.name
-        if input.quantity_g is not None:
-            update_fields["quantity_g"] = input.quantity_g
-        if input.timestamp is not None:
-            update_fields["timestamp"] = input.timestamp
-        if input.barcode is not None:
-            update_fields["barcode"] = input.barcode
-        # nutrienti / snapshot se ricalcolati
-        if recalc and prod:
-            update_fields.update(
-                {
-                    "calories": (
-                        nutrients["calories"]
-                        if nutrients["calories"] is None
-                        else int(nutrients["calories"])
-                    ),
-                    "protein": nutrients["protein"],
-                    "carbs": nutrients["carbs"],
-                    "fat": nutrients["fat"],
-                    "fiber": nutrients["fiber"],
-                    "sugar": nutrients["sugar"],
-                    "sodium": nutrients["sodium"],
-                    "nutrient_snapshot_json": __import__("json").dumps(
-                        {k: nutrients[k] for k in NUTRIENT_FIELDS},
-                        sort_keys=True,
-                    ),
-                }
-            )
-        updated = meal_repo.update(input.id, **update_fields)
-        assert updated is not None  # per mypy
-        return MealEntry(**dataclasses.asdict(updated))
+        # Feature flag routing to domain integration
+        from graphql.meal_resolver import get_meal_resolver
+
+        return await get_meal_resolver().update_meal(info, input)
 
     @strawberry.mutation(description="Cancella un pasto")  # type: ignore[misc]
-    def delete_meal(self, info: Info[Any, Any], id: str) -> bool:  # noqa: ARG002
-        ok = meal_repo.delete(id)
-        return ok
+    async def delete_meal(self, info: Info[Any, Any], id: str) -> bool:  # noqa: ARG002
+        # Feature flag routing to domain integration
+        from graphql.meal_resolver import get_meal_resolver
+
+        return await get_meal_resolver().delete_meal(info, id)
 
     @strawberry.mutation(  # type: ignore[misc]
         description="Ingest batch minute activity events (idempotent)"

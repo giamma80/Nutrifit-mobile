@@ -1,52 +1,63 @@
-"""Meal domain integration layer.
-
-Provides unified access to meal domain services with feature flag control,
-adapter composition, and graceful fallback to legacy systems.
-"""
+"""Integration service for meal domain with existing GraphQL layer."""
 
 from __future__ import annotations
 
+import logging
 import os
-from typing import Any, Dict, Optional
+from typing import Dict, Any, Optional
 
-from .adapters.meal_event_adapter import LoggingMealEventAdapter
-from .adapters.meal_repository_adapter import MealRepositoryAdapter
-from .adapters.nutrition_calculator_adapter import (
-    StubNutritionCalculatorAdapter,
-)
-from .adapters.product_lookup_adapter import StubProductLookupAdapter
-from .service import MealQueryService, MealService
-from repository.meals import meal_repo
+from .service import MealService, MealQueryService
+
+logger = logging.getLogger("domain.meal.integration")
 
 
 class MealIntegrationService:
-    """Integration service for meal domain with feature flag control.
-
-    Provides unified access to meal domain services with:
-    - Feature flag control (MEAL_DOMAIN_V2)
-    - Adapter composition and dependency injection
-    - Graceful fallback to legacy systems
-    - Service lifecycle management
-    """
+    """Integration layer for meal domain v2."""
 
     def __init__(self) -> None:
-        self._feature_enabled = self._is_feature_enabled()
         self._meal_service: Optional[MealService] = None
         self._query_service: Optional[MealQueryService] = None
+        self._feature_enabled = self._check_feature_flag()
 
         if self._feature_enabled:
-            self._initialize_services()
+            try:
+                self._initialize_services()
+                logger.info("Meal domain V2 enabled and initialized")
+            except Exception as e:
+                logger.error(f"Failed to initialize meal V2: {e}")
+                self._feature_enabled = False
 
-    def _is_feature_enabled(self) -> bool:
-        """Check if MEAL_DOMAIN_V2 feature flag is enabled."""
+    def _check_feature_flag(self) -> bool:
+        """Check MEAL_DOMAIN_V2 feature flag."""
         return os.getenv("MEAL_DOMAIN_V2", "false").lower() == "true"
 
     def _initialize_services(self) -> None:
-        """Initialize domain services with adapter composition."""
-        # Initialize adapters
+        """Initialize meal domain services with adapters."""
+        # Initialize adapters with feature flag configuration
+        from domain.meal.adapters.meal_repository_adapter import MealRepositoryAdapter
+        from domain.meal.adapters.nutrition_calculator_adapter import (
+            StubNutritionCalculatorAdapter,
+            LegacyNutritionAdapter,
+            CompositeNutritionCalculatorAdapter,
+        )
+        from domain.meal.adapters.product_lookup_adapter import StubProductLookupAdapter
+        from domain.meal.adapters.meal_event_adapter import LoggingMealEventAdapter
+        from repository.meals import meal_repo
+
         repository_adapter = MealRepositoryAdapter(meal_repo)
+
+        # Use production-ready nutrition calculator with legacy integration
+        legacy_adapter = LegacyNutritionAdapter()
+        stub_adapter = StubNutritionCalculatorAdapter()
+        nutrition_calculator_adapter = CompositeNutritionCalculatorAdapter(
+            primary=legacy_adapter, fallback=stub_adapter
+        )
+
+        # Use OpenFoodFacts for product lookup with stub fallback
+
+        # Keep stub for product lookup (OpenFoodFacts needs async ctx)
         product_lookup_adapter = StubProductLookupAdapter()
-        nutrition_calculator_adapter = StubNutritionCalculatorAdapter()
+
         event_adapter = LoggingMealEventAdapter()
 
         # Initialize services
