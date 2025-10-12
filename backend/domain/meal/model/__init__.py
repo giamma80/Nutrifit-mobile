@@ -1,12 +1,22 @@
 """Domain models per meal analysis.
 
-Value objects e DTOs per il dominio dell'analisi dei pasti.
+Value objects e DTOs per il dominio dell'analisi dei pasti,
+più modelli DDD per meal management.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Optional, List
+
+from .meal import (
+    Meal,
+    MealId,
+    NutrientProfile,
+    ProductInfo,
+    ScaledNutrients,
+    UserId,
+)
 
 
 @dataclass(slots=True)
@@ -51,7 +61,15 @@ class MealAnalysisRequest:
 
 
 __all__ = [
+    # Meal Analysis DTOs
     "MealItem",
     "MealAnalysisResult",
     "MealAnalysisRequest",
+    # Meal Domain Models
+    "Meal",
+    "MealId",
+    "NutrientProfile",
+    "ProductInfo",
+    "ScaledNutrients",
+    "UserId",
 ]
