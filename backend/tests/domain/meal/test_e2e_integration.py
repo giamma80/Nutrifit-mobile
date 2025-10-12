@@ -15,7 +15,7 @@ from domain.meal.integration import (
 
 
 @pytest.mark.asyncio
-async def test_meal_domain_e2e_integration():
+async def test_meal_domain_e2e_integration() -> None:
     """Test end-to-end meal domain integration with feature flag."""
     # Test with feature disabled (default)
     with patch.dict(os.environ, {}, clear=True):
@@ -57,7 +57,7 @@ async def test_meal_domain_e2e_integration():
 if __name__ == "__main__":
     import asyncio
 
-    async def main():
+    async def main() -> None:
         print("Testing meal domain integration...")
         await test_meal_domain_e2e_integration()
         print("✅ All integration tests passed!")

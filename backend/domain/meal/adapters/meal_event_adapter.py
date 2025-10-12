@@ -95,11 +95,9 @@ class LoggingMealEventAdapter(MealEventPort):
             },
         )
 
-    def _calculate_changes(
-        self, old_meal: Meal, new_meal: Meal
-    ) -> Dict[str, Any]:
+    def _calculate_changes(self, old_meal: Meal, new_meal: Meal) -> Dict[str, Any]:
         """Calculate what changed between two meal versions."""
-        changes = {}
+        changes: Dict[str, Any] = {}
 
         if old_meal.name != new_meal.name:
             changes["name"] = {"old": old_meal.name, "new": new_meal.name}
@@ -170,9 +168,7 @@ class CompositeMealEventAdapter(MealEventPort):
             try:
                 await adapter.meal_created(meal)
             except Exception as e:
-                logger.error(
-                    f"Event publishing failed for {adapter.__class__.__name__}: {e}"
-                )
+                logger.error(f"Event publishing failed for {adapter.__class__.__name__}: {e}")
 
     async def meal_updated(self, old_meal: Meal, new_meal: Meal) -> None:
         """Publish to all adapters."""
@@ -180,9 +176,7 @@ class CompositeMealEventAdapter(MealEventPort):
             try:
                 await adapter.meal_updated(old_meal, new_meal)
             except Exception as e:
-                logger.error(
-                    f"Event publishing failed for {adapter.__class__.__name__}: {e}"
-                )
+                logger.error(f"Event publishing failed for {adapter.__class__.__name__}: {e}")
 
     async def meal_deleted(self, meal: Meal) -> None:
         """Publish to all adapters."""
@@ -190,9 +184,7 @@ class CompositeMealEventAdapter(MealEventPort):
             try:
                 await adapter.meal_deleted(meal)
             except Exception as e:
-                logger.error(
-                    f"Event publishing failed for {adapter.__class__.__name__}: {e}"
-                )
+                logger.error(f"Event publishing failed for {adapter.__class__.__name__}: {e}")
 
     async def nutrients_calculated(self, meal: Meal) -> None:
         """Publish to all adapters."""
@@ -200,6 +192,4 @@ class CompositeMealEventAdapter(MealEventPort):
             try:
                 await adapter.nutrients_calculated(meal)
             except Exception as e:
-                logger.error(
-                    f"Event publishing failed for {adapter.__class__.__name__}: {e}"
-                )
+                logger.error(f"Event publishing failed for {adapter.__class__.__name__}: {e}")

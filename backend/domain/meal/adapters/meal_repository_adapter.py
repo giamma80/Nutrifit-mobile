@@ -7,7 +7,7 @@ maintaining separation of concerns and enabling gradual migration.
 from __future__ import annotations
 
 from datetime import datetime
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 from domain.meal.model import Meal, MealId, ScaledNutrients, UserId
 from domain.meal.port import MealRepositoryPort
@@ -16,7 +16,7 @@ from repository.meals import MealRecord, MealRepository
 
 class MealRepositoryAdapter(MealRepositoryPort):
     """Adapter that bridges Meal domain to legacy MealRepository.
-    
+
     Handles conversion between domain objects and repository records,
     preserving business logic isolation while enabling legacy integration.
     """
@@ -28,7 +28,7 @@ class MealRepositoryAdapter(MealRepositoryPort):
         """Save domain meal by converting to repository record."""
         # Check if meal exists to decide update vs create
         existing_record = self._legacy_repo.get(meal.id.value)
-        
+
         if existing_record:
             # Update existing record
             updates = self._meal_to_update_fields(meal)
@@ -57,15 +57,11 @@ class MealRepositoryAdapter(MealRepositoryPort):
             after=None,
             before=None,
         )
-        
+
         # Apply offset manually
-        sliced_records = records[offset:offset + limit]
-        
-        return [
-            self._record_to_meal(record)
-            for record in sliced_records
-            if record is not None
-        ]
+        sliced_records = records[offset : offset + limit]
+
+        return [self._record_to_meal(record) for record in sliced_records if record is not None]
 
     async def find_by_idempotency_key(
         self,
@@ -73,10 +69,7 @@ class MealRepositoryAdapter(MealRepositoryPort):
         idempotency_key: str,
     ) -> Optional[Meal]:
         """Find meal by idempotency key for deduplication."""
-        record = self._legacy_repo.find_by_idempotency(
-            user_id.value,
-            idempotency_key
-        )
+        record = self._legacy_repo.find_by_idempotency(user_id.value, idempotency_key)
         return self._record_to_meal(record) if record else None
 
     async def delete(self, meal_id: MealId) -> bool:
@@ -108,7 +101,7 @@ class MealRepositoryAdapter(MealRepositoryPort):
             sodium=meal.nutrients.sodium if meal.nutrients else None,
         )
 
-    def _meal_to_update_fields(self, meal: Meal) -> dict:
+    def _meal_to_update_fields(self, meal: Meal) -> Dict[str, Any]:
         """Convert domain Meal to update fields dict."""
         fields = {
             "name": meal.name,
@@ -118,50 +111,54 @@ class MealRepositoryAdapter(MealRepositoryPort):
             "idempotency_key": meal.idempotency_key,
             "nutrient_snapshot_json": meal.nutrient_snapshot_json,
         }
-        
+
         # Add individual nutrients
         if meal.nutrients:
-            fields.update({
-                "calories": meal.nutrients.calories,
-                "protein": meal.nutrients.protein,
-                "carbs": meal.nutrients.carbs,
-                "fat": meal.nutrients.fat,
-                "fiber": meal.nutrients.fiber,
-                "sugar": meal.nutrients.sugar,
-                "sodium": meal.nutrients.sodium,
-            })
+            fields.update(
+                {
+                    "calories": meal.nutrients.calories,
+                    "protein": meal.nutrients.protein,
+                    "carbs": meal.nutrients.carbs,
+                    "fat": meal.nutrients.fat,
+                    "fiber": meal.nutrients.fiber,
+                    "sugar": meal.nutrients.sugar,
+                    "sodium": meal.nutrients.sodium,
+                }
+            )
         else:
             # Clear nutrients if none provided
-            fields.update({
-                "calories": None,
-                "protein": None,
-                "carbs": None,
-                "fat": None,
-                "fiber": None,
-                "sugar": None,
-                "sodium": None,
-            })
-        
+            fields.update(
+                {
+                    "calories": None,
+                    "protein": None,
+                    "carbs": None,
+                    "fat": None,
+                    "fiber": None,
+                    "sugar": None,
+                    "sodium": None,
+                }
+            )
+
         return fields
 
     def _record_to_meal(self, record: MealRecord) -> Meal:
         """Convert repository MealRecord to domain Meal."""
         # Parse timestamp
-        timestamp = datetime.fromisoformat(
-            record.timestamp.replace('Z', '+00:00')
-        )
-        
+        timestamp = datetime.fromisoformat(record.timestamp.replace("Z", "+00:00"))
+
         # Build nutrients if any are present
         nutrients = None
-        if any([
-            record.calories is not None,
-            record.protein is not None,
-            record.carbs is not None,
-            record.fat is not None,
-            record.fiber is not None,
-            record.sugar is not None,
-            record.sodium is not None,
-        ]):
+        if any(
+            [
+                record.calories is not None,
+                record.protein is not None,
+                record.carbs is not None,
+                record.fat is not None,
+                record.fiber is not None,
+                record.sugar is not None,
+                record.sodium is not None,
+            ]
+        ):
             nutrients = ScaledNutrients(
                 calories=record.calories,
                 protein=record.protein,
@@ -171,7 +168,7 @@ class MealRepositoryAdapter(MealRepositoryPort):
                 sugar=record.sugar,
                 sodium=record.sodium,
             )
-        
+
         return Meal(
             id=MealId.from_string(record.id),
             user_id=UserId.from_string(record.user_id),

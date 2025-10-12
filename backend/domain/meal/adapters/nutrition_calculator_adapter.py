@@ -152,9 +152,7 @@ class LegacyNutritionAdapter(NutritionCalculatorPort):
         # - Bridge to rules/category_profiles.py if needed
         # - Use existing AI meal analysis results
         # - Apply portion scaling and normalization
-        raise NotImplementedError(
-            "Legacy nutrition integration not implemented"
-        )
+        raise NotImplementedError("Legacy nutrition integration not implemented")
 
     async def enrich_from_ai(
         self,
@@ -192,9 +190,7 @@ class CompositeNutritionCalculatorAdapter(NutritionCalculatorPort):
     ) -> Optional[NutrientProfile]:
         """Try primary adapter first, then fallback."""
         try:
-            result = await self._primary.calculate_nutrients(
-                meal_name, quantity_g, barcode
-            )
+            result = await self._primary.calculate_nutrients(meal_name, quantity_g, barcode)
             if result:
                 return result
         except Exception:
@@ -203,9 +199,7 @@ class CompositeNutritionCalculatorAdapter(NutritionCalculatorPort):
 
         # Try fallback adapter
         try:
-            return await self._fallback.calculate_nutrients(
-                meal_name, quantity_g, barcode
-            )
+            return await self._fallback.calculate_nutrients(meal_name, quantity_g, barcode)
         except Exception:
             # Both adapters failed
             return None

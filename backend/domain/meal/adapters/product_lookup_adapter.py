@@ -80,9 +80,7 @@ class StubProductLookupAdapter(ProductLookupPort):
         """Look up product information by barcode."""
         return self._products.get(barcode)
 
-    async def search_products(
-        self, query: str, limit: int = 10
-    ) -> List[ProductInfo]:
+    async def search_products(self, query: str, limit: int = 10) -> List[ProductInfo]:
         """Search products by text query."""
         query_lower = query.lower()
         results = []
@@ -111,13 +109,9 @@ class OpenFoodFactsAdapter(ProductLookupPort):
         # - Parse response and map to ProductInfo
         # - Handle rate limiting and errors
         # - Cache responses
-        raise NotImplementedError(
-            "OpenFoodFacts integration not yet implemented"
-        )
+        raise NotImplementedError("OpenFoodFacts integration not yet implemented")
 
-    async def search_products(
-        self, query: str, limit: int = 10
-    ) -> List[ProductInfo]:
+    async def search_products(self, query: str, limit: int = 10) -> List[ProductInfo]:
         """Search products via OpenFoodFacts API."""
         # TODO: Implement actual API search
         # - HTTP request to search endpoint

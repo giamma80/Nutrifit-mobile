@@ -7,7 +7,7 @@ adapter composition, and graceful fallback to legacy systems.
 from __future__ import annotations
 
 import os
-from typing import Optional
+from typing import Any, Dict, Optional
 
 from .adapters.meal_event_adapter import LoggingMealEventAdapter
 from .adapters.meal_repository_adapter import MealRepositoryAdapter
@@ -57,9 +57,7 @@ class MealIntegrationService:
             event_publisher=event_adapter,
         )
 
-        self._query_service = MealQueryService(
-            meal_repository=repository_adapter
-        )
+        self._query_service = MealQueryService(meal_repository=repository_adapter)
 
     def get_meal_service(self) -> Optional[MealService]:
         """Get meal service if feature is enabled."""
@@ -73,7 +71,7 @@ class MealIntegrationService:
         """Check if meal domain v2 is enabled."""
         return self._feature_enabled
 
-    async def health_check(self) -> dict:
+    async def health_check(self) -> Dict[str, Any]:
         """Health check for meal domain services."""
         if not self._feature_enabled:
             return {
@@ -90,16 +88,8 @@ class MealIntegrationService:
                 "meal_domain_v2": "enabled",
                 "feature_flag": "MEAL_DOMAIN_V2=true",
                 "services": {
-                    "meal_service": (
-                        "available"
-                        if meal_service_available
-                        else "unavailable"
-                    ),
-                    "query_service": (
-                        "available"
-                        if query_service_available
-                        else "unavailable"
-                    ),
+                    "meal_service": ("available" if meal_service_available else "unavailable"),
+                    "query_service": ("available" if query_service_available else "unavailable"),
                 },
                 "adapters": {
                     "repository": "in_memory",
@@ -150,6 +140,6 @@ def is_meal_domain_v2_enabled() -> bool:
     return get_meal_integration_service().is_enabled()
 
 
-async def meal_domain_health_check() -> dict:
+async def meal_domain_health_check() -> Dict[str, Any]:
     """Perform health check on meal domain services."""
     return await get_meal_integration_service().health_check()
