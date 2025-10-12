@@ -1,9 +1,18 @@
 """Meal domain - DDD implementation for meal management.
 
 Complete domain layer with aggregates, services, ports, and value objects
-following Domain-Driven Design principles.
+following Domain-Driven Design principles. Includes integration layer for
+feature flag controlled service composition.
 """
 
+from .integration import (
+    MealIntegrationService,
+    get_meal_integration_service,
+    get_meal_query_service,
+    get_meal_service,
+    is_meal_domain_v2_enabled,
+    meal_domain_health_check,
+)
 from .model import (
     Meal,
     MealId,
@@ -36,4 +45,11 @@ __all__ = [
     # Services
     "MealService",
     "MealQueryService",
+    # Integration
+    "MealIntegrationService",
+    "get_meal_integration_service",
+    "get_meal_service",
+    "get_meal_query_service",
+    "is_meal_domain_v2_enabled",
+    "meal_domain_health_check",
 ]
