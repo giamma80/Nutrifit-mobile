@@ -38,6 +38,7 @@ from graphql.types_meal import (
     UpdateMealInput,
     enrich_from_product,
 )
+from domain.nutrition.integration import get_nutrition_integration_service
 from graphql.types_ai import (
     MealPhotoAnalysisStatus,
     MealPhotoItemPrediction,
@@ -166,6 +167,131 @@ DEFAULT_USER_ID = "default"
 _enrich_from_product = enrich_from_product  # retro compat
 
 
+# Helper functions for daily summary
+def _daily_summary_legacy(uid: str, date: str) -> DailySummary:
+    """Legacy daily summary calculation."""
+    all_meals = meal_repo.list_all(uid)
+    day_meals = [m for m in all_meals if m.timestamp.startswith(date)]
+
+    def _acc(name: str) -> float:
+        total = 0.0
+        for m in day_meals:
+            val = getattr(m, name)
+            if val is not None:
+                total += float(val)
+        return total
+
+    calories_total = int(_acc("calories")) if day_meals else 0
+
+    def _opt(name: str) -> Optional[float]:
+        if not day_meals:
+            return 0.0
+        val = _acc(name)
+        return round(val, 2)
+
+    # Nuova fonte totals: health_totals_repo (snapshot delta aggregation)
+    steps_tot, cal_out_tot = health_totals_repo.daily_totals(user_id=uid, date=date)
+    # Per diagnosi manteniamo events_count dalle minute events
+    act_stats = activity_repo.get_daily_stats(uid, date + "T00:00:00Z")
+    events_count = act_stats.get("events_count", 0)
+    calories_deficit = int(round(cal_out_tot - calories_total))
+    if cal_out_tot > 0:
+        pct = (calories_total / cal_out_tot) * 100
+        # Clamp per evitare valori esplosivi (retry / dati anomali)
+        if pct < 0:
+            pct = 0
+        if pct > 999:
+            pct = 999
+        calories_replenished_percent = int(round(pct))
+    else:
+        calories_replenished_percent = 0
+    return DailySummary(
+        date=date,
+        user_id=uid,
+        meals=len(day_meals),
+        calories=calories_total,
+        protein=_opt("protein"),
+        carbs=_opt("carbs"),
+        fat=_opt("fat"),
+        fiber=_opt("fiber"),
+        sugar=_opt("sugar"),
+        sodium=_opt("sodium"),
+        activity_steps=steps_tot,
+        activity_calories_out=cal_out_tot,
+        activity_events=events_count,
+        calories_deficit=calories_deficit,
+        calories_replenished_percent=calories_replenished_percent,
+    )
+
+
+def _daily_summary_nutrition_domain(
+    uid: str,
+    date: str,
+    nutrition_integration: Any,
+) -> DailySummary:
+    """Daily summary with nutrition domain V2 integration."""
+    try:
+        # Get base legacy calculation for fallback compatibility
+        legacy_summary = _daily_summary_legacy(uid, date)
+
+        # Convert to dict for enhanced processing (manual for Strawberry types)
+        legacy_dict = {
+            "date": legacy_summary.date,
+            "user_id": legacy_summary.user_id,
+            "meals": legacy_summary.meals,
+            "calories": legacy_summary.calories,
+            "protein": legacy_summary.protein,
+            "carbs": legacy_summary.carbs,
+            "fat": legacy_summary.fat,
+            "fiber": legacy_summary.fiber,
+            "sugar": legacy_summary.sugar,
+            "sodium": legacy_summary.sodium,
+            "activity_steps": legacy_summary.activity_steps,
+            "activity_calories_out": legacy_summary.activity_calories_out,
+            "activity_events": legacy_summary.activity_events,
+            "calories_deficit": legacy_summary.calories_deficit,
+            "calories_replenished_percent": legacy_summary.calories_replenished_percent,
+        }
+
+        # Get enhanced summary from nutrition domain
+        enhanced_dict = nutrition_integration.enhanced_daily_summary(
+            user_id=uid,
+            date=date,
+            fallback_summary=legacy_dict,
+        )
+
+        # Create DailySummary from enhanced data, maintaining schema
+        return DailySummary(
+            date=enhanced_dict["date"],
+            user_id=enhanced_dict["user_id"],
+            meals=enhanced_dict["meals"],
+            calories=enhanced_dict["calories"],
+            protein=enhanced_dict["protein"],
+            carbs=enhanced_dict["carbs"],
+            fat=enhanced_dict["fat"],
+            fiber=enhanced_dict["fiber"],
+            sugar=enhanced_dict["sugar"],
+            sodium=enhanced_dict["sodium"],
+            activity_steps=enhanced_dict["activity_steps"],
+            activity_calories_out=enhanced_dict["activity_calories_out"],
+            activity_events=enhanced_dict["activity_events"],
+            calories_deficit=enhanced_dict.get("enhanced_calculations", {}).get(
+                "deficit_v2", enhanced_dict["calories_deficit"]
+            ),
+            calories_replenished_percent=enhanced_dict.get("enhanced_calculations", {}).get(
+                "replenished_pct_v2", enhanced_dict["calories_replenished_percent"]
+            ),
+        )
+
+    except Exception as e:
+        # Log error and fallback to legacy for safety
+        logger = _logging.getLogger("app.daily_summary")
+        logger.error(
+            f"Nutrition domain V2 failed for {uid}/{date}: {e}, " f"falling back to legacy"
+        )
+        return _daily_summary_legacy(uid, date)
+
+
 @strawberry.type
 class Query:
     @strawberry.field
@@ -228,58 +354,18 @@ class Query:
         'date' formato YYYY-MM-DD. Validazione minima per ora.
         """
         uid = user_id or DEFAULT_USER_ID
-        all_meals = meal_repo.list_all(uid)
-        day_meals = [m for m in all_meals if m.timestamp.startswith(date)]
 
-        def _acc(name: str) -> float:
-            total = 0.0
-            for m in day_meals:
-                val = getattr(m, name)
-                if val is not None:
-                    total += float(val)
-            return total
-
-        calories_total = int(_acc("calories")) if day_meals else 0
-
-        def _opt(name: str) -> Optional[float]:
-            if not day_meals:
-                return 0.0
-            val = _acc(name)
-            return round(val, 2)
-
-        # Nuova fonte totals: health_totals_repo (snapshot delta aggregation)
-        steps_tot, cal_out_tot = health_totals_repo.daily_totals(user_id=uid, date=date)
-        # Per diagnosi manteniamo events_count dalle minute events
-        act_stats = activity_repo.get_daily_stats(uid, date + "T00:00:00Z")
-        events_count = act_stats.get("events_count", 0)
-        calories_deficit = int(round(cal_out_tot - calories_total))
-        if cal_out_tot > 0:
-            pct = (calories_total / cal_out_tot) * 100
-            # Clamp per evitare valori esplosivi (retry / dati anomali)
-            if pct < 0:
-                pct = 0
-            if pct > 999:
-                pct = 999
-            calories_replenished_percent = int(round(pct))
-        else:
-            calories_replenished_percent = 0
-        return DailySummary(
-            date=date,
-            user_id=uid,
-            meals=len(day_meals),
-            calories=calories_total,
-            protein=_opt("protein"),
-            carbs=_opt("carbs"),
-            fat=_opt("fat"),
-            fiber=_opt("fiber"),
-            sugar=_opt("sugar"),
-            sodium=_opt("sodium"),
-            activity_steps=steps_tot,
-            activity_calories_out=cal_out_tot,
-            activity_events=events_count,
-            calories_deficit=calories_deficit,
-            calories_replenished_percent=calories_replenished_percent,
+        # Check for nutrition domain V2 feature flag
+        nutrition_integration = get_nutrition_integration_service()
+        use_nutrition_v2 = (
+            os.getenv("AI_NUTRITION_V2", "false").lower() == "true"
+            and nutrition_integration._feature_enabled
         )
+
+        if use_nutrition_v2:
+            return _daily_summary_nutrition_domain(uid, date, nutrition_integration)
+        else:
+            return _daily_summary_legacy(uid, date)
 
     @strawberry.field(  # type: ignore[misc]
         description="Lista eventi activity minuto (diagnostica)"
@@ -632,6 +718,7 @@ class Mutation:
                 photo_url=input.photo_url,
                 now_iso=now_iso,
                 normalization_mode=norm_mode,
+                dish_hint=input.dish_hint,
             )
 
             try:
@@ -744,6 +831,7 @@ class Mutation:
             photo_url=input.photo_url,
             idempotency_key=input.idempotency_key,
             now_iso=now_iso,
+            dish_hint=input.dish_hint,
         )
         return _map_analysis(rec)
 
@@ -784,6 +872,7 @@ class Mutation:
                 fiber=pred.fiber,
                 sugar=pred.sugar,
                 sodium=pred.sodium,
+                image_url=analysis.photo_url,  # Include image URL from analysis
             )
             # Idempotenza meal: se già creato restituiamo esistente
             existing = meal_repo.find_by_idempotency(uid, meal.idempotency_key or "")

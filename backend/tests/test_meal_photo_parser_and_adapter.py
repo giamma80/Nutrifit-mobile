@@ -205,7 +205,9 @@ async def test_gpt4v_success_metrics(monkeypatch: pytest.MonkeyPatch) -> None:
     from inference import adapter as adapter_mod
 
     class SuccessGpt(adapter_mod.Gpt4vAdapter):
-        async def _real_model_output(self, photo_url: Optional[str]) -> str:  # noqa: D401
+        async def _real_model_output(
+            self, photo_url: Optional[str], dish_hint: Optional[str] = None
+        ) -> str:  # noqa: D401
             return json.dumps(
                 {
                     "items": [

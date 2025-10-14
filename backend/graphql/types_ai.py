@@ -88,6 +88,7 @@ class AnalyzeMealPhotoInput:
     photo_url: Optional[str] = None
     user_id: Optional[str] = None
     idempotency_key: Optional[str] = None
+    dish_hint: Optional[str] = None
 
 
 @strawberry.input

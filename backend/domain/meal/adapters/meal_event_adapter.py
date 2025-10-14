@@ -37,7 +37,7 @@ class LoggingMealEventAdapter(MealEventPort):
             extra={
                 "meal_id": meal.id.value,
                 "user_id": meal.user_id.value,
-                "name": meal.name,
+                "meal_name": meal.name,  # Renamed to avoid LogRecord collision
                 "quantity_g": meal.quantity_g,
                 "has_nutrients": meal.has_nutritional_data(),
                 "has_barcode": meal.has_barcode(),
@@ -68,7 +68,7 @@ class LoggingMealEventAdapter(MealEventPort):
             extra={
                 "meal_id": meal.id.value,
                 "user_id": meal.user_id.value,
-                "name": meal.name,
+                "meal_name": meal.name,  # Renamed to avoid LogRecord collision
                 "timestamp": meal.timestamp.isoformat(),
             },
         )

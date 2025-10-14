@@ -40,7 +40,7 @@ class MealIntegrationService:
             LegacyNutritionAdapter,
             CompositeNutritionCalculatorAdapter,
         )
-        from domain.meal.adapters.product_lookup_adapter import StubProductLookupAdapter
+        from domain.meal.adapters.product_lookup_adapter import OpenFoodFactsAdapter
         from domain.meal.adapters.meal_event_adapter import LoggingMealEventAdapter
         from repository.meals import meal_repo
 
@@ -53,10 +53,8 @@ class MealIntegrationService:
             primary=legacy_adapter, fallback=stub_adapter
         )
 
-        # Use OpenFoodFacts for product lookup with stub fallback
-
-        # Keep stub for product lookup (OpenFoodFacts needs async ctx)
-        product_lookup_adapter = StubProductLookupAdapter()
+        # Use OpenFoodFacts for product lookup
+        product_lookup_adapter = OpenFoodFactsAdapter()
 
         event_adapter = LoggingMealEventAdapter()
 

@@ -38,6 +38,7 @@ class ProductDTO:
     brand: Optional[str]
     category: Optional[str]
     nutrients: NutrientsDict
+    image_url: Optional[str]
     raw: Dict[str, Any]
 
 
@@ -140,11 +141,15 @@ async def fetch_product(barcode: str) -> ProductDTO:
     if sodium is not None:
         nutrients["sodium"] = round(sodium, 0)
 
+    # Extract image URL (prefer front image)
+    image_url = product.get("image_front_url")
+
     return ProductDTO(
         barcode=barcode,
         name=name,
         brand=brand,
         category=category,
         nutrients=nutrients,
+        image_url=image_url,
         raw=product,
     )

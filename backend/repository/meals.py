@@ -26,6 +26,7 @@ class MealRecord:
     fiber: Optional[float] = None
     sugar: Optional[float] = None
     sodium: Optional[float] = None
+    image_url: Optional[str] = None
 
     def sort_key(self) -> str:
         # Usato per ordinamento reverse (timestamp discendente)

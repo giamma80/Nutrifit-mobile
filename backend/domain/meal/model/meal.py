@@ -140,6 +140,7 @@ class ProductInfo:
     barcode: str
     name: str
     nutrient_profile: NutrientProfile
+    image_url: Optional[str] = None
 
     def enrich_meal_with_quantity(self, quantity_g: float) -> ScaledNutrients:
         """Get scaled nutrients for specific quantity."""
@@ -166,6 +167,7 @@ class Meal:
     barcode: Optional[str] = None
     idempotency_key: Optional[str] = None
     nutrient_snapshot_json: Optional[str] = None
+    image_url: Optional[str] = None
 
     def __post_init__(self) -> None:
         """Validate business invariants."""

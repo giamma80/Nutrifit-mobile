@@ -107,6 +107,7 @@ class InferenceAdapter(Protocol):
         photo_id: Optional[str],
         photo_url: Optional[str],
         now_iso: str,
+        dish_hint: Optional[str] = None,
     ) -> List[MealPhotoItemPredictionRecord]: ...
 
     def analyze(
@@ -116,6 +117,7 @@ class InferenceAdapter(Protocol):
         photo_id: Optional[str],
         photo_url: Optional[str],
         now_iso: str,
+        dish_hint: Optional[str] = None,
     ) -> List[MealPhotoItemPredictionRecord]:  # pragma: no cover wrapper
         import asyncio
 
@@ -125,6 +127,7 @@ class InferenceAdapter(Protocol):
                 photo_id=photo_id,
                 photo_url=photo_url,
                 now_iso=now_iso,
+                dish_hint=dish_hint,
             )
         )
 
@@ -164,6 +167,7 @@ class StubAdapter:
         photo_id: Optional[str],
         photo_url: Optional[str],
         now_iso: str,
+        dish_hint: Optional[str] = None,
     ) -> List[MealPhotoItemPredictionRecord]:
         with time_analysis(phase=self.name(), source=self.name()):
             return list(self._ITEMS)
@@ -176,6 +180,7 @@ class StubAdapter:
         photo_id: Optional[str],
         photo_url: Optional[str],
         now_iso: str,
+        dish_hint: Optional[str] = None,
     ) -> List[MealPhotoItemPredictionRecord]:
         """Wrapper sync temporaneo (deprecando in futuro)."""
         import asyncio
@@ -186,6 +191,7 @@ class StubAdapter:
                 photo_id=photo_id,
                 photo_url=photo_url,
                 now_iso=now_iso,
+                dish_hint=dish_hint,
             )
         )
 
@@ -209,6 +215,7 @@ class HeuristicAdapter:
         photo_id: Optional[str],
         photo_url: Optional[str],
         now_iso: str,
+        dish_hint: Optional[str] = None,
     ) -> List[MealPhotoItemPredictionRecord]:
         with time_analysis(phase=self.name(), source=self.name()):
             base = await StubAdapter().analyze_async(
@@ -216,6 +223,7 @@ class HeuristicAdapter:
                 photo_id=photo_id,
                 photo_url=photo_url,
                 now_iso=now_iso,
+                dish_hint=dish_hint,
             )
             items = list(base)
             even = False
@@ -242,6 +250,7 @@ class HeuristicAdapter:
         photo_id: Optional[str],
         photo_url: Optional[str],
         now_iso: str,
+        dish_hint: Optional[str] = None,
     ) -> List[MealPhotoItemPredictionRecord]:
         import asyncio
 
@@ -251,6 +260,7 @@ class HeuristicAdapter:
                 photo_id=photo_id,
                 photo_url=photo_url,
                 now_iso=now_iso,
+                dish_hint=dish_hint,
             )
         )
 
@@ -298,6 +308,7 @@ class RemoteModelAdapter:
         photo_id: Optional[str],
         photo_url: Optional[str],
         now_iso: str,
+        dish_hint: Optional[str] = None,
     ) -> List[MealPhotoItemPredictionRecord]:
         with time_analysis(phase=self.name(), source=self.name()):
             ok = self._simulate_remote()
@@ -308,12 +319,14 @@ class RemoteModelAdapter:
                         photo_id=photo_id,
                         photo_url=photo_url,
                         now_iso=now_iso,
+                        dish_hint=dish_hint,
                     )
                 return await StubAdapter().analyze_async(
                     user_id=user_id,
                     photo_id=photo_id,
                     photo_url=photo_url,
                     now_iso=now_iso,
+                    dish_hint=dish_hint,
                 )
             base_items = (
                 await HeuristicAdapter().analyze_async(
@@ -321,6 +334,7 @@ class RemoteModelAdapter:
                     photo_id=photo_id,
                     photo_url=photo_url,
                     now_iso=now_iso,
+                    dish_hint=dish_hint,
                 )
                 if _flag_enabled(os.getenv("AI_HEURISTIC_ENABLED"))
                 else await StubAdapter().analyze_async(
@@ -328,6 +342,7 @@ class RemoteModelAdapter:
                     photo_id=photo_id,
                     photo_url=photo_url,
                     now_iso=now_iso,
+                    dish_hint=dish_hint,
                 )
             )
             for it in base_items:
@@ -344,6 +359,7 @@ class RemoteModelAdapter:
         photo_id: Optional[str],
         photo_url: Optional[str],
         now_iso: str,
+        dish_hint: Optional[str] = None,
     ) -> List[MealPhotoItemPredictionRecord]:
         import asyncio
 
@@ -353,6 +369,7 @@ class RemoteModelAdapter:
                 photo_id=photo_id,
                 photo_url=photo_url,
                 now_iso=now_iso,
+                dish_hint=dish_hint,
             )
         )
 
@@ -387,18 +404,40 @@ class Gpt4vAdapter:
             )
         return json.dumps({"items": parts})
 
-    async def _real_model_output(self, photo_url: Optional[str]) -> str:
+    async def _real_model_output(
+        self, photo_url: Optional[str], dish_hint: Optional[str] = None
+    ) -> str:
         if not _flag_enabled(os.getenv("AI_GPT4V_REAL_ENABLED")):
             raise MealPhotoParseError("REAL_DISABLED")
         api_key = os.getenv("OPENAI_API_KEY")
         if not api_key:
             raise MealPhotoParseError("MISSING_API_KEY")
+
+        # Base prompt
         prompt = (
             "Analizza la foto del pasto e "
             "restituisci SOLO JSON valido con schema "
             '{"items":[{"label":"string","quantity":'
             '{"value":<num>,"unit":"g|piece"},"confidence":<0-1>}]}'
         )
+
+        # Aggiungi suggerimento se presente
+        if dish_hint and dish_hint.strip():
+            prompt += f" Suggerimento: potrebbe essere {dish_hint.strip()}."
+
+        # Log del prompt per debugging
+        import logging
+
+        logger = logging.getLogger("ai.meal_photo.gpt4v")
+
+        # Log completo con dettagli visibili
+        photo_short = photo_url[:50] + "..." if photo_url and len(photo_url) > 50 else photo_url
+        hint_info = f" | dishHint: '{dish_hint}'" if dish_hint else " | dishHint: None"
+
+        logger.info(f"GPT-4V prompt generated - Length: {len(prompt)} chars{hint_info}")
+        logger.info(f"Photo URL: {photo_short}")
+        logger.info(f"Full prompt: {prompt}")
+
         try:
             return await call_openai_vision(
                 image_url=photo_url,
@@ -426,10 +465,11 @@ class Gpt4vAdapter:
         photo_id: Optional[str],
         photo_url: Optional[str],
         now_iso: str,
+        dish_hint: Optional[str] = None,
     ) -> List[MealPhotoItemPredictionRecord]:
         with time_analysis(phase=self.name(), source=self.name()):
             try:
-                raw_text = await self._real_model_output(photo_url)
+                raw_text = await self._real_model_output(photo_url, dish_hint)
             except MealPhotoParseError as exc:
                 self.last_fallback_reason = str(exc)
                 record_fallback(self.last_fallback_reason, source=self.name())
@@ -453,6 +493,7 @@ class Gpt4vAdapter:
                     photo_id=photo_id,
                     photo_url=photo_url,
                     now_iso=now_iso,
+                    dish_hint=dish_hint,
                 )
             # Metriche parse success
             record_parse_success(
@@ -643,6 +684,7 @@ class Gpt4vAdapter:
         photo_id: Optional[str],
         photo_url: Optional[str],
         now_iso: str,
+        dish_hint: Optional[str] = None,
     ) -> List[MealPhotoItemPredictionRecord]:
         import asyncio
 
@@ -652,6 +694,7 @@ class Gpt4vAdapter:
                 photo_id=photo_id,
                 photo_url=photo_url,
                 now_iso=now_iso,
+                dish_hint=dish_hint,
             )
         )
 

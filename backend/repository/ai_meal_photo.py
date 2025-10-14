@@ -54,6 +54,7 @@ class InMemoryMealPhotoAnalysisRepository:
         photo_url: Optional[str],
         idempotency_key: Optional[str],
         now_iso: str,
+        dish_hint: Optional[str] = None,
     ) -> MealPhotoAnalysisRecord:
         if idempotency_key is None:
             idempotency_key = self._auto_key(user_id, photo_id, photo_url)
@@ -72,6 +73,7 @@ class InMemoryMealPhotoAnalysisRepository:
                 photo_id=photo_id,
                 photo_url=photo_url,
                 now_iso=now_iso,
+                dish_hint=dish_hint,
             )
         analysis_id = uuid.uuid4().hex
         rec = MealPhotoAnalysisRecord(
@@ -109,6 +111,7 @@ class InMemoryMealPhotoAnalysisRepository:
         photo_url: Optional[str],
         idempotency_key: Optional[str],
         now_iso: str,
+        dish_hint: Optional[str] = None,
     ) -> MealPhotoAnalysisRecord:  # pragma: no cover semplice wrapper
         import asyncio
 
@@ -119,6 +122,7 @@ class InMemoryMealPhotoAnalysisRepository:
                 photo_url=photo_url,
                 idempotency_key=idempotency_key,
                 now_iso=now_iso,
+                dish_hint=dish_hint,
             )
         )
 

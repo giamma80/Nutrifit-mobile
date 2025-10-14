@@ -99,6 +99,8 @@ class MealRepositoryAdapter(MealRepositoryPort):
             fiber=meal.nutrients.fiber if meal.nutrients else None,
             sugar=meal.nutrients.sugar if meal.nutrients else None,
             sodium=meal.nutrients.sodium if meal.nutrients else None,
+            # Include image_url field
+            image_url=meal.image_url,
         )
 
     def _meal_to_update_fields(self, meal: Meal) -> Dict[str, Any]:
@@ -138,6 +140,9 @@ class MealRepositoryAdapter(MealRepositoryPort):
                     "sodium": None,
                 }
             )
+
+        # Add image_url field
+        fields["image_url"] = meal.image_url
 
         return fields
 
@@ -179,4 +184,5 @@ class MealRepositoryAdapter(MealRepositoryPort):
             barcode=record.barcode,
             idempotency_key=record.idempotency_key,
             nutrient_snapshot_json=record.nutrient_snapshot_json,
+            image_url=record.image_url,
         )

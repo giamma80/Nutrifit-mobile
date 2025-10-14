@@ -24,6 +24,7 @@ class MealPhotoAnalyzer(Protocol):
         photo_id: Optional[str],
         photo_url: Optional[str],
         now_iso: str,
+        dish_hint: Optional[str] = None,
     ) -> MealAnalysisResult:
         """Analizza foto pasto e restituisce predizioni nutrizionali."""
         ...

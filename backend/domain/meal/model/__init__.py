@@ -58,6 +58,7 @@ class MealAnalysisRequest:
     photo_url: Optional[str]
     now_iso: str
     normalization_mode: str = "off"
+    dish_hint: Optional[str] = None
 
 
 __all__ = [

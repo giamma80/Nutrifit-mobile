@@ -46,6 +46,7 @@ class MealService:
         barcode: Optional[str] = None,
         idempotency_key: Optional[str] = None,
         auto_enrich: bool = True,
+        image_url: Optional[str] = None,
     ) -> Meal:
         """Create new meal with optional nutritional enrichment."""
         # Convert to domain types
@@ -73,6 +74,7 @@ class MealService:
             timestamp=timestamp,
             barcode=barcode,
             idempotency_key=idempotency_key,
+            image_url=image_url,
         )
 
         # Enrich with nutritional data if requested
@@ -188,7 +190,14 @@ class MealService:
                 product_info = await self._product_lookup.lookup_by_barcode(meal.barcode)
                 if product_info:
                     nutrients = product_info.enrich_meal_with_quantity(meal.quantity_g)
-                    return meal.update_nutrients(nutrients)
+                    # Update nutrients but preserve user-provided image_url
+                    # Priority: 1. user image_url, 2. product image_url, 3. None
+                    updated_meal = meal.update_nutrients(nutrients)
+                    if not meal.image_url and product_info.image_url:
+                        from dataclasses import replace
+
+                        updated_meal = replace(updated_meal, image_url=product_info.image_url)
+                    return updated_meal
 
             # Fallback to nutrition calculator
             nutrient_profile = await self._nutrition_calculator.calculate_nutrients(

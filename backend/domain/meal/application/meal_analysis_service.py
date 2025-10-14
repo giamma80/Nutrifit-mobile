@@ -35,6 +35,7 @@ class MealAnalysisService:
                 photo_id=request.photo_id,
                 photo_url=request.photo_url,
                 now_iso=request.now_iso,
+                dish_hint=request.dish_hint,
             )
 
             # Converte da infrastructure a domain model

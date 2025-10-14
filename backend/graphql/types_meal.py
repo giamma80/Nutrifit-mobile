@@ -24,6 +24,7 @@ class MealEntry:
     fiber: Optional[float] = None
     sugar: Optional[float] = None
     sodium: Optional[float] = None
+    image_url: Optional[str] = strawberry.field(name="imageUrl", default=None)
 
 
 @strawberry.type
@@ -53,6 +54,7 @@ class LogMealInput:
     barcode: Optional[str] = None
     idempotency_key: Optional[str] = None
     user_id: Optional[str] = None
+    photo_url: Optional[str] = None
 
 
 @strawberry.input

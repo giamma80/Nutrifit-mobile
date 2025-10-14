@@ -40,6 +40,7 @@ input AnalyzeMealPhotoInput {
   photoUrl: String = null
   userId: String = null
   idempotencyKey: String = null
+  dishHint: String = null
 }
 
 type CacheStats {
@@ -113,6 +114,7 @@ input LogMealInput {
   barcode: String = null
   idempotencyKey: String = null
   userId: String = null
+  photoUrl: String = null
 }
 
 type MealEntry {
@@ -131,6 +133,7 @@ type MealEntry {
   fiber: Float
   sugar: Float
   sodium: Float
+  imageUrl: String
 }
 
 type MealPhotoAnalysis {
@@ -229,6 +232,7 @@ type Product {
   fiber: Float
   sugar: Float
   sodium: Float
+  imageUrl: String
 }
 
 type Query {

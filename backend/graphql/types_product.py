@@ -17,6 +17,7 @@ class Product:
     fiber: Optional[float] = None
     sugar: Optional[float] = None
     sodium: Optional[float] = None
+    image_url: Optional[str] = None
 
 
 class _ProductLike(Protocol):  # pragma: no cover - protocol ausiliario
@@ -25,6 +26,7 @@ class _ProductLike(Protocol):  # pragma: no cover - protocol ausiliario
     brand: Optional[str]
     category: Optional[str]
     nutrients: Mapping[str, Any]
+    image_url: Optional[str]
 
 
 def map_product(dto: _ProductLike) -> Product:
@@ -41,6 +43,7 @@ def map_product(dto: _ProductLike) -> Product:
         fiber=n.get("fiber"),
         sugar=n.get("sugar"),
         sodium=n.get("sodium"),
+        image_url=getattr(dto, "image_url", None),
     )
 
 
