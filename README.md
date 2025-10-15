@@ -64,30 +64,27 @@ Note operative:
 | Field deprecated | minor | pianificare adeguamento | pianificare | Aggiungere avviso in docs schema |
 | Breaking (rimozione/rename) | major | adattare prima del merge | adattare prima del merge | PR marcata `breaking`, sezione MIGRATION |
 
-### 🔄 Distribuzione Schema
-1. Backend esporta `schema.graphql` (target `schema-export`).
-2. (Futuro) Workflow copia lo schema in `graphql/schema.graphql` (mirror) + genera artifact.
-3. Mobile & Web fetch / diff (fallimento se breaking non annunciato).
-4. Code generation (quando introdotta) si basa sul mirror versione taggato.
+### 🔄 Stato Attuale Features
 
-Nota evolutiva imminente / stato attuale:
-* Runtime slice oggi: `product`, `logMeal`, `mealEntries`, `dailySummary` (versione minimale con calorie/protein placeholder).
-* Introdotto recentemente: campo `nutrientSnapshotJson` (snapshot nutrizionale opzionale), `idempotencyKey` per prevenire duplicati, `cacheStats` per diagnostiche cache prodotti.
-* **NUOVO (v0.2.8+)**: mutation `updateMeal` e `deleteMeal` per gestione completa CRUD pasti, con ricalcolo automatico nutrienti quando barcode/quantità cambiano.
-* **NUOVO**: modulo `nutrients.py` centralizzato per costanti nutrizionali (calories, protein, carbs, fat, fiber, sugar, sodium).
-* Prossimi: arricchimento macro avanzato nel `dailySummary`.
+**Core Features Attive:**
+* ✅ GraphQL API completa (`product`, `logMeal`, `updateMeal`, `deleteMeal`, `mealEntries`, `dailySummary`) 
+* ✅ AI Meal Photo Analysis con GPT-4V + supporto `dishHint` per accuratezza migliorata
+* ✅ Health Totals Sync (fonte autoritaria per attività in `dailySummary`)
+* ✅ Nutrient snapshots immutabili e cache prodotti con TTL
+* ✅ Sistema di idempotenza completo per tutte le operazioni
 
-### 🛣 Prossimi Passi Monorepo
-| Step | Descrizione | Priorità |
-|------|-------------|----------|
-| Creazione `mobile/` | Scaffold Flutter + script fetch schema | Alta |
-| Creazione `web/` | Scaffold React/Vite + Apollo Client | Alta |
-| Mirror schema root | Stabilire cartella `graphql/` + diff tool | Media |
-| Workflow schema-diff | Azione GitHub diff & classification (additive/breaking) | Media |
-| Commitlint per componente | Prefisso commit (`backend:`, `mobile:`, `web:`) | Media |
-| Codegen (mobile) | ferry / graphql_flutter + fragments condivisi | Media |
-| Sandbox query catalog | Collezione query e mutation di test | Medio |
-| Documentare dailySummary | Esempi e campi futuri (target B3) | Alta |
+**In Sviluppo:**
+* 🔄 Mobile & Web scaffold (placeholder attivi)
+* 🔄 Advanced AI enrichment pipeline
+* 🔄 Recommendations engine
+
+### 🛣 Roadmap Prioritizzata
+| Area | Prossimi Step | Priorità |
+|------|---------------|----------|
+| **AI Enhancement** | Advanced enrichment pipeline, USDA integration | 🔥 Alta |
+| **Mobile/Web** | Flutter/React scaffold con codegen GraphQL | 🔥 Alta |
+| **Observability** | Prometheus metrics, structured logging | 🟡 Media |
+| **Security** | Rate limiting, input validation, SSRF protection | 🟡 Media |
 
 ---
 

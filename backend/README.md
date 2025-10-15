@@ -117,13 +117,21 @@ type Mutation {
 
 ##   AI Meal Photo (Two-Step – Estratto)
 
-Mutations (non incluse nell'estratto schema sopra per brevità):
+Mutations:
 ```graphql
 analyzeMealPhoto(input: AnalyzeMealPhotoInput!): MealPhotoAnalysis!
 confirmMealPhoto(input: ConfirmMealPhotoInput!): ConfirmMealPhotoResult!
+
+input AnalyzeMealPhotoInput {
+  photoId: String = null
+  photoUrl: String = null
+  userId: String = null
+  idempotencyKey: String = null
+  dishHint: String = null  # 🆕 Suggerimento opzionale per migliorare accuratezza
+}
 ```
 
-Stati analisi: `COMPLETED` / `FAILED` ( `PENDING` riservato a futura pipeline async ).
+**Nuovo**: Il campo `dishHint` permette di fornire un suggerimento testuale (es. "brasato al barolo") che viene incluso nel prompt AI per migliorare l'accuratezza dell'analisi.
 
 Campi chiave `MealPhotoAnalysis`:
 | Campo | Descrizione |
@@ -358,23 +366,17 @@ Fonte attività attuale:
 
 Backward compatibility: i client precedenti che non richiedono i nuovi campi non subiscono rotture (schema solo esteso). Tuttavia per vedere valori attività > 0 devono implementare la chiamata `syncHealthTotals`.
 
-###   Stato attuale vs Schema Draft (Aggiornato)
+###   Features Status
 
-Il file `docs/graphql_schema_draft.md` contiene una versione estesa per milestone future. Stato implementazione runtime aggiornato:
-
-| Funzione Draft | Stato Runtime | Note |
-|----------------|--------------|------|
-| `product` | ✅ | Fetch + cache TTL |
-| `logMeal` | ✅ | Idempotenza fallback + snapshot nutrienti |
-| `updateMeal` | ✅ | Ricalcolo nutrienti se cambia barcode/quantity |
-| `deleteMeal` | ✅ | Rimozione entry (ritorna Boolean) |
-| `mealEntries` | ✅ | Lista semplice + cursori after/before |
-| `dailySummary` | ✅ | Usa delta health totals + calorie balance |
-| `ingestActivityEvents` | ✅ | Minute events diagnostici (non più fonte totali) |
-| `syncHealthTotals` | ✅ | Fonte primaria totali passi / calorie out |
-| `activityTimeline` | ❌ | Pianificato (deriverà da minute events) |
-| `recommendations` | ❌ | Engine non ancora attivo |
-| Subscriptions | ❌ | Milestone B6 |
+| Area | Status | Note |
+|------|--------|------|
+| **Core API** | ✅ Completo | Product lookup, CRUD pasti, daily summary |
+| **AI Meal Photo** | ✅ Attivo | GPT-4V + dishHint support |
+| **Activity Sync** | ✅ Attivo | Health totals delta-based |
+| **Nutrient Snapshots** | ✅ Attivo | Immutabilità garantita |
+| **Idempotency** | ✅ Completo | Tutte le operazioni protette |
+| **Activity Timeline** | 🔄 Pianificato | Derivato da minute events |
+| **Recommendations** | 🔄 Pianificato | Engine non ancora attivo |
 
 ---
 

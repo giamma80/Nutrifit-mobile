@@ -63,8 +63,9 @@ Questo file sostituisce `ussues.md` (rimandare qui e rimuovere duplicazioni). St
 | 57 | Medium | High | backend/inference/adapter.py, persistence repo | photoUrl non persistita in analysis & confirm | Perdita tracciabilità immagine | Aggiungere storage e campo photoUrl in MealPhotoAnalysis | TODO | ARCH,DOC |
 | 58 | High | High | docs/nutrifit_nutrition_guide.md | Sezione "Fonti nutrienti e priorità" assente | Governance sorgenti nutrienti non formalizzata | Aggiungere sezione con gerarchia (user_override > off_barcode > usda_generic > ciqual > category_profile > heuristic > gpt_guess) | TODO | DOC,ARCH |
 | 59 | Critical | High | enrichment pipeline, new module usda_adapter.py | Assenza integrazione USDA (FoodData Central) per alimenti generici | Macro/calorie meno accurate per alimenti non confezionati | Implementare lookup FDC (ricerca descrizione → fdc_id, normalizzazione per 100g, caching, tagging source=usda_generic/usda_exact) | TODO | ARCH,DATA |
+| 60 | Medium | High | GraphQL analyzeMealPhoto, domain V2, adapter layer | Campo dishHint per migliorare accuratezza AI meal analysis | UX migliorata con suggerimenti utente | Implementato campo opzionale dishHint in schema + domain service + adapter layer con logging completo | DONE | ARCH,UX |
 
-Legenda Tags: DOC=documentazione, SEC=sicurezza, ARCH=architettura, TEST=test coverage, CI=continuous integration, OBS=observability.
+Legenda Tags: DOC=documentazione, SEC=sicurezza, ARCH=architettura, TEST=test coverage, CI=continuous integration, OBS=observability, UX=user experience.
 
 Indicazioni aggiornamento: ogni PR che chiude o crea un finding aggiorna questa tabella nello stesso commit.
 

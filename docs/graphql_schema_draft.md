@@ -23,6 +23,17 @@ type Mutation {
   deleteMeal(id: ID!): DeleteMealResult!
   ingestActivityEvents(input: [ActivityMinuteInput!]!, idempotencyKey: ID, userId: ID): IngestActivityResult!
   syncHealthTotals(input: HealthTotalsInput!, idempotencyKey: ID, userId: ID): SyncHealthTotalsResult!
+  # AI Meal Photo (Two-Step)
+  analyzeMealPhoto(input: AnalyzeMealPhotoInput!): MealPhotoAnalysis!
+  confirmMealPhoto(input: ConfirmMealPhotoInput!): ConfirmMealPhotoResult!
+}
+
+input AnalyzeMealPhotoInput {
+  photoId: String
+  photoUrl: String
+  userId: String
+  idempotencyKey: String
+  dishHint: String  # 🆕 Suggerimento opzionale per migliorare accuratezza
 }
 
 type MealEntry { id: ID! name: String! quantityG: Int! timestamp: DateTime! userId: ID! }

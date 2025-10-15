@@ -46,7 +46,9 @@ Ridurre l'attrito nella registrazione dei pasti offrendo un flusso rapido foto �
 Vedi anche documento metriche per dettagli di osservabilità.
 
 Step:
-1. `analyzeMealPhoto` genera analisi COMPLETED (sempre today) con items proposti.
+1. `analyzeMealPhoto` genera analisi COMPLETED con items proposti
+   - **Nuovo:** Supporta campo opzionale `dishHint` per migliorare accuratezza
+   - Il suggerimento viene incluso nel prompt: `"Suggerimento: potrebbe essere {dish_hint}"`
 2. UI mostra items, utente seleziona subset.
 3. `confirmMealPhoto` crea `MealEntry` (o riusa se già confermato).
 
@@ -281,19 +283,23 @@ Implementato:
 **✅ COMPLETATO**: macro_fill_ratio metric implementata e attiva.
 
 ### Fase 2 – Nutrient Enrichment (**✅ COMPLETATA - Ottobre 2025**)
-**Scope REALIZZATO**: Arricchimento macronutrienti con strategia heuristic → default; integrazione completa in Gpt4vAdapter; metriche enrichment.
+**Scope REALIZZATO**: Arricchimento macronutrienti con strategia heuristic → default; integrazione completa in Gpt4vAdapter; metriche enrichment; **supporto dishHint per accuratezza migliorata**.
 **Scope OUT (pianificato Fase 3)**: OpenFoodFacts API integration, fuzzy matching avanzato, micronutrienti.
 
 **✅ Deliverable Completati**:
 - `NutrientEnrichmentService` con fallback heuristic → default
-- Integrazione in `Gpt4vAdapter.analyze_async()`
+- Integrazione in `Gpt4vAdapter.analyze_async()` + supporto `dish_hint`
+- Campo opzionale `dishHint` in `AnalyzeMealPhotoInput` (GraphQL schema aggiornato)
 - Popolamento automatico campi `protein`, `carbs`, `fat`, `fiber`
+- **Logging completo prompt GPT-4V con dishHint per debugging**
+- V2 domain-driven service path attivato (`AI_MEAL_ANALYSIS_V2=1`)
 - Test comprehensivi + integrazione end-to-end
 - Metriche complete: `enrichment_success_total`, `enrichment_latency_ms`, `macro_fill_ratio`
 
 **Risultati KPI**:
 - ✅ 100% item con macronutrienti popolati (heuristic 3 alimenti + default fallback)
-- ✅ Latenza enrichment <5ms (processo sincrono locale)
+- ✅ Latenza enrichment <5ms (processo sincrono locale)  
+- ✅ **dishHint functionality attiva e testata**
 - ✅ Test coverage completa (unit + integration)
 
 **Architettura Implementata**:

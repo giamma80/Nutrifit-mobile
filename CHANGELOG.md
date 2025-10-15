@@ -6,8 +6,19 @@ Formato ispirato a [Keep a Changelog](https://keepachangelog.com/it-IT/1.1.0/) e
 
 ## [Unreleased]
 
+### Added
+- **AI Meal Photo Enhancement**: campo opzionale `dishHint` in `AnalyzeMealPhotoInput` per migliorare accuratezza analisi con suggerimenti utente
+- Logging dettagliato per prompt GPT-4V con visibilità del `dishHint` incluso per debugging e testing
+- Configurazione V2 domain-driven service path per `analyzeMealPhoto` via flag `AI_MEAL_ANALYSIS_V2=1`
+
 ### Fixed
 - resolve OpenAI client httpx 0.28+ compatibility
+- Test failures risolti: MealRecord `__dict__` access, imageUrl priority logic, GPT-4V adapter signatures
+- Repository methods `ai_meal_photo.py` ora supportano correttamente il parametro `dish_hint`
+
+### Changed
+- Sistema `analyzeMealPhoto` migrato da legacy path a V2 domain-driven architecture
+- Schema GraphQL aggiornato con campo `dishHint: String = null` in `AnalyzeMealPhotoInput`
 
 ### Chore
 - bump fastapi from 0.111.0 to 0.118.0 in /backend (#7)

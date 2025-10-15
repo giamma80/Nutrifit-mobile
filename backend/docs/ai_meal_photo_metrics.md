@@ -27,8 +27,10 @@ Priorità: GPT-4V (via AI_MEAL_PHOTO_MODE) > Remote > Heuristic > Stub
 | HeuristicAdapter | `heuristic` | `AI_HEURISTIC_ENABLED=1` (se sopra non attivi) | Genera pseudo‑item via hash | stabile | stub |
 | StubAdapter | `stub` | default | Ritorna lista fissa di 2 item | stabile | N/A |
 
-### Struttura item (placeholder)
-Ogni adapter restituisce lista di dict con chiavi minime (es. `label`, `confidence`, `quantityG`). Nessuna validazione rigida finché lo schema di output non è stabilizzato. L'arricchimento macro/micro nutrienti è best‑effort.
+### Struttura item & dishHint Support
+Ogni adapter restituisce lista di dict con chiavi minime (es. `label`, `confidence`, `quantityG`). L'arricchimento macro/micro nutrienti è best‑effort.
+
+**Nuovo**: tutti gli adapter supportano il parametro opzionale `dish_hint` che viene incluso nel prompt di analisi per migliorare l'accuratezza. Il suggerimento viene incorporato con formato: `"Suggerimento: potrebbe essere {dish_hint}"`
 
 ### Nota Optionalità Metrics
 Il modulo `metrics.ai_meal_photo` è opzionale: se non importabile le funzioni (`time_analysis`, `record_error`, `record_fallback`, ecc.) sono sostituite da no‑op con stessa firma. Questo garantisce che build/container possano escludere dipendenze di osservabilità senza rompere il flusso runtime. Documentare sempre la differenza “metriche disattivate” quando si analizzano latenze.
