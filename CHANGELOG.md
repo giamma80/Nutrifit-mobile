@@ -6,6 +6,9 @@ Formato ispirato a [Keep a Changelog](https://keepachangelog.com/it-IT/1.1.0/) e
 
 ## [Unreleased]
 
+## [0.5.1] - 2025-10-16
+
+
 ### Added
 - complete meal domain v2 implementation
 - domain-driven refactor for meal analysis
