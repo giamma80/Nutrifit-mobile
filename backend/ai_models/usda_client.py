@@ -153,8 +153,9 @@ class USDAClient:
         food_nutrients = food_data.get("foodNutrients", [])
 
         for nutrient in food_nutrients:
-            nutrient_id = nutrient.get("nutrient", {}).get("id")
-            amount = nutrient.get("amount")
+            # Fix: la struttura reale è nutrientId e value, non nested
+            nutrient_id = nutrient.get("nutrientId")
+            amount = nutrient.get("value")
 
             if nutrient_id in nutrient_mapping and amount is not None:
                 field_name = nutrient_mapping[nutrient_id]
