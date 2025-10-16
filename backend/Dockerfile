@@ -45,11 +45,13 @@ COPY app.py cache.py nutrients.py ./
 COPY openfoodfacts ./openfoodfacts
 COPY rules ./rules
 # Repository e schema GraphQL (metrics escluso: instrumentation opzionale non necessaria runtime)
-# NUOVO: repository (in-memory meal repo) e schema GraphQL
+# NUOVO: repository (in-memory meal repo) e schema GraphQL + domain DDD + metrics
 COPY ai_models ./ai_models
 COPY inference ./inference
 COPY repository ./repository
 COPY graphql ./graphql
+COPY domain ./domain
+COPY metrics ./metrics
 
 # Utente non-root con home (necessario per cache uv)
 RUN useradd -u 1000 -m appuser \
