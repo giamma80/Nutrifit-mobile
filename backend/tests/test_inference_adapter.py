@@ -13,8 +13,10 @@ async def test_stub_adapter_items() -> None:
     )
     assert isinstance(items, list)
     assert len(items) == 2
-    assert items[0].label == "Insalata mista"
-    assert items[1].label == "Petto di pollo"
+    assert items[0].label == "mixed salad"
+    assert items[0].display_name == "Insalata mista"
+    assert items[1].label == "chicken breast"
+    assert items[1].display_name == "Petto di pollo"
     assert 0.0 < items[0].confidence <= 1.0
     assert 0.0 < items[1].confidence <= 1.0
 

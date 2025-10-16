@@ -185,6 +185,7 @@ enum MealPhotoErrorSeverity {
 type MealPhotoItemPrediction {
   label: String!
   confidence: Float!
+  displayName: String
   quantityG: Float
   calories: Int
   protein: Float

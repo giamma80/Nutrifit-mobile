@@ -138,7 +138,8 @@ class StubAdapter:
 
     _ITEMS = [
         MealPhotoItemPredictionRecord(
-            label="Insalata mista",
+            label="mixed salad",
+            display_name="Insalata mista",
             confidence=0.92,
             quantity_g=150.0,
             calories=60,
@@ -148,7 +149,8 @@ class StubAdapter:
             fiber=3.0,
         ),
         MealPhotoItemPredictionRecord(
-            label="Petto di pollo",
+            label="chicken breast",
+            display_name="Petto di pollo",
             confidence=0.88,
             quantity_g=120.0,
             calories=198,
@@ -236,7 +238,8 @@ class HeuristicAdapter:
             if photo_url and "water" in photo_url.lower():
                 items.append(
                     MealPhotoItemPredictionRecord(
-                        label="Acqua",
+                        label="water",
+                        display_name="Acqua",
                         confidence=0.75,
                         quantity_g=200.0,
                         calories=0,
@@ -553,6 +556,7 @@ class Gpt4vAdapter:
                 out.append(
                     MealPhotoItemPredictionRecord(
                         label=p.label,
+                        display_name=p.display_name,
                         confidence=p.confidence,
                         quantity_g=p.quantity_g,
                         calories=p.calories,

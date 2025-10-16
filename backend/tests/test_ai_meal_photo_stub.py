@@ -31,7 +31,7 @@ async def test_analyze_meal_photo_basic(
     assert data["status"] == "COMPLETED"
     assert len(data["items"]) == 2
     labels: Set[str] = {it["label"] for it in data["items"]}
-    assert {"Insalata mista", "Petto di pollo"} == labels
+    assert {"mixed salad", "chicken breast"} == labels
 
 
 @pytest.mark.asyncio

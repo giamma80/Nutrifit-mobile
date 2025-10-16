@@ -48,6 +48,6 @@ async def test_graphql_analyze_meal_photo_end_to_end(
     assert len(data["items"]) == 2, "Stub adapter dovrebbe restituire due item fissi"
     labels = {it["label"] for it in data["items"]}
     # Non vincoliamo l'ordine, solo la presenza delle etichette conosciute
-    assert {"Insalata mista", "Petto di pollo"} == labels
+    assert {"mixed salad", "chicken breast"} == labels
     # id deve esistere ed essere stringa non vuota
     assert isinstance(data["id"], str) and data["id"], "id analisi mancante o vuoto"
