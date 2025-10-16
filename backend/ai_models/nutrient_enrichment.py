@@ -2,51 +2,44 @@
 
 from dataclasses import dataclass
 from typing import Optional, List, Dict
-from functools import lru_cache
 import asyncio
 import time
 
 from ai_models.meal_photo_prompt import ParsedItem
+from ai_models.usda_client import USDAClient, normalize_food_label, USDANutrient
 
 
-@dataclass(slots=True)
+@dataclass
 class EnrichmentResult:
     """Risultato arricchimento singolo item."""
 
     success: bool
     source: str
+    # Macronutrienti
     protein: Optional[float] = None
     carbs: Optional[float] = None
     fat: Optional[float] = None
     fiber: Optional[float] = None
+    sugar: Optional[float] = None
+    # Minerali (mg)
+    sodium: Optional[float] = None
+    calcium: Optional[float] = None
+    # Energia
+    calories: Optional[float] = None
 
 
-# Cache per valori nutrienti per evitare ricerche ripetute
-@lru_cache(maxsize=128)
-def get_nutrient_values(food_label: str) -> Optional[Dict[str, float]]:
-    """Ottiene valori nutrienti per un alimento da cache LRU."""
-    heuristic_nutrients = {
-        "pollo": {"protein": 25.0, "carbs": 0.0, "fat": 4.0, "fiber": 0.0},
-        "riso": {"protein": 3.0, "carbs": 78.0, "fat": 0.5, "fiber": 1.0},
-        "verdure": {"protein": 2.0, "carbs": 6.0, "fat": 0.3, "fiber": 3.0},
-    }
-    return heuristic_nutrients.get(food_label.lower())
-
-
-HEURISTIC_NUTRIENTS = {
-    "pollo": {"protein": 25.0, "carbs": 0.0, "fat": 4.0, "fiber": 0.0},
-    "riso": {"protein": 3.0, "carbs": 78.0, "fat": 0.5, "fiber": 1.0},
-    "verdure": {"protein": 2.0, "carbs": 6.0, "fat": 0.3, "fiber": 3.0},
-}
+# Dizionari hard-coded rimossi - ora deleghiamo tutto al sistema USDA API
 
 
 class NutrientEnrichmentService:
     """Servizio arricchimento nutrizionale."""
 
-    def __init__(self) -> None:
+    def __init__(self, usda_api_key: Optional[str] = None) -> None:
         self.stats_enriched = 0
-        self.stats_hit_heuristic = 0
+        self.stats_hit_usda = 0
         self.stats_hit_default = 0
+        # Usa sempre la API key - quella di default se non fornita
+        self.usda_api_key = usda_api_key or "zqOnb4hdPJlvU1f9WBmMS8wRgphfPng9ja02KIpy"
 
     async def enrich_parsed_items(
         self, items: List[ParsedItem], timeout: float = 5.0
@@ -92,35 +85,87 @@ class NutrientEnrichmentService:
             return [self._create_default_result(item) for item in items]
 
     async def _process_batch(self, batch: List[ParsedItem]) -> List[EnrichmentResult]:
-        """Processa un batch di items."""
+        """Processa un batch di items con fallback USDA."""
         results = []
+
         for item in batch:
-            # Usa cache LRU per lookup nutrienti
-            nutrients = get_nutrient_values(item.label)
-
-            if nutrients:
-                factor = item.quantity_g / 100.0
-                result = EnrichmentResult(
-                    success=True,
-                    source="heuristic",
-                    protein=nutrients["protein"] * factor,
-                    carbs=nutrients["carbs"] * factor,
-                    fat=nutrients["fat"] * factor,
-                    fiber=nutrients["fiber"] * factor,
-                )
-                self.stats_hit_heuristic += 1
-            else:
-                result = self._create_default_result(item)
-                self.stats_hit_default += 1
-
+            result = await self._enrich_single_item(item)
             results.append(result)
             self.stats_enriched += 1
 
         return results
 
-    def _create_default_result(self, item: ParsedItem) -> EnrichmentResult:
-        """Crea risultato con valori di default."""
+    async def _enrich_single_item(self, item: ParsedItem) -> EnrichmentResult:
+        """
+        Arricchisce singolo item seguendo il flusso semplificato:
+        1. Prova USDA lookup direttamente
+        2. Valori di default se USDA fallisce
+        """
         factor = item.quantity_g / 100.0
+
+        # STEP 1: Prova USDA lookup (sempre, con API key di default)
+        usda_nutrients = await self._try_usda_lookup(item.label)
+        if usda_nutrients:
+            self.stats_hit_usda += 1
+            return EnrichmentResult(
+                success=True,
+                source="usda",
+                protein=usda_nutrients.protein * factor,
+                carbs=usda_nutrients.carbs * factor,
+                fat=usda_nutrients.fat * factor,
+                fiber=usda_nutrients.fiber * factor,
+                sugar=usda_nutrients.sugar * factor,
+                sodium=usda_nutrients.sodium * factor,
+                calcium=usda_nutrients.calcium * factor,
+                calories=usda_nutrients.calories * factor,
+            )
+
+        # STEP 2: Default values se USDA fallisce
+        self.stats_hit_default += 1
+        return self._create_default_result(item)
+
+    async def _try_usda_lookup(self, label: str) -> Optional[USDANutrient]:
+        """
+        Prova lookup USDA per etichetta alimento.
+
+        Returns:
+            Nutrienti USDA o None se non trovato/errore
+        """
+        try:
+            normalized_label = normalize_food_label(label)
+
+            async with USDAClient(self.usda_api_key) as client:
+                # Cerca alimenti
+                foods = await client.search_food(normalized_label, limit=3)
+
+                if not foods:
+                    return None
+
+                # Prova primo risultato (più rilevante per ranking USDA)
+                first_food = foods[0]
+                fdc_id = first_food.get("fdcId")
+
+                if fdc_id:
+                    nutrients = await client.get_nutrients(fdc_id)
+                    if nutrients:
+                        return nutrients
+
+        except Exception:
+            # Fallimento silenzioso - non bloccare enrichment
+            pass
+
+        return None
+
+    def _create_default_result(self, item: ParsedItem) -> EnrichmentResult:
+        """Crea risultato con valori di default ragionevoli."""
+        factor = item.quantity_g / 100.0
+
+        # Calcolo calorie da macronutrienti (Atwater factors)
+        protein_cal = 2.0 * 4  # 4 kcal/g protein
+        carbs_cal = 10.0 * 4  # 4 kcal/g carbs
+        fat_cal = 1.0 * 9  # 9 kcal/g fat
+        total_calories = (protein_cal + carbs_cal + fat_cal) * factor
+
         return EnrichmentResult(
             success=True,
             source="default",
@@ -128,12 +173,16 @@ class NutrientEnrichmentService:
             carbs=10.0 * factor,
             fat=1.0 * factor,
             fiber=1.0 * factor,
+            sugar=2.0 * factor,  # Stima conservativa zuccheri
+            sodium=50.0 * factor,  # mg - valore medio alimenti
+            calcium=30.0 * factor,  # mg - valore medio alimenti
+            calories=total_calories,
         )
 
     def get_stats(self) -> Dict[str, int]:
         """Return current enrichment statistics."""
         return {
             "enriched": self.stats_enriched,
-            "hit_heuristic": self.stats_hit_heuristic,
+            "hit_usda": self.stats_hit_usda,
             "hit_default": self.stats_hit_default,
         }

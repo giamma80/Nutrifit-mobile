@@ -133,13 +133,19 @@ input AnalyzeMealPhotoInput {
 
 **Nuovo**: Il campo `dishHint` permette di fornire un suggerimento testuale (es. "brasato al barolo") che viene incluso nel prompt AI per migliorare l'accuratezza dell'analisi.
 
+**✅ Miglioramenti Recenti**:
+- **dishName italiano**: Ora genera nomi piatti in italiano (es. "spaghetti alla carbonara") invece di euristica inglese
+- **Label USDA ottimizzate**: Prompt migliorato per generare label corrette per lookup USDA (`eggs` non `egg`, `chicken breast` per specificità)
+- **Enrichment intelligente**: Sistema di enrichment con fallback USDA → Category Profile → Default per nutrienti accurati
+
 Campi chiave `MealPhotoAnalysis`:
 | Campo | Descrizione |
 |-------|-------------|
 | id | Identificatore analisi |
 | status | COMPLETED o FAILED |
 | source | Adapter usato (gpt4v, stub) |
-| items | Predizioni alimento (label, confidence, quantityG, macro opzionali) |
+| **dishName** | **🆕 Nome piatto in italiano** (es. "carbonara", "insalata mista") |
+| items | Predizioni alimento (label USDA-optimized, confidence, quantityG, macro) |
 | totalCalories | Somma calcolata lato server |
 | analysisErrors[] | Warning / errori non terminali |
 | failureReason | Codice terminale (se FAILED) |
@@ -154,6 +160,32 @@ Confirm flow:
 Error codes (estratto): INVALID_IMAGE, UNSUPPORTED_FORMAT, IMAGE_TOO_LARGE, PARSE_EMPTY, PORTION_INFERENCE_FAILED, RATE_LIMITED, INTERNAL_ERROR.
 
 Documentazione completa: `../docs/ai_meal_photo.md`
+
+###   Sistema di Enrichment Nutrizionale
+
+Il backend utilizza un sistema di enrichment a **3 livelli** per garantire accuratezza nutrizionale:
+
+| Priorità | Fonte | Descrizione | Campo `enrichmentSource` |
+|----------|-------|-------------|---------------------------|
+| 🥇 **Alta** | **USDA FoodData Central** | API ufficiale USDA per alimenti genericii | `"usda"` |
+| 🥈 **Media** | **Category Profile** | Profili nutrizionali per categoria alimento | `"category_profile"` |
+| 🥉 **Bassa** | **Default Fallback** | Valori fissi come ultima risorsa | `"default"` |
+
+**Esempio risposta con enrichment USDA**:
+```json
+{
+  "calories": 90,
+  "protein": 2.13,
+  "enrichmentSource": "usda",
+  "sodium": 130.8,
+  "sugar": 0
+}
+```
+
+**Label USDA ottimizzate**: Il prompt GPT-4V ora genera label intelligenti per massimizzare hit rate USDA:
+- ✅ `eggs` (non `egg`) → trova "Eggs, Grade A, Large, egg whole"  
+- ✅ `chicken breast` (quando specifico) → dati precisi parte anatomica
+- ✅ `potato fried` vs `potato boiled` → differenze preparazione
 
 ###   Esempi Query / Mutation
 

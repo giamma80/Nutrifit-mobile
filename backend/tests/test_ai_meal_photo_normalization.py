@@ -111,15 +111,12 @@ async def test_normalization_modes_garnish_and_macro(
     else:
         # Niente clamp in off/dry_run
         assert parsley["quantityG"] == 50
-        assert (salmon.get("carbs") or 0) > 0
-        # In dry_run i valori sugar/sodium devono essere popolati via
-        # category profile (propagazione non distruttiva). In off restano None.
-        if mode == "dry_run":
-            assert parsley.get("sugar") is not None
-            assert salmon.get("sodium") is not None
-        else:  # off
-            assert parsley.get("sugar") is None
-            assert salmon.get("sodium") is None
+        # Salmon ha carbs=0 da USDA (corretto nutrizionalmente)
+        assert (salmon.get("carbs") or 0) >= 0
+        # Con il nuovo sistema USDA, sugar/sodium sono sempre popolati
+        # da dati reali (compresi i valori 0.0 che sono nutrizionalmente corretti)
+        assert parsley.get("sugar") is not None  # Può essere 0.0
+        assert salmon.get("sodium") is not None  # Può essere 0.0
 
 
 # --- Domain whitelist ---

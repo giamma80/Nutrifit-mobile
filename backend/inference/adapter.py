@@ -22,6 +22,7 @@ import json
 from ai_models.meal_photo_models import MealPhotoItemPredictionRecord
 from ai_models.meal_photo_prompt import (
     parse_and_validate_with_stats,
+    parse_and_validate_v3,
     ParseError as MealPhotoParseError,
     ParseStats,
     ParsedItem,
@@ -413,13 +414,10 @@ class Gpt4vAdapter:
         if not api_key:
             raise MealPhotoParseError("MISSING_API_KEY")
 
-        # Base prompt
-        prompt = (
-            "Analizza la foto del pasto e "
-            "restituisci SOLO JSON valido con schema "
-            '{"items":[{"label":"string","quantity":'
-            '{"value":<num>,"unit":"g|piece"},"confidence":<0-1>}]}'
-        )
+        # Base prompt v3 (intelligente con etichette inglesi per USDA)
+        from ai_models.meal_photo_prompt import generate_prompt_v3
+
+        prompt = generate_prompt_v3()
 
         # Aggiungi suggerimento se presente
         if dish_hint and dish_hint.strip():
@@ -474,10 +472,24 @@ class Gpt4vAdapter:
                 self.last_fallback_reason = str(exc)
                 record_fallback(self.last_fallback_reason, source=self.name())
                 raw_text = self._simulate_model_output()
-            # Parsing con stats (fallback a stub se errore parsing)
+            # Parsing V3 con fallback al legacy (fallback a stub se errore parsing)
             parsed: List[ParsedItem] = []
             stats: Optional[ParseStats] = None
-            parsed, stats = parse_and_validate_with_stats(raw_text)
+            dish_title: Optional[str] = None
+
+            # Prova prima il parsing V3 (con dish_title e etichette inglesi)
+            try:
+                dish_title, parsed = parse_and_validate_v3(raw_text)
+                # Crea stats di successo per V3
+                stats = ParseStats(
+                    success=True,
+                    items_count=len(parsed),
+                    clamped_count=0,
+                    prompt_version=3,  # V3
+                )
+            except MealPhotoParseError:
+                # Fallback al parsing legacy
+                parsed, stats = parse_and_validate_with_stats(raw_text)
             if not stats.success:
                 reason = "PARSE_" + (stats.raw_error or "UNKNOWN")
                 self.last_fallback_reason = reason
@@ -517,7 +529,7 @@ class Gpt4vAdapter:
             enrich_stats = enr_svc.get_stats()
             record_enrichment_success(
                 items_count=len(parsed),
-                hit_heuristic=enrich_stats["hit_heuristic"],
+                hit_usda=enrich_stats["hit_usda"],
                 hit_default=enrich_stats["hit_default"],
                 source=self.name(),
             )
@@ -548,6 +560,9 @@ class Gpt4vAdapter:
                         carbs=macro_fields[1],
                         fat=macro_fields[2],
                         fiber=macro_fields[3],
+                        sugar=enrich.sugar if enrich.success else None,
+                        sodium=enrich.sodium if enrich.success else None,
+                        enrichment_source=enrich.source if enrich.success else None,
                     )
                 )
 
@@ -616,9 +631,15 @@ class Gpt4vAdapter:
             except Exception:
                 # Fail-safe: never break analysis for normalization issues
                 setattr(self, "_last_normalization_error", True)
-            # Dish name heuristic (must not be None for enforce mode tests)
+            # Dish name: usa dish_title italiano se disponibile
+            dish: Optional[str] = None
             try:
-                dish = self._generate_dish_name(parsed, out)
+                # Priorità 1: dish_title dal GPT-4V (in italiano)
+                if dish_title and dish_title.strip():
+                    dish = dish_title.strip()
+                else:
+                    # Priorità 2: euristica basata su label inglesi
+                    dish = self._generate_dish_name(parsed, out)
             except Exception:
                 dish = None
             if not dish:

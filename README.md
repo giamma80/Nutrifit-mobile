@@ -68,14 +68,18 @@ Note operative:
 
 **Core Features Attive:**
 * ✅ GraphQL API completa (`product`, `logMeal`, `updateMeal`, `deleteMeal`, `mealEntries`, `dailySummary`) 
-* ✅ AI Meal Photo Analysis con GPT-4V + supporto `dishHint` per accuratezza migliorata
+* ✅ **AI Meal Photo Analysis avanzato** con GPT-4V: 
+  - 🆕 **dishName italiano** ("spaghetti alla carbonara", "insalata mista")
+  - 🆕 **Label USDA ottimizzate** (eggs, chicken breast, potato fried) 
+  - 🆕 **Enrichment a 3 livelli** (USDA → Category Profile → Default)
+  - Campo `dishHint` per accuratezza migliorata
 * ✅ Health Totals Sync (fonte autoritaria per attività in `dailySummary`)
 * ✅ Nutrient snapshots immutabili e cache prodotti con TTL
 * ✅ Sistema di idempotenza completo per tutte le operazioni
 
 **In Sviluppo:**
 * 🔄 Mobile & Web scaffold (placeholder attivi)
-* 🔄 Advanced AI enrichment pipeline
+* 🔄 Advanced AI enrichment pipeline (USDA integration completata)
 * 🔄 Recommendations engine
 
 ### 🛣 Roadmap Prioritizzata
@@ -172,28 +176,32 @@ Legenda: ✔ disponibile · ✖ non ancora · (noti) evoluzioni.
 
 ```text
 Mobile   M0 ████░░░░ (20%)   → M1 → M2 → M3 ...
-Backend  B3 ██████░░ (60%)   CRUD + Activity Sync + Snapshot Nutrients
-AI       F0 Stub █░░░░░ (10%) analyzeMealPhoto/confirmMealPhoto (source=STUB)
+Backend  B4 ███████░ (75%)   CRUD + Activity Sync + AI Meal Photo + USDA Integration
+AI       F1 ██████░░ (75%)   GPT-4V + dishName italiano + Label USDA + Enrichment 3-tier
 ```
 
-Aggiornamenti Recenti Chiave:
-1. Data Ingestion Contract formalizzato (meal CRUD + idempotenza fallback) – vedi documento dedicato.
-2. Health Totals Sync introdotto come fonte autoritativa attività (delta steps/caloriesOut).
-3. AI Meal Photo Analysis Stub (`analyzeMealPhoto` / `confirmMealPhoto`) – prepara boundary per Vision pipeline futura.
-4. Introduzione campi `caloriesDeficit` e `caloriesReplenishedPercent` nel `dailySummary` per logiche recommendation.
+**🎯 Aggiornamenti Recenti Chiave**:
+1. **AI Meal Photo Avanzato**: Implementato GPT-4V con dishName italiano e label USDA ottimizzate
+2. **Sistema Enrichment 3-tier**: USDA FoodData Central → Category Profile → Default fallback  
+3. **Label Intelligence**: Prompt migliorato per generare `eggs`, `chicken breast`, `potato fried` (USDA-compatible)
+4. Data Ingestion Contract formalizzato (meal CRUD + idempotenza fallback)
+5. Health Totals Sync introdotto come fonte autoritativa attività (delta steps/caloriesOut)
+6. Introduzione campi `caloriesDeficit` e `caloriesReplenishedPercent` nel `dailySummary`
 
 Dettagli granulari nelle rispettive roadmap dei documenti.
 
 ### Roadmap Sintetica (Prossime Iniziative)
 | Area | Obiettivo | Stato |
 |------|-----------|-------|
-| Security | Integrare scans (Trivy container, pip-audit deps) | Planned |
-| Persistence | Portare MealEntry + HealthTotals su Postgres con snapshot immutabili | Planned |
-| Activity Timeline | Query `activityTimeline` da minute events + downsampling | Planned |
-| Recommendations | Engine trigger sugar/protein + storage `recommendations` | Planned |
-| Schema Governance | Diff semantico completo (additive/deprecation/breaking) + comment PR | In Progress |
+| **AI Enhancement** | ✅ **USDA Integration completata** + dishName italiano + label optimization | **✅ DONE** |
+| **AI Advanced** | Category Profiles implementazione + Label normalization avanzata | 🔄 Next |
 | Mobile Scaffold | Creare progetto Flutter reale + codegen schema | Planned |
 | Web Sandbox | Dashboard schema e query explorer con Apollo | Planned |
+| Activity Timeline | Query `activityTimeline` da minute events + downsampling | Planned |
+| Recommendations | Engine trigger sugar/protein + storage `recommendations` | Planned |
+| Security | Integrare scans (Trivy container, pip-audit deps) | Planned |
+| Persistence | Portare MealEntry + HealthTotals su Postgres con snapshot immutabili | Planned |
+| Schema Governance | Diff semantico completo (additive/deprecation/breaking) + comment PR | In Progress |
 | Cache Testing | Test TTL/expiry cache prodotto + metriche avanzate | Planned |
 | Nutrient Targets | Introduzione target dinamici in dailySummary | Planned |
 | Offline Sync | Strategia queue offline per meal log + health totals | Planned |

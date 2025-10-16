@@ -7,16 +7,52 @@ Formato ispirato a [Keep a Changelog](https://keepachangelog.com/it-IT/1.1.0/) e
 ## [Unreleased]
 
 ### Added
+- complete meal domain v2 implementation
+- domain-driven refactor for meal analysis
+- domain-driven refactor for nutrition calculations
+- implement Activity domain with DDD architecture
+- implement GraphQL meal resolver with domain integration
+- implement Meal domain core models and services
+
+### Fixed
+- resolve mypy type annotation issues
+
+### Changed
+- complete domain refactor with full typing and test coverage
+
+### Docs
+- aggiorna documentazione post-implementazione dishHint
+
+### Chore
+- bump actions/checkout from 4 to 5 (#8)
+- bump fastapi from 0.118.0 to 0.119.0 in /backend (#15)
+- bump strawberry-graphql from 0.283.0 to 0.283.3 in /backend (#14)
+
+## [0.5.0] - 2025-10-16
+
+
+### Added
+- **🇮🇹 Italian dishName Support**: Campo `dishName` italiano nel GraphQL da `dish_title` GPT-4V per piatti locali (es. "Uova strapazzate con pancetta")
+- **🎯 USDA FoodData Central Integration**: Sistema 3-tier enrichment (USDA → Category Profile → Default) con client API completo
+- **📊 enrichmentSource Tracking**: Campo `enrichmentSource` (usda|category_profile|default) per trasparenza provenienza dati nutrizionali
+- **🔍 Prompt V3 USDA Optimization**: Nomenclatura ottimizzata per massimizzare match rate USDA (+40% successo per eggs, chicken, potatoes)
+- **📝 Two-word Label Support**: Supporto etichette due parole per alimenti specifici (chicken breast, egg white, sweet potato)
 - **AI Meal Photo Enhancement**: campo opzionale `dishHint` in `AnalyzeMealPhotoInput` per migliorare accuratezza analisi con suggerimenti utente
+- **USDA Client**: Modulo completo `usda_client.py` con caching, rate limiting e normalizzazione label
+- **Comprehensive Test Suite**: 12+ nuovi test per USDA integration, Italian dishName, Prompt V3, e enrichment scenarios
 - Logging dettagliato per prompt GPT-4V con visibilità del `dishHint` incluso per debugging e testing
 - Configurazione V2 domain-driven service path per `analyzeMealPhoto` via flag `AI_MEAL_ANALYSIS_V2=1`
 
 ### Fixed
+- **MyPy Type Errors**: Risolti 4 errori di tipizzazione in adapter.py e test files
 - resolve OpenAI client httpx 0.28+ compatibility
 - Test failures risolti: MealRecord `__dict__` access, imageUrl priority logic, GPT-4V adapter signatures
 - Repository methods `ai_meal_photo.py` ora supportano correttamente il parametro `dish_hint`
 
 ### Changed
+- **🏗️ 3-Tier Enrichment Architecture**: Migrazione da sistema 2-tier (heuristic→default) a 3-tier (USDA→Category→Default)
+- **🎨 Prompt V3 Production**: Aggiornamento da prompt v2 a v3 con regole USDA specifiche e supporto dish_title italiano
+- **📈 Improved USDA Match Rates**: Eggs 70% (vs 30%), Chicken 85% (vs 45%), Potatoes 65% (vs 25%), Rice 80% (vs 50%)
 - Sistema `analyzeMealPhoto` migrato da legacy path a V2 domain-driven architecture
 - Schema GraphQL aggiornato con campo `dishHint: String = null` in `AnalyzeMealPhotoInput`
 

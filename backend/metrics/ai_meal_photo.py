@@ -130,17 +130,21 @@ def time_analysis(
 
 def record_enrichment_success(
     items_count: int,
-    hit_heuristic: int,
+    hit_usda: int,
     hit_default: int,
     *,
+    hit_heuristic: int = 0,  # Manteniamo per compatibilità legacy ma deprecato
     source: Optional[str] = None,
 ) -> None:
     """Record enrichment batch results."""
     tags = {
         "items": str(items_count),
-        "hit_heuristic": str(hit_heuristic),
+        "hit_usda": str(hit_usda),
         "hit_default": str(hit_default),
     }
+    # Manteniamo hit_heuristic per compatibilità ma sempre 0
+    if hit_heuristic > 0:
+        tags["hit_heuristic"] = str(hit_heuristic)
     if source:
         tags["source"] = source
     registry.counter("ai_meal_photo_enrichment_success_total", **tags).inc()

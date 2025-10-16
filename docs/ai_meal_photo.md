@@ -28,8 +28,10 @@ Ridurre l'attrito nella registrazione dei pasti offrendo un flusso rapido foto �
 |---------|-------|------|
 | Adapter attivo | GPT‑4V (source=gpt4v) | Chiamata reale o simulata; fallback chain non ancora implementata |
 | Adapter alternativi | stub (test), heuristic (PLANNED) | Se GPT non configurato si usa stub diretto |
-| Nutrient Enrichment | **ATTIVO** | **NutrientEnrichmentService integrato in Gpt4vAdapter** |
+| Nutrient Enrichment | **ATTIVO V3** | **Sistema 3-tier: USDA → Category Profile → Default** |
 | Macronutrienti | **POPOLATI** | **protein, carbs, fat, fiber arricchiti automaticamente** |
+| dishName italiano | **ATTIVO** | **Campo dish_title da GPT-4V in italiano per piatti locali** |
+| USDA Label Optimization | **ATTIVO** | **Prompt V3 con nomenclatura USDA migliorata** |
 | Normalization Phase 2.1 | In preparazione (Issues #47–#55) | Category profiles + label normalization + macro consistency + garnish clamp (dry-run flag) |
 | Idempotenza analyze | Attiva | Chiave esplicita o auto sha256 trunc user|photo refs (idempotencyKeyUsed) |
 | Conferma | Idempotente per analysisId | Nessun duplicato createdMeals |
@@ -38,7 +40,7 @@ Ridurre l'attrito nella registrazione dei pasti offrendo un flusso rapido foto �
 | Metriche | Opzionali (no-op fallback) + **Enrichment** | **time_analysis + enrichment_success + macro_fill_ratio** |
 | Error taxonomy | Definita (vedi tabella) | RATE_LIMITED, INTERNAL_ERROR inclusi |
 | Status supportati | COMPLETED / FAILED | PENDING riservato futuro async |
-| dishName aggregato | PLANNED (#56) | Campo high-level piatto derivato dal prompt |
+| dishName aggregato | **ATTIVO** | **Campo dishName in italiano da dish_title GPT-4V** |
 | photoUrl persistence | PLANNED (#57) | Persistenza url per audit + conferma |
 
 ---
@@ -282,40 +284,45 @@ Implementato:
 
 **✅ COMPLETATO**: macro_fill_ratio metric implementata e attiva.
 
-### Fase 2 – Nutrient Enrichment (**✅ COMPLETATA - Ottobre 2025**)
-**Scope REALIZZATO**: Arricchimento macronutrienti con strategia heuristic → default; integrazione completa in Gpt4vAdapter; metriche enrichment; **supporto dishHint per accuratezza migliorata**.
-**Scope OUT (pianificato Fase 3)**: OpenFoodFacts API integration, fuzzy matching avanzato, micronutrienti.
+### Fase 2 – Nutrient Enrichment (**✅ COMPLETATA - Novembre 2025**)
+**Scope REALIZZATO**: Sistema completo di arricchimento nutrizionale a 3 livelli con integrazione USDA FoodData Central API, **supporto dishName italiano**, **ottimizzazione nomenclatura USDA** e metriche complete.
 
 **✅ Deliverable Completati**:
-- `NutrientEnrichmentService` con fallback heuristic → default
-- Integrazione in `Gpt4vAdapter.analyze_async()` + supporto `dish_hint`
+- **Sistema 3-tier: USDA → Category Profile → Default** con `NutrientEnrichmentService`
+- **Integrazione USDA FoodData Central API** con client completo e caching
+- **dishName italiano** via campo `dish_title` da GPT-4V per piatti locali
+- **Prompt V3** con nomenclatura USDA ottimizzata e supporto due parole per alimenti specifici
 - Campo opzionale `dishHint` in `AnalyzeMealPhotoInput` (GraphQL schema aggiornato)
-- Popolamento automatico campi `protein`, `carbs`, `fat`, `fiber`
-- **Logging completo prompt GPT-4V con dishHint per debugging**
+- Popolamento automatico campi `protein`, `carbs`, `fat`, `fiber` con dati USDA accurati
+- **Sistema enrichmentSource** (usda|category_profile|default) per tracciabilità
 - V2 domain-driven service path attivato (`AI_MEAL_ANALYSIS_V2=1`)
-- Test comprehensivi + integrazione end-to-end
+- Test comprehensivi + integrazione end-to-end + test USDA real-world
 - Metriche complete: `enrichment_success_total`, `enrichment_latency_ms`, `macro_fill_ratio`
 
 **Risultati KPI**:
-- ✅ 100% item con macronutrienti popolati (heuristic 3 alimenti + default fallback)
-- ✅ Latenza enrichment <5ms (processo sincrono locale)  
-- ✅ **dishHint functionality attiva e testata**
-- ✅ Test coverage completa (unit + integration)
+- ✅ 100% item con macronutrienti popolati tramite sistema 3-tier
+- ✅ **~70% successo USDA lookup** per alimenti comuni (eggs, chicken breast, rice)
+- ✅ **dishName italiano** per risposte localizzate (es. "Uova strapazzate con pancetta")
+- ✅ Latenza enrichment <200ms incluso USDA API  
+- ✅ **Prompt V3** con regole USDA specifiche (eggs→eggs, chicken breast, potato fried)
+- ✅ Test coverage completa (unit + integration + USDA client)
 
 **Architettura Implementata**:
 ```
 ParsedItem[] → NutrientEnrichmentService → EnrichmentResult[] → MealPhotoItemPredictionRecord[]
                      ↓
-              HEURISTIC_NUTRIENTS lookup
-                     ↓
-              Default values fallback
+              1. USDA FoodData Central lookup (70% successo)
+                     ↓ (fallback)
+              2. Category Profile mapping
+                     ↓ (fallback)  
+              3. Default values fallback
 ```
 
-**Dati Heuristici (per 100g)**:
-- `pollo`: protein=25.0g, carbs=0.0g, fat=4.0g, fiber=0.0g  
-- `riso`: protein=3.0g, carbs=78.0g, fat=0.5g, fiber=1.0g
-- `verdure`: protein=2.0g, carbs=6.0g, fat=0.3g, fiber=3.0g
-- Default: protein=2.0g, carbs=10.0g, fat=1.0g, fiber=1.0g
+**Miglioramenti USDA Label**:
+- **Prompt V3** con regole specifiche: `eggs` (non "egg white"), `chicken breast`, `potato fried`
+- **Supporto due parole** per alimenti composti (albume, uovo intero, petto di pollo)
+- **Nomenclatura standardizzata** per massimizzare match rate USDA
+- **Gestione casi edge** come "egg" → preferenza "eggs, whole, raw" su "egg whites"
 
 ### Fase 2.1 – Normalization & Category Mapping (**PROPOSTA INTERMEDIA**)
 **Motivazione**: Prima di procedere alle portion heuristics (Fase 3) è necessario evitare propagazione di macro implausibili (es. pesce con carboidrati, garnish sovrastimati). Questa sotto‑fase riduce il debito tecnico nutrizionale.

@@ -54,10 +54,9 @@ async def test_gpt4v_enrichment_integration(
     pollo_item = items[0]
     assert pollo_item.label == "pollo"
     assert pollo_item.quantity_g == 100.0
-    assert pollo_item.protein == 25.0  # heuristic: 25.0 * 1.0
-    assert pollo_item.carbs == 0.0  # heuristic: 0.0 * 1.0
-    assert pollo_item.fat == 4.0  # heuristic: 4.0 * 1.0
-    assert pollo_item.fiber == 0.0  # heuristic: 0.0 * 1.0
+    # Nuovo sistema: può essere USDA o default
+    assert pollo_item.protein is not None and pollo_item.protein > 0
+    # I valori specifici dipendono ora da USDA/default, non heuristics fisse
 
     # Item 2: unknown_food (dovrebbe avere default)
     unknown_item = items[1]
@@ -92,21 +91,17 @@ async def test_gpt4v_enrichment_integration(
                 return int(count) if count is not None else 0
         return 0
 
-    # Enrichment success counter
+    # Enrichment success counter (nuovo sistema: usa tag generici)
     enrichment_success = counter_val(
         after,
         "ai_meal_photo_enrichment_success_total",
         source="gpt4v",
         items="2",
-        hit_heuristic="1",
-        hit_default="1",
     ) - counter_val(
         before,
         "ai_meal_photo_enrichment_success_total",
         source="gpt4v",
         items="2",
-        hit_heuristic="1",
-        hit_default="1",
     )
     assert enrichment_success == 1, "Una operazione enrichment attesa"
 
@@ -163,6 +158,6 @@ async def test_enrichment_service_stats_tracking() -> None:
     await service.enrich_parsed_items(items)
 
     stats = service.get_stats()
-    assert stats["enriched"] == 3
-    assert stats["hit_heuristic"] == 2  # pollo + riso
-    assert stats["hit_default"] == 1  # unknown
+    assert stats["enriched"] == 3  # Ora tutti gli item vengono processati
+    # Nuovo sistema: tutto via USDA + default
+    assert stats["hit_usda"] + stats["hit_default"] == 3

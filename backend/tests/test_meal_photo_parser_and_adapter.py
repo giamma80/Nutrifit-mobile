@@ -54,8 +54,8 @@ def test_parse_piece_conversion() -> None:
         }
     )
     parsed = parse_and_validate(raw)
-    # peso medio mela 150g --> calories > 0
-    assert parsed[0].quantity_g >= 149
+    # Ora peso generico per piece è 100g (verrà corretto da USDA)
+    assert parsed[0].quantity_g == 100.0
     assert parsed[0].calories > 0
 
 
