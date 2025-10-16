@@ -76,7 +76,9 @@ async def test_meal_entries_returns_image_url(client: AsyncClient) -> None:
 
 
 @pytest.mark.asyncio
-async def test_meal_entries_null_image_url_for_meals_without_image(client: AsyncClient) -> None:
+async def test_meal_entries_null_image_url_for_meals_without_image(
+    client: AsyncClient,
+) -> None:
     """Test that mealEntries returns null imageUrl for meals without images."""
     # Enable domain V2 feature flags
     os.environ["MEAL_DOMAIN_V2"] = "true"

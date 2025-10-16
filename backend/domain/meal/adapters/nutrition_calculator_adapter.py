@@ -154,7 +154,9 @@ class LegacyNutritionAdapter(NutritionCalculatorPort):
             self._nutrition_integration = None
 
         try:
-            from domain.meal.application.meal_analysis_service import MealAnalysisService
+            from domain.meal.application.meal_analysis_service import (
+                MealAnalysisService,
+            )
 
             self._meal_analysis_service = MealAnalysisService.create_with_defaults()
         except ImportError:

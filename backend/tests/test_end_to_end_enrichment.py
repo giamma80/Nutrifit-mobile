@@ -91,10 +91,18 @@ async def test_usda_enrichment_pipeline() -> None:
     # Test items con etichette inglesi (come da prompt v3)
     items = [
         ParsedItem(
-            label="chicken", quantity_g=100.0, confidence=0.9, calories=0, source_density="temp"
+            label="chicken",
+            quantity_g=100.0,
+            confidence=0.9,
+            calories=0,
+            source_density="temp",
         ),
         ParsedItem(
-            label="unknown_food", quantity_g=50.0, confidence=0.7, calories=0, source_density="temp"
+            label="unknown_food",
+            quantity_g=50.0,
+            confidence=0.7,
+            calories=0,
+            source_density="temp",
         ),
     ]
 

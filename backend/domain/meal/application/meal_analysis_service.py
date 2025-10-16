@@ -11,7 +11,10 @@ from typing import Any, List
 
 
 from domain.meal.model import MealItem, MealAnalysisResult, MealAnalysisRequest
-from domain.meal.pipeline.normalizer import MealNormalizationPipeline, NormalizedMealItem
+from domain.meal.pipeline.normalizer import (
+    MealNormalizationPipeline,
+    NormalizedMealItem,
+)
 from domain.meal.errors import MealAnalysisError
 
 

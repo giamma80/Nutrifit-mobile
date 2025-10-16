@@ -19,7 +19,11 @@ async def test_usda_or_default_matching(service: NutrientEnrichmentService) -> N
     """Test USDA lookup or default fallback per item."""
     items = [
         ParsedItem(
-            label="chicken", quantity_g=100.0, confidence=0.9, calories=200, source_density="medium"
+            label="chicken",
+            quantity_g=100.0,
+            confidence=0.9,
+            calories=200,
+            source_density="medium",
         )
     ]
     results = await service.enrich_parsed_items(items)
@@ -41,7 +45,11 @@ async def test_default_fallback(service: NutrientEnrichmentService) -> None:
     """Test fallback a valori default per item sconosciuti."""
     items = [
         ParsedItem(
-            label="unknown", quantity_g=100.0, confidence=0.8, calories=100, source_density="low"
+            label="unknown",
+            quantity_g=100.0,
+            confidence=0.8,
+            calories=100,
+            source_density="low",
         )
     ]
     results = await service.enrich_parsed_items(items)
@@ -62,7 +70,11 @@ async def test_quantity_scaling(service: NutrientEnrichmentService) -> None:
     """Test scaling nutrienti per quantity_g."""
     items = [
         ParsedItem(
-            label="chicken", quantity_g=200.0, confidence=0.9, calories=400, source_density="medium"
+            label="chicken",
+            quantity_g=200.0,
+            confidence=0.9,
+            calories=400,
+            source_density="medium",
         )
     ]
     results = await service.enrich_parsed_items(items)
@@ -81,13 +93,25 @@ async def test_mixed_batch(service: NutrientEnrichmentService) -> None:
     """Test batch con mix USDA + default."""
     items = [
         ParsedItem(
-            label="chicken", quantity_g=200.0, confidence=0.9, calories=250, source_density="medium"
+            label="chicken",
+            quantity_g=200.0,
+            confidence=0.9,
+            calories=250,
+            source_density="medium",
         ),
         ParsedItem(
-            label="rice", quantity_g=100.0, confidence=0.8, calories=130, source_density="high"
+            label="rice",
+            quantity_g=100.0,
+            confidence=0.8,
+            calories=130,
+            source_density="high",
         ),
         ParsedItem(
-            label="unknown", quantity_g=50.0, confidence=0.7, calories=60, source_density="low"
+            label="unknown",
+            quantity_g=50.0,
+            confidence=0.7,
+            calories=60,
+            source_density="low",
         ),
     ]
     results = await service.enrich_parsed_items(items)
@@ -107,10 +131,18 @@ async def test_stats_tracking(service: NutrientEnrichmentService) -> None:
     """Test tracking statistiche."""
     items = [
         ParsedItem(
-            label="chicken", quantity_g=100.0, confidence=0.9, calories=200, source_density="medium"
+            label="chicken",
+            quantity_g=100.0,
+            confidence=0.9,
+            calories=200,
+            source_density="medium",
         ),
         ParsedItem(
-            label="unknown", quantity_g=100.0, confidence=0.8, calories=100, source_density="low"
+            label="unknown",
+            quantity_g=100.0,
+            confidence=0.8,
+            calories=100,
+            source_density="low",
         ),
     ]
     await service.enrich_parsed_items(items)

@@ -145,13 +145,25 @@ async def test_enrichment_service_stats_tracking() -> None:
     # Batch con mix heuristic/default
     items = [
         ParsedItem(
-            label="pollo", quantity_g=100.0, confidence=0.9, calories=200, source_density="medium"
+            label="pollo",
+            quantity_g=100.0,
+            confidence=0.9,
+            calories=200,
+            source_density="medium",
         ),
         ParsedItem(
-            label="riso", quantity_g=100.0, confidence=0.8, calories=130, source_density="high"
+            label="riso",
+            quantity_g=100.0,
+            confidence=0.8,
+            calories=130,
+            source_density="high",
         ),
         ParsedItem(
-            label="unknown", quantity_g=100.0, confidence=0.7, calories=100, source_density="low"
+            label="unknown",
+            quantity_g=100.0,
+            confidence=0.7,
+            calories=100,
+            source_density="low",
         ),
     ]
 

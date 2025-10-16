@@ -157,11 +157,11 @@ class USDAClient:
             # 1. Search API: nutrientId + value (diretti)
             # 2. Detail API: nutrient.id + amount (nested)
             # Supportiamo entrambe
-            
+
             # Metodo 1: Search API (nuovo)
             nutrient_id = nutrient.get("nutrientId")
             amount = nutrient.get("value")
-            
+
             # Metodo 2: Detail API (originale) - fallback se metodo 1 fallisce
             if nutrient_id is None or amount is None:
                 nutrient_info = nutrient.get("nutrient", {})

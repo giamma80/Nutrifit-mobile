@@ -649,7 +649,9 @@ class Mutation:
 
         if use_v2_service:
             # Nuovo percorso domain-driven
-            from domain.meal.application.meal_analysis_service import MealAnalysisService
+            from domain.meal.application.meal_analysis_service import (
+                MealAnalysisService,
+            )
             from domain.meal.model import MealAnalysisRequest
 
             # Check idempotency prima di procedere
