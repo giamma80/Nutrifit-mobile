@@ -153,9 +153,20 @@ class USDAClient:
         food_nutrients = food_data.get("foodNutrients", [])
 
         for nutrient in food_nutrients:
-            # Fix: la struttura reale è nutrientId e value, non nested
+            # L'API USDA può restituire due strutture diverse:
+            # 1. Search API: nutrientId + value (diretti)
+            # 2. Detail API: nutrient.id + amount (nested)
+            # Supportiamo entrambe
+            
+            # Metodo 1: Search API (nuovo)
             nutrient_id = nutrient.get("nutrientId")
             amount = nutrient.get("value")
+            
+            # Metodo 2: Detail API (originale) - fallback se metodo 1 fallisce
+            if nutrient_id is None or amount is None:
+                nutrient_info = nutrient.get("nutrient", {})
+                nutrient_id = nutrient_info.get("id")
+                amount = nutrient.get("amount")
 
             if nutrient_id in nutrient_mapping and amount is not None:
                 field_name = nutrient_mapping[nutrient_id]
