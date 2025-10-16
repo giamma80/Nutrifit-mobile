@@ -124,14 +124,14 @@ type MealQualityInsight { flag: String! occurrenceCount: Int suggestion: String 
 
 type Recommendation { id: ID! emittedAt: DateTime! category: RecommendationCategory! triggerType: RecommendationTrigger! message: String! }
 
-# AI Meal Photo (Draft Extension)
-# Issues correlati: #47–#57 (Phase 2.1 normalization, dishName, photoUrl persistence)
+# AI Meal Photo V3 (Implementato - Release v0.5.0)
+# ✅ Issues risolte: #56 dishName, #59 USDA integration, enrichmentSource tracking
 type MealPhotoAnalysis {
   id: ID!
   status: MealPhotoAnalysisStatus!
   source: String!              # adapter usato (gpt4v, stub)
-  photoUrl: String             # URL immagine (persistito) – issue #57
-  dishName: String             # Nome aggregato piatto – issue #56
+  photoUrl: String             # URL immagine (persistito) – issue #57 (PLANNED)
+  dishName: String             # ✅ Nome aggregato piatto italiano da dish_title GPT-4V
   items: [MealPhotoItemPrediction!]!
   totalCalories: Float!
   analysisErrors: [MealPhotoAnalysisError!]!
@@ -140,14 +140,28 @@ type MealPhotoAnalysis {
   createdAt: DateTime!
 }
 
+input AnalyzeMealPhotoInput {
+  photoId: String
+  photoUrl: String
+  userId: String
+  idempotencyKey: String
+  dishHint: String             # ✅ Suggerimento opzionale per migliorare accuratezza
+}
+
 type MealPhotoItemPrediction {
-  label: String!
-  quantityG: Int!
+  id: ID!
+  itemName: String!            # ✅ Label dell'alimento
+  dishName: String             # ✅ Nome piatto italiano (es. "Uova strapazzate con pancetta")
+  quantityGuess: Float
+  confidence: Float!
+  source: String!
+  # ✅ Macronutrienti automatici dal sistema 3-tier
+  protein: Float!              # ✅ Popolato automaticamente
+  carbs: Float!                # ✅ Popolato automaticamente  
+  fat: Float!                  # ✅ Popolato automaticamente
+  fiber: Float!                # ✅ Popolato automaticamente
   calories: Float!
-  protein: Float
-  carbs: Float
-  fat: Float
-  fiber: Float
+  enrichmentSource: String!    # ✅ usda|category_profile|default
   enrichmentSource: String     # heuristic|default|category_profile (issue #52)
   calorieCorrected: Boolean    # true se ricalcolato per macro consistency (issue #51)
 }
@@ -213,6 +227,90 @@ extend type Mutation { syncHealthTotals(input: HealthTotalsInput!, idempotencyKe
 |-------|-------|-------------------|
 | activitySteps | Somma steps da minute events | Somma `stepsDelta` |
 | activityCaloriesOut | Somma calories_out minute events | Somma `caloriesOutDelta` |
+
+---
+
+## AI Meal Photo V3 Enhancements (Release v0.5.0)
+
+### Nuove Funzionalità Implementate
+
+#### 🇮🇹 dishName Italiano
+```graphql
+# Campo dishName ora popolato in italiano per piatti locali
+type MealPhotoAnalysis {
+  dishName: String  # es. "Uova strapazzate con pancetta"
+}
+
+type MealPhotoItemPrediction {
+  dishName: String  # es. "Salmone grigliato con riso"
+}
+```
+
+#### 🎯 Sistema 3-Tier Enrichment
+```graphql
+type MealPhotoItemPrediction {
+  enrichmentSource: String!  # "usda" | "category_profile" | "default"
+  protein: Float!            # Sempre popolato dal sistema 3-tier
+  carbs: Float!              # Sempre popolato
+  fat: Float!                # Sempre popolato  
+  fiber: Float!              # Sempre popolato
+}
+```
+
+#### 📝 dishHint Support
+```graphql
+input AnalyzeMealPhotoInput {
+  dishHint: String  # Suggerimento opzionale per migliorare accuratezza
+}
+```
+
+### Esempi di Utilizzo V3
+
+#### Analisi con dishHint
+```graphql
+mutation {
+  analyzeMealPhoto(input: {
+    photoUrl: "https://example.com/breakfast.jpg"
+    dishHint: "uova strapazzate"
+  }) {
+    id
+    dishName           # "Uova strapazzate con pancetta"  
+    items {
+      itemName         # "eggs"
+      dishName         # "Uova strapazzate con pancetta"
+      enrichmentSource # "usda"
+      protein          # 12.5 (da USDA FoodData Central)
+      calories         # 155
+    }
+  }
+}
+```
+
+#### Response con enrichmentSource
+```json
+{
+  "data": {
+    "analyzeMealPhoto": {
+      "id": "analysis_123",
+      "dishName": "Petto di pollo grigliato con riso",
+      "items": [
+        {
+          "itemName": "chicken breast",
+          "enrichmentSource": "usda",
+          "protein": 25.0,
+          "calories": 120
+        },
+        {
+          "itemName": "rice cooked", 
+          "enrichmentSource": "category_profile",
+          "protein": 3.0,
+          "calories": 130
+        }
+      ]
+    }
+  }
+}
+```
 | activityEvents | Conteggio minute events | Invariato (solo diagnostico) |
 
 I campi energetici (`caloriesDeficit`, `caloriesReplenishedPercent`) continueranno a usare i totali aggiornati.

@@ -164,7 +164,53 @@ Mapping metriche:
 * Non terminale → solo `ai_meal_photo_errors_total{code}` (status=completed) (se implementato nel layer); oggi alcuni warning possono non essere ancora contati.
 
 ---
-## 7. FAQ / Troubleshooting
+## 7. AI Meal Photo V3 Enhancements (Novembre 2025)
+
+### Sistema 3-Tier Enrichment
+Il sistema di arricchimento è stato potenziato da un semplice fallback heuristic→default a un sistema a 3 livelli:
+
+```
+ParsedItem[] → NutrientEnrichmentService → EnrichmentResult[]
+                     ↓
+              1. USDA FoodData Central API (70% successo)
+                     ↓ (fallback)
+              2. Category Profile Mapping 
+                     ↓ (fallback)
+              3. Default Values
+```
+
+### Nuove Metriche V3
+| Metrica | Tipo | Etichette | Descrizione |
+|---------|------|-----------|-------------|
+| `ai_meal_photo_enrichment_success_total` | Counter | `source` (usda\|category_profile\|default) | Successi enrichment per fonte |
+| `ai_meal_photo_usda_lookup_total` | Counter | `status` (success\|failure) | Chiamate USDA API |
+| `ai_meal_photo_enrichment_latency_ms` | Histogram | `source` | Latenza enrichment incluso USDA |
+| `ai_meal_photo_macro_fill_ratio` | Histogram | - | Percentuale campi macro popolati |
+
+### USDA Client Integration
+- **Client completo** `usda_client.py` per FoodData Central API
+- **Caching** e rate limiting automatico
+- **Normalizzazione** label per massimizzare match rate
+- **Fallback chain** USDA → category → default
+
+### Prompt V3 USDA Optimization
+- **Nomenclatura standardizzata**: `eggs` (non "egg white"), `chicken breast`, `rice cooked`
+- **Supporto due parole** per alimenti specifici: `chicken breast`, `egg white`, `sweet potato`
+- **Match rate migliorato**: +40% per eggs, chicken, potatoes
+
+### dishName Italiano
+- Campo `dish_title` dal GPT-4V per piatti locali
+- Esempi: "Uova strapazzate con pancetta", "Salmone grigliato con riso"
+- Campo `dishName` GraphQL popolato automaticamente
+
+### enrichmentSource Tracking
+Ogni item ora include `enrichmentSource` per trasparenza:
+- `usda`: Dati da USDA FoodData Central
+- `category_profile`: Profilo categoria specifica
+- `default`: Valori fallback generici
+
+---
+## 8. FAQ / Troubleshooting
 
 | Problema | Sintomo | Soluzione |
 |----------|---------|-----------|

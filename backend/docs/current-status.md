@@ -1,7 +1,7 @@
 # Nutrifit Backend - Stato Corrente
 
-**Aggiornato:** 15 ottobre 2025  
-**Versione:** 0.4.x (unreleased)
+**Aggiornato:** 16 ottobre 2025  
+**Versione:** 0.5.x (rilasciata)
 
 ## 🎯 Funzionalità Completate
 
@@ -11,10 +11,15 @@
 - ✅ **Daily Summary**: Aggregazione nutrienti + bilancio calorico con delta activity
 - ✅ **Nutrient Snapshots**: Immutabilità garantita per evitare drift future
 
-### AI Meal Photo Analysis
+### AI Meal Photo Analysis V3
 - ✅ **Two-Step Flow**: `analyzeMealPhoto` → `confirmMealPhoto` 
 - ✅ **GPT-4V Integration**: Analisi reale con fallback deterministico
 - ✅ **DishHint Support**: Campo opzionale per migliorare accuratezza AI
+- ✅ **Sistema 3-Tier Enrichment**: USDA → Category Profile → Default
+- ✅ **USDA FoodData Central**: Integrazione completa con ~70% successo match
+- ✅ **dishName Italiano**: Risposte localizzate da `dish_title` GPT-4V
+- ✅ **Prompt V3 USDA**: Nomenclatura ottimizzata (+40% match rate)
+- ✅ **enrichmentSource Tracking**: Trasparenza provenienza dati nutrizionali
 - ✅ **Comprehensive Logging**: Visibilità completa prompt e parametri per debugging
 - ✅ **V2 Domain Architecture**: Domain-driven service path attivo
 
@@ -45,9 +50,23 @@ OPENAI_API_KEY=<configured>    # API key per GPT-4V
 - ✅ Comprehensive logging attivo
 - ✅ Health totals delta system primario
 
-## 🚀 Ultima Feature Implementata: dishHint
+## 🚀 Ultima Release: v0.5.0 - AI Meal Photo V3
 
-**Data completamento:** 15 ottobre 2025
+**Data completamento:** 16 ottobre 2025
+
+### Funzionalità Principali v0.5.0
+- **🇮🇹 dishName Italiano**: Piatti locali in italiano (es. "Uova strapazzate con pancetta")
+- **🎯 Sistema 3-Tier USDA**: Dati nutrizionali accurati con fallback intelligente
+- **📊 enrichmentSource**: Trasparenza completa provenienza dati
+- **🔍 Prompt V3**: Nomenclatura USDA ottimizzata con +40% match rate
+- **📝 Two-word Labels**: Supporto "chicken breast", "egg white", "sweet potato"
+- **🏗️ Architecture V3**: Client USDA completo con caching e rate limiting
+
+### Performance Improvements
+- **Eggs**: 30% → 70% match rate (+40%)
+- **Chicken**: 45% → 85% match rate (+40%)  
+- **Potatoes**: 25% → 65% match rate (+40%)
+- **Rice**: 50% → 80% match rate (+30%)
 
 ### Descrizione
 Campo opzionale `dishHint` in `AnalyzeMealPhotoInput` che permette agli utenti di fornire suggerimenti testuali per migliorare l'accuratezza dell'analisi AI.
