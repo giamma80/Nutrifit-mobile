@@ -103,9 +103,12 @@ def _map_analysis(rec) -> MealPhotoAnalysis:  # type: ignore[no-untyped-def]
     for i in rec.items:
         if i.calories:
             total_cal += int(i.calories)
-    items = [
-        MealPhotoItemPrediction(
+    items = []
+    for i in rec.items:
+        # Crea oggetto con tutti i campi necessari
+        prediction = MealPhotoItemPrediction(
             label=i.label,
+            display_name=getattr(i, "display_name", None),
             confidence=i.confidence,
             quantity_g=i.quantity_g,
             calories=i.calories,
@@ -118,8 +121,7 @@ def _map_analysis(rec) -> MealPhotoAnalysis:  # type: ignore[no-untyped-def]
             enrichment_source=getattr(i, "enrichment_source", None),
             calorie_corrected=getattr(i, "calorie_corrected", None),
         )
-        for i in rec.items
-    ]
+        items.append(prediction)
     # Campi presenti in types_ai.MealPhotoAnalysis
     return MealPhotoAnalysis(
         id=rec.id,
@@ -734,23 +736,24 @@ class Mutation:
                 )
 
                 analysis_id = uuid.uuid4().hex
-                items = [
-                    MealPhotoItemPrediction(
-                        label=item.label,
-                        confidence=item.confidence,
-                        quantity_g=item.quantity_g,
-                        calories=item.calories,
-                        protein=item.protein,
-                        carbs=item.carbs,
-                        fat=item.fat,
-                        fiber=item.fiber,
-                        sugar=item.sugar,
-                        sodium=item.sodium,
-                        enrichment_source=item.enrichment_source,
-                        calorie_corrected=item.calorie_corrected,
-                    )
-                    for item in result.items
-                ]
+                items = []
+                for item in result.items:
+                    # Crea oggetto con campi obbligatori
+                    prediction = MealPhotoItemPrediction()
+                    prediction.label = item.label
+                    prediction.display_name = item.display_name
+                    prediction.confidence = item.confidence
+                    prediction.quantity_g = item.quantity_g
+                    prediction.calories = item.calories
+                    prediction.protein = item.protein
+                    prediction.carbs = item.carbs
+                    prediction.fat = item.fat
+                    prediction.fiber = item.fiber
+                    prediction.sugar = item.sugar
+                    prediction.sodium = item.sodium
+                    prediction.enrichment_source = item.enrichment_source
+                    prediction.calorie_corrected = item.calorie_corrected
+                    items.append(prediction)
 
                 # Salva l'analisi nel repository per consentire confirmMealPhoto
                 repo_items = [

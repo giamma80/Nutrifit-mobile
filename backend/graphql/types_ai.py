@@ -17,8 +17,8 @@ class MealPhotoAnalysisStatus(Enum):
 @strawberry.type
 class MealPhotoItemPrediction:
     label: str
-    confidence: float
     display_name: Optional[str] = None
+    confidence: float
     quantity_g: Optional[float] = None
     calories: Optional[int] = None
     protein: Optional[float] = None

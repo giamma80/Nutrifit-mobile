@@ -92,6 +92,7 @@ class MealAnalysisService:
         return MealItem(
             label=legacy_item.label,
             confidence=legacy_item.confidence,
+            display_name=getattr(legacy_item, "display_name", None),
             quantity_g=legacy_item.quantity_g,
             calories=legacy_item.calories,
             protein=legacy_item.protein,

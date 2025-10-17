@@ -25,6 +25,7 @@ class MealItem:
 
     label: str
     confidence: float
+    display_name: Optional[str] = None
     quantity_g: Optional[float] = None
     calories: Optional[int] = None
     protein: Optional[float] = None
