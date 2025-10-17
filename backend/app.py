@@ -105,22 +105,21 @@ def _map_analysis(rec) -> MealPhotoAnalysis:  # type: ignore[no-untyped-def]
             total_cal += int(i.calories)
     items = []
     for i in rec.items:
-        # Crea oggetto con tutti i campi necessari
-        prediction = MealPhotoItemPrediction(
-            label=i.label,
-            display_name=getattr(i, "display_name", None),
-            confidence=i.confidence,
-            quantity_g=i.quantity_g,
-            calories=i.calories,
-            protein=i.protein,
-            carbs=i.carbs,
-            fat=i.fat,
-            fiber=i.fiber,
-            sugar=i.sugar,
-            sodium=i.sodium,
-            enrichment_source=getattr(i, "enrichment_source", None),
-            calorie_corrected=getattr(i, "calorie_corrected", None),
-        )
+        # Crea oggetto Strawberry usando object.__new__ per bypassare __init__
+        prediction = object.__new__(MealPhotoItemPrediction)
+        object.__setattr__(prediction, "label", i.label)
+        object.__setattr__(prediction, "display_name", getattr(i, "display_name", None))
+        object.__setattr__(prediction, "confidence", i.confidence)
+        object.__setattr__(prediction, "quantity_g", i.quantity_g)
+        object.__setattr__(prediction, "calories", i.calories)
+        object.__setattr__(prediction, "protein", i.protein)
+        object.__setattr__(prediction, "carbs", i.carbs)
+        object.__setattr__(prediction, "fat", i.fat)
+        object.__setattr__(prediction, "fiber", i.fiber)
+        object.__setattr__(prediction, "sugar", i.sugar)
+        object.__setattr__(prediction, "sodium", i.sodium)
+        object.__setattr__(prediction, "enrichment_source", getattr(i, "enrichment_source", None))
+        object.__setattr__(prediction, "calorie_corrected", getattr(i, "calorie_corrected", None))
         items.append(prediction)
     # Campi presenti in types_ai.MealPhotoAnalysis
     return MealPhotoAnalysis(
@@ -738,21 +737,21 @@ class Mutation:
                 analysis_id = uuid.uuid4().hex
                 items = []
                 for item in result.items:
-                    # Crea oggetto con campi obbligatori
-                    prediction = MealPhotoItemPrediction()
-                    prediction.label = item.label
-                    prediction.display_name = item.display_name
-                    prediction.confidence = item.confidence
-                    prediction.quantity_g = item.quantity_g
-                    prediction.calories = item.calories
-                    prediction.protein = item.protein
-                    prediction.carbs = item.carbs
-                    prediction.fat = item.fat
-                    prediction.fiber = item.fiber
-                    prediction.sugar = item.sugar
-                    prediction.sodium = item.sodium
-                    prediction.enrichment_source = item.enrichment_source
-                    prediction.calorie_corrected = item.calorie_corrected
+                    # Crea oggetto Strawberry usando object.__new__
+                    prediction = object.__new__(MealPhotoItemPrediction)
+                    object.__setattr__(prediction, "label", item.label)
+                    object.__setattr__(prediction, "display_name", item.display_name)
+                    object.__setattr__(prediction, "confidence", item.confidence)
+                    object.__setattr__(prediction, "quantity_g", item.quantity_g)
+                    object.__setattr__(prediction, "calories", item.calories)
+                    object.__setattr__(prediction, "protein", item.protein)
+                    object.__setattr__(prediction, "carbs", item.carbs)
+                    object.__setattr__(prediction, "fat", item.fat)
+                    object.__setattr__(prediction, "fiber", item.fiber)
+                    object.__setattr__(prediction, "sugar", item.sugar)
+                    object.__setattr__(prediction, "sodium", item.sodium)
+                    object.__setattr__(prediction, "enrichment_source", item.enrichment_source)
+                    object.__setattr__(prediction, "calorie_corrected", item.calorie_corrected)
                     items.append(prediction)
 
                 # Salva l'analisi nel repository per consentire confirmMealPhoto
