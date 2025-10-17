@@ -454,7 +454,12 @@ class Gpt4vAdapter:
 
     def __init__(self) -> None:
         self.last_fallback_reason: Optional[str] = None
-        self.enrichment_service = NutrientEnrichmentService()
+        # Legge API key dall'ambiente per permettere disabilitazione nei test
+        usda_key = os.getenv("AI_USDA_API_KEY")
+        if usda_key == "":
+            usda_key = None  # Disabilita esplicitamente USDA
+        enrichment_service = NutrientEnrichmentService(usda_api_key=usda_key)
+        self.enrichment_service = enrichment_service
 
     # Normalization feature flag:
     # AI_NORMALIZATION_MODE (off|dry_run|enforce)

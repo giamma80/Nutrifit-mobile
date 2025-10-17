@@ -1,5 +1,6 @@
 """Nutrient Enrichment Service."""
 
+import os
 from dataclasses import dataclass
 from typing import Optional, List, Dict
 import asyncio
@@ -38,8 +39,18 @@ class NutrientEnrichmentService:
         self.stats_enriched = 0
         self.stats_hit_usda = 0
         self.stats_hit_default = 0
-        # Usa sempre la API key - quella di default se non fornita
-        self.usda_api_key = usda_api_key or "zqOnb4hdPJlvU1f9WBmMS8wRgphfPng9ja02KIpy"
+
+        # Handle USDA API key priority: constructor > environment > default
+        if usda_api_key is not None:
+            self.usda_api_key = usda_api_key
+        else:
+            env_key = os.environ.get("AI_USDA_API_KEY", "").strip()
+            # If empty string or not set, fallback to default key
+            if not env_key:
+                self.usda_api_key = "zqOnb4hdPJlvU1f9WBmMS8wRgphfPng9ja02KIpy"
+            # Use environment key if provided
+            else:
+                self.usda_api_key = env_key
 
     async def enrich_parsed_items(
         self, items: List[ParsedItem], timeout: float = 5.0
@@ -103,22 +114,23 @@ class NutrientEnrichmentService:
         """
         factor = item.quantity_g / 100.0
 
-        # STEP 1: Prova USDA lookup (sempre, con API key di default)
-        usda_nutrients = await self._try_usda_lookup(item.label)
-        if usda_nutrients:
-            self.stats_hit_usda += 1
-            return EnrichmentResult(
-                success=True,
-                source="usda",
-                protein=usda_nutrients.protein * factor,
-                carbs=usda_nutrients.carbs * factor,
-                fat=usda_nutrients.fat * factor,
-                fiber=usda_nutrients.fiber * factor,
-                sugar=usda_nutrients.sugar * factor,
-                sodium=usda_nutrients.sodium * factor,
-                calcium=usda_nutrients.calcium * factor,
-                calories=usda_nutrients.calories * factor,
-            )
+        # STEP 1: Prova USDA lookup solo se API key è disponibile
+        if self.usda_api_key:
+            usda_nutrients = await self._try_usda_lookup(item.label)
+            if usda_nutrients:
+                self.stats_hit_usda += 1
+                return EnrichmentResult(
+                    success=True,
+                    source="usda",
+                    protein=usda_nutrients.protein * factor,
+                    carbs=usda_nutrients.carbs * factor,
+                    fat=usda_nutrients.fat * factor,
+                    fiber=usda_nutrients.fiber * factor,
+                    sugar=usda_nutrients.sugar * factor,
+                    sodium=usda_nutrients.sodium * factor,
+                    calcium=usda_nutrients.calcium * factor,
+                    calories=usda_nutrients.calories * factor,
+                )
 
         # STEP 2: Default values se USDA fallisce
         self.stats_hit_default += 1
@@ -135,20 +147,59 @@ class NutrientEnrichmentService:
             normalized_label = normalize_food_label(label)
 
             async with USDAClient(self.usda_api_key) as client:
-                # Cerca alimenti
-                foods = await client.search_food(normalized_label, limit=3)
+                # Cerca alimenti (limite più alto per miglior selezione)
+                foods = await client.search_food(normalized_label, limit=8)
 
                 if not foods:
                     return None
 
-                # Prova primo risultato (più rilevante per ranking USDA)
-                first_food = foods[0]
-                fdc_id = first_food.get("fdcId")
+                # Filtra per preferire alimenti semplici vs highly processed
+                def _score_food_naturalness(food_desc: str) -> int:
+                    """Preferisce alimenti vs prodotti industriali."""
+                    desc_lower = food_desc.lower()
 
-                if fdc_id:
-                    nutrients = await client.get_nutrients(fdc_id)
-                    if nutrients:
-                        return nutrients
+                    # Penalizza heavily processed/industrial products
+                    industrial_words = [
+                        "dehydrated",
+                        "powder",
+                        "dried",
+                        "canned",
+                        "crackers",
+                        "cakes",
+                        "juice",
+                        "butter",
+                        "croissant",
+                        "strudel",
+                        "snacks",
+                        "bars",
+                        "cereal",
+                    ]
+                    if any(word in desc_lower for word in industrial_words):
+                        return -100
+
+                    # Favorisce fresh/natural forms
+                    if any(word in desc_lower for word in ["raw", "fresh"]):
+                        return 50
+
+                    # Neutro per preparazioni normali (fried, boiled, etc.)
+                    return 0
+
+                # Ordina per naturalness score (più alto = più naturale)
+                foods_scored = []
+                for food in foods:
+                    desc = food.get("description", "")
+                    score = _score_food_naturalness(desc)
+                    foods_scored.append((food, score))
+                foods_sorted = sorted(foods_scored, key=lambda x: x[1], reverse=True)
+
+                # Prova i risultati in ordine di preferenza (fallback)
+                for food, score in foods_sorted:
+                    fdc_id = food.get("fdcId")
+                    if fdc_id:
+                        nutrients = await client.get_nutrients(fdc_id)
+                        if nutrients and nutrients.calories > 0:
+                            # Trova un risultato valido con calorie > 0
+                            return nutrients
 
         except Exception:
             # Fallimento silenzioso - non bloccare enrichment

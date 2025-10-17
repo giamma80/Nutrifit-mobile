@@ -37,12 +37,15 @@ class USDAClient:
         documentazione API : https://fdc.nal.usda.gov/api-guide
         Initialize USDA client.
         API key is optional for basic usage but recommended
-        API Key to set : zqOnb4hdPJlvU1f9WBmMS8wRgphfPng9ja02KIpy
         Args:
             api_key: USDA FoodData Central API key (opzionale per basic usage)
         """
-        # Imposta API key di default se non fornita
-        self.api_key = api_key or "zqOnb4hdPJlvU1f9WBmMS8wRgphfPng9ja02KIpy"
+        # Imposta API key da parametro o environment con fallback
+        import os
+
+        env_key = os.getenv("AI_USDA_API_KEY")
+        default_key = "zqOnb4hdPJlvU1f9WBmMS8wRgphfPng9ja02KIpy"
+        self.api_key = api_key or env_key or default_key
         self._session: Optional[aiohttp.ClientSession] = None
 
     async def __aenter__(self) -> "USDAClient":

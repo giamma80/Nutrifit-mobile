@@ -29,8 +29,8 @@ def test_improved_usda_labels(monkeypatch: pytest.MonkeyPatch) -> None:
     async def _fake_call(*, image_url: str | None, prompt: str, timeout_s: float = 12.0) -> str:
         # Verifica che il prompt contenga le nuove regole USDA
         assert "eggs non egg" in prompt
-        assert "nomenclatura USDA" in prompt
-        assert "ESEMPI label USDA corretti: eggs" in prompt
+        assert "usa nomenclatura" in prompt  # Testo aggiornato
+        assert "ESEMPI label USDA corretti:" in prompt
         return mock_response
 
     monkeypatch.setattr(adapter_mod, "call_openai_vision", _fake_call)

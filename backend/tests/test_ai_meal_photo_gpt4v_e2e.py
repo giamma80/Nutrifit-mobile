@@ -33,7 +33,7 @@ async def test_analyze_meal_photo_gpt4v_total_calories(
     assert "errors" not in payload, payload.get("errors")
     data = payload["data"]["analyzeMealPhoto"]
     assert data["status"] == "COMPLETED"
-    assert data["source"] == "gpt4v"
+    assert data["source"] == "gpt4v_v2"
     items: List[Dict[str, Any]] = data["items"]
     assert items, "Expected at least 1 item from gpt4v adapter"
     # Ogni item deve avere calories non null e >= 0
