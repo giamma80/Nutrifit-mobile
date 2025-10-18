@@ -69,6 +69,9 @@ async def test_log_meal_with_barcode_enrichment(
 
     monkeypatch.setattr(adapter, "fetch_product", fake_fetch)
 
+    # Il mock meal service dovrebbe usare il fake_fetch automaticamente
+    # Rimuoviamo per ora l'aggiunta al cache
+
     mutation = _minify(
         'mutation { logMeal(input: {name: "Bar", quantityG: 50, '
         'barcode: "123456"}) { id name quantityG idempotencyKey '
@@ -76,6 +79,7 @@ async def test_log_meal_with_barcode_enrichment(
     )
     resp: Response = await client.post("/graphql", json={"query": mutation})
     data: Dict[str, Any] = resp.json()["data"]["logMeal"]
+    print(f"DEBUG: logMeal response: {data}")
     assert data["calories"] == 100
     assert data["protein"] == 10.0
 

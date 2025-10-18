@@ -7,12 +7,17 @@ of new nutrition domain through feature flag AI_NUTRITION_V2.
 from __future__ import annotations
 
 import logging
-import os
 from typing import Optional, Dict, Any
 
 from domain.nutrition.application.nutrition_service import (
     NutritionCalculationService,
     get_nutrition_service,
+)
+from domain.nutrition.model import (
+    UserPhysicalData,
+    ActivityLevel,
+    MacroTargets,
+    NutrientValues,
 )
 
 logger = logging.getLogger("domain.nutrition.integration")
@@ -22,20 +27,14 @@ class NutritionIntegrationService:
     """Integration layer tra nutrition domain e GraphQL esistente."""
 
     def __init__(self) -> None:
-        self._nutrition_service: Optional[NutritionCalculationService] = None
-        self._feature_enabled = self._check_feature_flag()
+        self._nutrition_service: NutritionCalculationService
 
-        if self._feature_enabled:
-            try:
-                self._nutrition_service = get_nutrition_service()
-                logger.info("Nutrition domain V2 enabled and initialized")
-            except Exception as e:
-                logger.error(f"Failed to initialize nutrition V2: {e}")
-                self._feature_enabled = False
-
-    def _check_feature_flag(self) -> bool:
-        """Check AI_NUTRITION_V2 feature flag."""
-        return os.getenv("AI_NUTRITION_V2", "false").lower() == "true"
+        try:
+            self._nutrition_service = get_nutrition_service()
+            logger.info("Nutrition domain V2 initialized")
+        except Exception as e:
+            logger.error(f"Failed to initialize nutrition V2: {e}")
+            raise RuntimeError(f"Critical: Nutrition service failed to initialize: {e}")
 
     def enhanced_daily_summary(
         self,
@@ -53,9 +52,6 @@ class NutritionIntegrationService:
         Returns:
             Enhanced summary dict with additional nutrition insights
         """
-        if not self._feature_enabled or not self._nutrition_service:
-            return fallback_summary
-
         try:
             # Calculate enhanced summary using nutrition domain
             domain_summary = self._nutrition_service.calculate_daily_summary(
@@ -64,7 +60,27 @@ class NutritionIntegrationService:
             )
 
             # Merge with existing summary, keeping backward compatibility
-            enhanced = fallback_summary.copy()
+            if fallback_summary is not None:
+                enhanced = fallback_summary.copy()
+            else:
+                # Create basic summary structure if no fallback provided
+                enhanced = {
+                    "date": date,
+                    "user_id": user_id,
+                    "meals": 0,
+                    "calories": 0,
+                    "protein": 0.0,
+                    "carbs": 0.0,
+                    "fat": 0.0,
+                    "fiber": 0.0,
+                    "sugar": 0.0,
+                    "sodium": 0.0,
+                    "activity_steps": 0,
+                    "activity_calories_out": 0.0,
+                    "activity_events": 0,
+                    "calories_deficit": 0,
+                    "calories_replenished_percent": 0,
+                }
 
             # Add new fields from nutrition domain
             enhanced.update(
@@ -85,7 +101,27 @@ class NutritionIntegrationService:
         except Exception as e:
             logger.error(f"Error in enhanced daily summary: {e}")
             # Graceful fallback to existing logic
-            return fallback_summary
+            if fallback_summary is not None:
+                return fallback_summary
+            else:
+                # Return basic summary if no fallback available
+                return {
+                    "date": date,
+                    "user_id": user_id,
+                    "meals": 0,
+                    "calories": 0,
+                    "protein": 0.0,
+                    "carbs": 0.0,
+                    "fat": 0.0,
+                    "fiber": 0.0,
+                    "sugar": 0.0,
+                    "sodium": 0.0,
+                    "activity_steps": 0,
+                    "activity_calories_out": 0.0,
+                    "activity_events": 0,
+                    "calories_deficit": 0,
+                    "calories_replenished_percent": 0,
+                }
 
     def recompute_meal_calories(
         self,
@@ -99,13 +135,7 @@ class NutritionIntegrationService:
         Returns:
             (new_calories, was_corrected)
         """
-        if not self._feature_enabled or not self._nutrition_service:
-            # Fallback to legacy logic
-            return self._legacy_recompute_calories(protein, carbs, fat, existing_calories)
-
         try:
-            from domain.nutrition.model import NutrientValues
-
             nutrients = NutrientValues(
                 protein=protein,
                 carbs=carbs,
@@ -116,35 +146,12 @@ class NutritionIntegrationService:
             return self._nutrition_service.recompute_calories_from_macros(nutrients)
 
         except Exception as e:
+            # Domain V2 error - no fallback available
+            import logging
+
+            logger = logging.getLogger("nutrition.integration")
             logger.error(f"Error in nutrition V2 calorie recompute: {e}")
-            # Graceful fallback
-            return self._legacy_recompute_calories(protein, carbs, fat, existing_calories)
-
-    def _legacy_recompute_calories(
-        self,
-        protein: Optional[float],
-        carbs: Optional[float],
-        fat: Optional[float],
-        existing_calories: Optional[float],
-    ) -> tuple[Optional[float], bool]:
-        """Legacy calorie recomputation from rules/category_profiles.py."""
-        if protein is None and carbs is None and fat is None:
-            return existing_calories, False
-
-        p = protein or 0.0
-        c = carbs or 0.0
-        f = fat or 0.0
-        calculated = p * 4 + c * 4 + f * 9
-
-        if existing_calories is None:
-            return round(calculated, 1), True
-
-        # Consistency check
-        delta = abs(calculated - existing_calories)
-        if existing_calories > 0 and (delta / existing_calories) > 0.15:
-            return round(calculated, 1), True
-
-        return existing_calories, False
+            raise
 
     def classify_and_enrich_food(
         self,
@@ -157,9 +164,6 @@ class NutritionIntegrationService:
         Returns:
             (enriched_nutrients, category, was_enriched)
         """
-        if not self._feature_enabled or not self._nutrition_service:
-            return existing_nutrients, None, False
-
         try:
             # Classify food using category adapter
             category_adapter = self._nutrition_service.category_profile_port
@@ -212,6 +216,24 @@ class NutritionIntegrationService:
         except Exception as e:
             logger.error(f"Error in food classification/enrichment: {e}")
             return existing_nutrients, None, False
+
+    def calculate_bmr(self, physical_data: UserPhysicalData) -> float:
+        """Calculate BMR using underlying nutrition service."""
+        return self._nutrition_service.calculate_bmr(physical_data)
+
+    def calculate_tdee(self, bmr: float, activity_level: ActivityLevel) -> float:
+        """Calculate TDEE using underlying nutrition service."""
+        return self._nutrition_service.calculate_tdee(bmr, activity_level)
+
+    def calculate_macro_targets(
+        self, tdee: float, strategy: Any, physical_data: UserPhysicalData
+    ) -> MacroTargets:
+        """Calculate macro targets using underlying nutrition service."""
+        return self._nutrition_service.calculate_macro_targets(tdee, strategy, physical_data)
+
+    def recompute_calories_from_macros(self, nutrients: NutrientValues) -> Any:
+        """Recompute calories from macros using underlying nutrition service."""
+        return self._nutrition_service.recompute_calories_from_macros(nutrients)
 
 
 # Global singleton for easy access

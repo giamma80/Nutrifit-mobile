@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-import os
 from typing import Dict, Any, Optional
 
 from .service import MealService, MealQueryService
@@ -15,30 +14,22 @@ class MealIntegrationService:
     """Integration layer for meal domain v2."""
 
     def __init__(self) -> None:
-        self._meal_service: Optional[MealService] = None
-        self._query_service: Optional[MealQueryService] = None
-        self._feature_enabled = self._check_feature_flag()
+        self._meal_service: MealService
+        self._query_service: MealQueryService
 
-        if self._feature_enabled:
-            try:
-                self._initialize_services()
-                logger.info("Meal domain V2 enabled and initialized")
-            except Exception as e:
-                logger.error(f"Failed to initialize meal V2: {e}")
-                self._feature_enabled = False
-
-    def _check_feature_flag(self) -> bool:
-        """Check MEAL_DOMAIN_V2 feature flag."""
-        return os.getenv("MEAL_DOMAIN_V2", "false").lower() == "true"
+        try:
+            self._initialize_services()
+            logger.info("Meal domain V2 initialized")
+        except Exception as e:
+            logger.error(f"Failed to initialize meal V2: {e}")
+            raise RuntimeError(f"Critical: Meal service failed to initialize: {e}")
 
     def _initialize_services(self) -> None:
         """Initialize meal domain services with adapters."""
-        # Initialize adapters with feature flag configuration
+        # Initialize adapters
         from domain.meal.adapters.meal_repository_adapter import MealRepositoryAdapter
         from domain.meal.adapters.nutrition_calculator_adapter import (
             StubNutritionCalculatorAdapter,
-            LegacyNutritionAdapter,
-            CompositeNutritionCalculatorAdapter,
         )
         from domain.meal.adapters.product_lookup_adapter import OpenFoodFactsAdapter
         from domain.meal.adapters.meal_event_adapter import LoggingMealEventAdapter
@@ -46,12 +37,8 @@ class MealIntegrationService:
 
         repository_adapter = MealRepositoryAdapter(meal_repo)
 
-        # Use production-ready nutrition calculator with legacy integration
-        legacy_adapter = LegacyNutritionAdapter()
-        stub_adapter = StubNutritionCalculatorAdapter()
-        nutrition_calculator_adapter = CompositeNutritionCalculatorAdapter(
-            primary=legacy_adapter, fallback=stub_adapter
-        )
+        # Use stub nutrition calculator (USDA integration is handled elsewhere)
+        nutrition_calculator_adapter = StubNutritionCalculatorAdapter()
 
         # Use OpenFoodFacts for product lookup
         product_lookup_adapter = OpenFoodFactsAdapter()
@@ -68,26 +55,20 @@ class MealIntegrationService:
 
         self._query_service = MealQueryService(meal_repository=repository_adapter)
 
-    def get_meal_service(self) -> Optional[MealService]:
-        """Get meal service if feature is enabled."""
+    def get_meal_service(self) -> MealService:
+        """Get meal service."""
         return self._meal_service
 
-    def get_query_service(self) -> Optional[MealQueryService]:
-        """Get query service if feature is enabled."""
+    def get_query_service(self) -> MealQueryService:
+        """Get query service."""
         return self._query_service
 
     def is_enabled(self) -> bool:
         """Check if meal domain v2 is enabled."""
-        return self._feature_enabled
+        return True
 
     async def health_check(self) -> Dict[str, Any]:
         """Health check for meal domain services."""
-        if not self._feature_enabled:
-            return {
-                "meal_domain_v2": "disabled",
-                "feature_flag": "MEAL_DOMAIN_V2=false",
-            }
-
         try:
             # Test basic service availability
             meal_service_available = self._meal_service is not None
@@ -95,7 +76,7 @@ class MealIntegrationService:
 
             return {
                 "meal_domain_v2": "enabled",
-                "feature_flag": "MEAL_DOMAIN_V2=true",
+                "feature_flag": "always_enabled",
                 "services": {
                     "meal_service": ("available" if meal_service_available else "unavailable"),
                     "query_service": ("available" if query_service_available else "unavailable"),
@@ -134,19 +115,19 @@ def _reset_integration_service() -> None:
 
 
 # Convenience functions for service access
-def get_meal_service() -> Optional[MealService]:
-    """Get meal service if enabled, None otherwise."""
+def get_meal_service() -> MealService:
+    """Get meal service."""
     return get_meal_integration_service().get_meal_service()
 
 
-def get_meal_query_service() -> Optional[MealQueryService]:
-    """Get meal query service if enabled, None otherwise."""
+def get_meal_query_service() -> MealQueryService:
+    """Get meal query service."""
     return get_meal_integration_service().get_query_service()
 
 
 def is_meal_domain_v2_enabled() -> bool:
-    """Check if meal domain v2 is enabled."""
-    return get_meal_integration_service().is_enabled()
+    """Check if meal domain v2 is enabled - always True now."""
+    return True
 
 
 async def meal_domain_health_check() -> Dict[str, Any]:

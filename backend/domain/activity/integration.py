@@ -14,7 +14,6 @@ Responsabilità:
 from __future__ import annotations
 
 import logging
-import os
 from typing import Optional, Dict, Any, List, Tuple
 
 from domain.activity.model import (
@@ -43,19 +42,14 @@ class ActivityIntegrationService:
     def __init__(self) -> None:
         self._sync_service: Optional[ActivitySyncService] = None
         self._aggregation_service: Optional[ActivityAggregationService] = None
-        self._feature_enabled = self._check_feature_flag()
+        # V2 è sempre attivo
 
-        if self._feature_enabled:
-            try:
-                self._initialize_services()
-                logger.info("Activity domain V2 enabled and initialized")
-            except Exception as e:
-                logger.error(f"Failed to initialize activity V2: {e}")
-                self._feature_enabled = False
-
-    def _check_feature_flag(self) -> bool:
-        """Check ACTIVITY_DOMAIN_V2 feature flag."""
-        return os.getenv("ACTIVITY_DOMAIN_V2", "false").lower() == "true"
+        try:
+            self._initialize_services()
+            logger.info("Activity domain V2 enabled and initialized")
+        except Exception as e:
+            logger.error(f"Failed to initialize activity V2: {e}")
+            raise RuntimeError(f"Critical: Activity service failed to initialize: {e}")
 
     def _initialize_services(self) -> None:
         """Inizializza servizi domain con adapter dependency injection."""
@@ -83,7 +77,7 @@ class ActivityIntegrationService:
         Returns:
             Enhanced summary dict with activity domain insights
         """
-        if not self._feature_enabled or not self._aggregation_service:
+        if not self._aggregation_service:
             return fallback_summary
 
         try:
@@ -129,7 +123,7 @@ class ActivityIntegrationService:
         Returns:
             (accepted, duplicates, rejected, used_domain_v2)
         """
-        if not self._feature_enabled or not self._sync_service:
+        if not self._sync_service:
             return 0, 0, [], False
 
         try:
@@ -180,7 +174,7 @@ class ActivityIntegrationService:
         Returns:
             (sync_result, used_domain_v2)
         """
-        if not self._feature_enabled or not self._sync_service:
+        if not self._sync_service:
             return {}, False
 
         try:
@@ -220,7 +214,7 @@ class ActivityIntegrationService:
         Returns:
             (deltas_list, used_domain_v2)
         """
-        if not self._feature_enabled or not self._aggregation_service:
+        if not self._aggregation_service:
             return [], False
 
         try:

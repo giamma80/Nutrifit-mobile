@@ -9,14 +9,16 @@ from domain.nutrition.model import (
 )
 
 
-def test_nutrition_service_initialization(nutrition_service: Any) -> None:
-    """Test che il servizio si inizializzi correttamente con feature flag."""
-    assert nutrition_service is not None
+def test_nutrition_service_initialization(
+    nutrition_integration_service: Any,
+) -> None:
+    """Test che il servizio si inizializzi correttamente - sempre attivo."""
+    assert nutrition_integration_service is not None
 
 
-def test_bmr_tdee_calculations(nutrition_service: Any) -> None:
+def test_bmr_tdee_calculations(nutrition_integration_service: Any) -> None:
     """Test calcoli BMR/TDEE base."""
-    service = nutrition_service
+    service = nutrition_integration_service
 
     physical_data = UserPhysicalData(
         age=30,
@@ -35,9 +37,9 @@ def test_bmr_tdee_calculations(nutrition_service: Any) -> None:
     assert abs(tdee - 2681.5) < 0.1
 
 
-def test_macro_targets_calculation(nutrition_service: Any) -> None:
+def test_macro_targets_calculation(nutrition_integration_service: Any) -> None:
     """Test calcolo target macro per diverse strategie."""
-    service = nutrition_service
+    service = nutrition_integration_service
 
     physical_data = UserPhysicalData(
         age=30,
@@ -59,9 +61,9 @@ def test_macro_targets_calculation(nutrition_service: Any) -> None:
     assert abs(targets.protein_g - 135.0) < 1.0
 
 
-def test_calorie_recomputation(nutrition_service: Any) -> None:
+def test_calorie_recomputation(nutrition_integration_service: Any) -> None:
     """Test recompute calorie da macro."""
-    service = nutrition_service
+    service = nutrition_integration_service
 
     from domain.nutrition.model import NutrientValues
 

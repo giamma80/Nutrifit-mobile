@@ -11,9 +11,8 @@ def _minify(s: str) -> str:
 @pytest.mark.asyncio
 async def test_debug_image_url_in_repository(client: AsyncClient) -> None:
     """Debug test to see what's happening with image_url in repository."""
-    # Enable domain V2 feature flags
+    # Domain V2 is always active
     os.environ["MEAL_DOMAIN_V2"] = "true"
-    os.environ["MEAL_GRAPHQL_V2"] = "true"
 
     # Reset integration service
     from domain.meal.integration import _reset_integration_service

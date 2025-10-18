@@ -11,7 +11,6 @@ Responsabilità:
 from __future__ import annotations
 
 import logging
-import os
 from typing import Optional, Tuple
 from datetime import datetime
 
@@ -284,13 +283,9 @@ class NutritionCalculationService:
         )
 
 
-# Feature flag support per rollout graduale
-def get_nutrition_service() -> Optional[NutritionCalculationService]:
-    """Factory con feature flag AI_NUTRITION_V2."""
-    if not _is_nutrition_v2_enabled():
-        return None
-
-    # TODO: Inject real adapters quando implementati
+# Service factory
+def get_nutrition_service() -> NutritionCalculationService:
+    """Factory per nutrition service - sempre abilitato."""
     from domain.nutrition.adapters.nutrition_plan_adapter import (  # noqa
         NutritionPlanAdapter,
     )
@@ -308,11 +303,6 @@ def get_nutrition_service() -> Optional[NutritionCalculationService]:
         activity_data_port=ActivityDataAdapter(),
         category_profile_port=CategoryProfileAdapter(),
     )
-
-
-def _is_nutrition_v2_enabled() -> bool:
-    """Check feature flag AI_NUTRITION_V2."""
-    return os.getenv("AI_NUTRITION_V2", "false").lower() == "true"
 
 
 __all__ = ["NutritionCalculationService", "get_nutrition_service"]

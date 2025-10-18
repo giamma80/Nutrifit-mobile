@@ -5,7 +5,7 @@ risultati identici alla logica esistente in repository/activities.py
 e repository/health_totals.py.
 """
 
-from typing import Any, List
+from typing import List
 from unittest.mock import Mock
 
 from domain.activity.model import (
@@ -271,39 +271,29 @@ class TestDomainServicesEquivalence:
 
 
 class TestIntegrationLayerEquivalence:
-    """Test equivalenza integration layer con graceful fallback."""
+    """Test equivalenza integration layer V2 - sempre attivo."""
 
-    def test_feature_flag_disabled_fallback(self) -> None:
-        """Feature flag disabilitato usa fallback correttamente."""
+    def test_enhanced_daily_summary_always_available(self) -> None:
+        """Enhanced daily summary è sempre disponibile con V2."""
         from domain.activity.integration import ActivityIntegrationService
-        import os
 
-        # Force feature flag off per questo test specifico
-        original_value = os.environ.get("ACTIVITY_DOMAIN_V2")
-        os.environ["ACTIVITY_DOMAIN_V2"] = "false"
+        integration_service = ActivityIntegrationService()
 
-        try:
-            integration_service = ActivityIntegrationService()
-            assert not integration_service._feature_enabled
+        # V2 è sempre abilitato (non c'è più is_enabled)
 
-            # Enhanced summary deve ritornare fallback
-            fallback = {
-                "date": "2025-01-15",
-                "total_steps": 1000,
-                "total_calories_out": 100.0,
-            }
-            result = integration_service.enhanced_daily_summary("test_user", "2025-01-15", fallback)
+        # Enhanced summary funziona correttamente
+        fallback = {
+            "date": "2025-01-15",
+            "total_steps": 1000,
+            "total_calories_out": 100.0,
+        }
+        result = integration_service.enhanced_daily_summary("test_user", "2025-01-15", fallback)
 
-            # Deve essere identico al fallback
-            assert result == fallback
-        finally:
-            # Restore original value
-            if original_value is not None:
-                os.environ["ACTIVITY_DOMAIN_V2"] = original_value
-            else:
-                os.environ.pop("ACTIVITY_DOMAIN_V2", None)
+        # Dovrebbe funzionare con i servizi V2
+        assert isinstance(result, dict)
+        assert "date" in result
 
-    def test_integration_error_graceful_degradation(self, enable_activity_domain_v2: Any) -> None:
+    def test_integration_error_graceful_degradation(self) -> None:
         """Errori nell'integration layer degradano gracefully."""
         from domain.activity.integration import ActivityIntegrationService
 
@@ -311,6 +301,8 @@ class TestIntegrationLayerEquivalence:
 
         # Mock service per simulare errore
         if integration_service._aggregation_service:
+            from unittest.mock import Mock
+
             mock_service = Mock()
             mock_service.calculate_daily_summary = Mock(side_effect=Exception("Test error"))
             integration_service._aggregation_service = mock_service

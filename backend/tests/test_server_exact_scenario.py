@@ -11,9 +11,8 @@ def _minify(s: str) -> str:
 @pytest.mark.asyncio
 async def test_server_exact_scenario(client: AsyncClient) -> None:
     """Test the exact mutation used by the user on server."""
-    # Enable domain V2 feature flags (same as server .env)
+    # Domain V2 is always active
     os.environ["MEAL_DOMAIN_V2"] = "true"
-    os.environ["MEAL_GRAPHQL_V2"] = "true"
 
     # Reset integration service to pick up env vars
     from domain.meal.integration import _reset_integration_service
@@ -72,9 +71,8 @@ async def test_server_exact_scenario(client: AsyncClient) -> None:
 @pytest.mark.asyncio
 async def test_server_scenario_with_photo_url(client: AsyncClient) -> None:
     """Test mutation WITH photoUrl to see if it works."""
-    # Enable domain V2 feature flags
+    # Domain V2 is always active
     os.environ["MEAL_DOMAIN_V2"] = "true"
-    os.environ["MEAL_GRAPHQL_V2"] = "true"
 
     # Reset integration service
     from domain.meal.integration import _reset_integration_service

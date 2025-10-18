@@ -1,13 +1,9 @@
 """Test integration layer for meal domain."""
 
-import os
-from unittest.mock import patch
-
 import pytest
 
 from domain.meal.integration import (
     MealIntegrationService,
-    _reset_integration_service,
     get_meal_integration_service,
     get_meal_query_service,
     get_meal_service,
@@ -17,164 +13,109 @@ from domain.meal.integration import (
 
 
 class TestMealIntegrationService:
-    """Test meal integration service with feature flag control."""
+    """Test meal integration service - sempre attivo in V2."""
 
-    def test_feature_disabled_by_default(self) -> None:
-        """Test that meal domain v2 is disabled by default."""
-        with patch.dict(os.environ, {}, clear=True):
-            service = MealIntegrationService()
+    def test_service_always_enabled(self) -> None:
+        """Test that meal domain v2 is always enabled."""
+        service = MealIntegrationService()
 
-            assert not service.is_enabled()
-            assert service.get_meal_service() is None
-            assert service.get_query_service() is None
+        assert service.is_enabled()
+        assert service.get_meal_service() is not None
+        assert service.get_query_service() is not None
 
-    def test_feature_enabled_with_flag(self) -> None:
-        """Test that meal domain v2 can be enabled with flag."""
-        with patch.dict(os.environ, {"MEAL_DOMAIN_V2": "true"}):
-            service = MealIntegrationService()
+    def test_service_initialization_success(self) -> None:
+        """Test successful service initialization."""
+        service = MealIntegrationService()
 
-            assert service.is_enabled()
-            assert service.get_meal_service() is not None
-            assert service.get_query_service() is not None
+        # Verify all services are properly initialized
+        meal_service = service.get_meal_service()
+        query_service = service.get_query_service()
 
-    def test_feature_flag_case_insensitive(self) -> None:
-        """Test that feature flag is case insensitive."""
-        for value in ["TRUE", "True", "true"]:
-            with patch.dict(os.environ, {"MEAL_DOMAIN_V2": value}):
-                service = MealIntegrationService()
-                assert service.is_enabled()
-
-    def test_feature_flag_false_values(self) -> None:
-        """Test that various false values disable the feature."""
-        for value in ["false", "FALSE", "False", "0", "no", ""]:
-            with patch.dict(os.environ, {"MEAL_DOMAIN_V2": value}):
-                service = MealIntegrationService()
-                assert not service.is_enabled()
+        assert meal_service is not None
+        assert query_service is not None
+        assert hasattr(meal_service, "create_meal")
+        assert hasattr(query_service, "find_meal_by_id")
+        assert hasattr(query_service, "find_meals_by_user")
 
     @pytest.mark.asyncio
-    async def test_health_check_disabled(self) -> None:
-        """Test health check when feature is disabled."""
-        with patch.dict(os.environ, {}, clear=True):
-            service = MealIntegrationService()
-            health = await service.health_check()
+    async def test_health_check_always_enabled(self) -> None:
+        """Test health check - always enabled in V2."""
+        service = MealIntegrationService()
+        health = await service.health_check()
 
-            assert health["meal_domain_v2"] == "disabled"
-            assert health["feature_flag"] == "MEAL_DOMAIN_V2=false"
+        assert health["meal_domain_v2"] == "enabled"
+        assert health["feature_flag"] == "always_enabled"
 
-    @pytest.mark.asyncio
-    async def test_health_check_enabled(self) -> None:
-        """Test health check when feature is enabled."""
-        with patch.dict(os.environ, {"MEAL_DOMAIN_V2": "true"}):
-            service = MealIntegrationService()
-            health = await service.health_check()
+        # Check services are available
+        services = health["services"]
+        assert services["meal_service"] == "available"
+        assert services["query_service"] == "available"
 
-            assert health["meal_domain_v2"] == "enabled"
-            assert health["feature_flag"] == "MEAL_DOMAIN_V2=true"
-
-            # Check services are available
-            services = health["services"]
-            assert services["meal_service"] == "available"
-            assert services["query_service"] == "available"
-
-            # Check adapters are configured
-            adapters = health["adapters"]
-            assert adapters["repository"] == "in_memory"
-            assert adapters["product_lookup"] == "stub"
-            assert adapters["nutrition_calculator"] == "stub"
-            assert adapters["events"] == "logging"
+        # Check adapters are configured
+        adapters = health["adapters"]
+        assert adapters["repository"] == "in_memory"
+        assert adapters["product_lookup"] == "stub"
+        assert adapters["nutrition_calculator"] == "stub"
+        assert adapters["events"] == "logging"
 
 
 class TestGlobalFunctions:
     """Test global convenience functions."""
 
-    def test_is_meal_domain_v2_enabled_default(self) -> None:
-        """Test default state is disabled."""
-        with patch.dict(os.environ, {}, clear=True):
-            _reset_integration_service()
-            assert not is_meal_domain_v2_enabled()
+    def test_is_meal_domain_v2_enabled_always_true(self) -> None:
+        """Test that V2 is always enabled."""
+        assert is_meal_domain_v2_enabled() is True
 
-    def test_is_meal_domain_v2_enabled_true(self) -> None:
-        """Test enabled state."""
-        with patch.dict(os.environ, {"MEAL_DOMAIN_V2": "true"}):
-            _reset_integration_service()
-            assert is_meal_domain_v2_enabled()
+    def test_get_meal_service_always_available(self) -> None:
+        """Test get_meal_service always returns service."""
+        service = get_meal_service()
+        assert service is not None
+        assert hasattr(service, "create_meal")
 
-    def test_get_meal_service_disabled(self) -> None:
-        """Test get_meal_service returns None when disabled."""
-        with patch.dict(os.environ, {}, clear=True):
-            _reset_integration_service()
-            assert get_meal_service() is None
-
-    def test_get_meal_service_enabled(self) -> None:
-        """Test get_meal_service returns service when enabled."""
-        with patch.dict(os.environ, {"MEAL_DOMAIN_V2": "true"}):
-            _reset_integration_service()
-            service = get_meal_service()
-            assert service is not None
-
-    def test_get_meal_query_service_disabled(self) -> None:
-        """Test get_meal_query_service returns None when disabled."""
-        with patch.dict(os.environ, {}, clear=True):
-            _reset_integration_service()
-            assert get_meal_query_service() is None
-
-    def test_get_meal_query_service_enabled(self) -> None:
-        """Test get_meal_query_service returns service when enabled."""
-        with patch.dict(os.environ, {"MEAL_DOMAIN_V2": "true"}):
-            _reset_integration_service()
-            service = get_meal_query_service()
-            assert service is not None
-
-    def test_singleton_behavior(self) -> None:
-        """Test that get_meal_integration_service returns same instance."""
-        with patch.dict(os.environ, {"MEAL_DOMAIN_V2": "true"}):
-            _reset_integration_service()
-            service1 = get_meal_integration_service()
-            service2 = get_meal_integration_service()
-
-            assert service1 is service2
+    def test_get_meal_query_service_always_available(self) -> None:
+        """Test get_meal_query_service always returns service."""
+        service = get_meal_query_service()
+        assert service is not None
+        assert hasattr(service, "find_meal_by_id")
 
     @pytest.mark.asyncio
     async def test_meal_domain_health_check(self) -> None:
-        """Test global health check function."""
-        with patch.dict(os.environ, {"MEAL_DOMAIN_V2": "true"}):
-            _reset_integration_service()
-            health = await meal_domain_health_check()
+        """Test meal domain health check function."""
+        health = await meal_domain_health_check()
 
-            assert health["meal_domain_v2"] == "enabled"
-            assert "services" in health
-            assert "adapters" in health
+        assert health["meal_domain_v2"] == "enabled"
+        assert "services" in health
+        assert "adapters" in health
 
 
 class TestServiceComposition:
-    """Test service composition with adapters."""
+    """Test service composition and wiring."""
 
     def test_services_properly_wired(self) -> None:
-        """Test that services are properly wired with adapters."""
-        with patch.dict(os.environ, {"MEAL_DOMAIN_V2": "true"}):
-            service = MealIntegrationService()
+        """Test that services are properly wired together."""
+        integration_service = get_meal_integration_service()
+        meal_service = get_meal_service()
+        query_service = get_meal_query_service()
 
-            meal_service = service.get_meal_service()
-            query_service = service.get_query_service()
+        # All services should be available
+        assert integration_service is not None
+        assert meal_service is not None
+        assert query_service is not None
 
-            # Verify services are not None
-            assert meal_service is not None
-            assert query_service is not None
-
-            # Verify services have proper types
-            from domain.meal.service import MealService, MealQueryService
-
-            assert isinstance(meal_service, MealService)
-            assert isinstance(query_service, MealQueryService)
+        # Services should be the same instances returned by integration
+        assert meal_service is integration_service.get_meal_service()
+        assert query_service is integration_service.get_query_service()
 
     def test_adapter_composition(self) -> None:
         """Test that adapters are properly composed."""
-        with patch.dict(os.environ, {"MEAL_DOMAIN_V2": "true"}):
-            service = MealIntegrationService()
-            meal_service = service.get_meal_service()
+        service = get_meal_integration_service()
 
-            # Services should be available (adapter composition worked)
-            assert meal_service is not None
+        # Service should be properly initialized
+        assert service.is_enabled()
 
-            # Integration test: services should be usable
-            # (detailed functionality tested in service tests)
+        # Should have all required services
+        meal_service = service.get_meal_service()
+        query_service = service.get_query_service()
+
+        assert meal_service is not None
+        assert query_service is not None

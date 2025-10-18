@@ -11,14 +11,18 @@
 <img src="https://img.shields.io/badge/flutter-ready-blue" alt="Flutter" />
 <img src="https://img.shields.io/badge/graphql-modular-purple" alt="GraphQL" />
 <img src="https://img.shields.io/badge/ai-food%20vision-orange" alt="AI" />
+<img src="https://img.shields.io/badge/architecture-V2_domains-brightgreen" alt="V2 Domains" />
+<img src="https://img.shields.io/badge/legacy-free-success" alt="Legacy Free" />
 <img src="https://img.shields.io/badge/license-Proprietary-lightgrey" alt="License" />
- <img src="https://img.shields.io/badge/backend_version-0.4.2-green" alt="Backend Version" />
+ <img src="https://img.shields.io/badge/backend_version-0.5.7-green" alt="Backend Version" />
  <img src="https://img.shields.io/badge/schema_status-synced-brightgreen" alt="Schema Status" />
 <a href="https://github.com/giamma80/Nutrifit-mobile/actions/workflows/backend-ci.yml"><img src="https://github.com/giamma80/Nutrifit-mobile/actions/workflows/backend-ci.yml/badge.svg" alt="Backend CI" /></a>
 <a href="https://github.com/giamma80/Nutrifit-mobile/actions/workflows/mobile-ci.yml"><img src="https://img.shields.io/badge/mobile_ci-pending-lightgrey" alt="Mobile CI (stub)" /></a>
 </p>
 
 > **Nutrifit** è una piattaforma end-to-end per nutrizione intelligente e fitness: un backend GraphQL centralizzato (backend‑centric) che astrae sorgenti esterne (OpenFoodFacts oggi, Robotoff/AI domani) servendo app Mobile Flutter e un Web Sandbox di validazione, con pipeline AI e automazione nutrizionale coerenti.
+
+> **Architettura V2**: Domini puri (Meal, Nutrition, Activity) senza componenti legacy. Zero feature flags, dependency injection semplificata, 100% test coverage.
 
 > AI Meal Photo: two‑step (`analyzeMealPhoto` → `confirmMealPhoto`) con adapter GPT‑4V attivo (source=gpt4v) e campi avanzati (`analysisErrors[]`, `failureReason`, `idempotencyKeyUsed`, `totalCalories`) documentati in `docs/ai_meal_photo.md`.
 
@@ -540,7 +544,7 @@ Nota: `calories` e `protein` sono placeholder calcolati in modo minimale; verran
 
 ## 🗒 Changelog
 
-Vedi [CHANGELOG.md](CHANGELOG.md). Release corrente backend: `v0.2.8` (aggiornamento CRUD completo: update/delete mutations, cache stats, nutrient constants centralizzati).
+Vedi [CHANGELOG.md](CHANGELOG.md). Release corrente backend: `v0.5.7` (architettura V2 pura: legacy cleanup completato, domini consolidati, 100% test coverage, performance ottimizzate).
 
 Quick check versione backend da root (senza entrare in `backend/`):
 

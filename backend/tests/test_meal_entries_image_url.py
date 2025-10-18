@@ -11,9 +11,8 @@ def _minify(s: str) -> str:
 @pytest.mark.asyncio
 async def test_meal_entries_returns_image_url(client: AsyncClient) -> None:
     """Test that mealEntries query returns imageUrl for meals with images."""
-    # Enable domain V2 feature flags
+    # Domain V2 is always active
     os.environ["MEAL_DOMAIN_V2"] = "true"
-    os.environ["MEAL_GRAPHQL_V2"] = "true"
 
     # Reset integration service to pick up env vars
     from domain.meal.integration import _reset_integration_service
@@ -80,9 +79,8 @@ async def test_meal_entries_null_image_url_for_meals_without_image(
     client: AsyncClient,
 ) -> None:
     """Test that mealEntries returns null imageUrl for meals without images."""
-    # Enable domain V2 feature flags
+    # Domain V2 is always active
     os.environ["MEAL_DOMAIN_V2"] = "true"
-    os.environ["MEAL_GRAPHQL_V2"] = "true"
 
     # Reset integration service
     from domain.meal.integration import _reset_integration_service

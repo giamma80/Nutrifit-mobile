@@ -87,7 +87,7 @@ class MealRepositoryAdapter(MealRepositoryPort):
             user_id=meal.user_id.value,
             name=meal.name,
             quantity_g=meal.quantity_g,
-            timestamp=meal.timestamp.isoformat(),
+            timestamp=meal.timestamp.isoformat().replace("+00:00", "Z"),
             barcode=meal.barcode,
             idempotency_key=meal.idempotency_key,
             nutrient_snapshot_json=meal.nutrient_snapshot_json,
@@ -108,7 +108,7 @@ class MealRepositoryAdapter(MealRepositoryPort):
         fields = {
             "name": meal.name,
             "quantity_g": meal.quantity_g,
-            "timestamp": meal.timestamp.isoformat(),
+            "timestamp": meal.timestamp.isoformat().replace("+00:00", "Z"),
             "barcode": meal.barcode,
             "idempotency_key": meal.idempotency_key,
             "nutrient_snapshot_json": meal.nutrient_snapshot_json,

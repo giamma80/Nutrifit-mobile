@@ -201,6 +201,7 @@ class Meal:
             barcode=self.barcode,
             idempotency_key=self.idempotency_key,
             nutrient_snapshot_json=json.dumps(snapshot, sort_keys=True),
+            image_url=self.image_url,  # Preserve existing image_url
         )
 
     def change_quantity(self, new_quantity_g: float) -> Meal:
@@ -218,6 +219,7 @@ class Meal:
             barcode=self.barcode,
             idempotency_key=self.idempotency_key,
             nutrient_snapshot_json=self.nutrient_snapshot_json,
+            image_url=self.image_url,  # Preserve existing image_url
         )
 
     def update_basic_info(
@@ -244,6 +246,7 @@ class Meal:
             barcode=new_barcode,
             idempotency_key=self.idempotency_key,
             nutrient_snapshot_json=self.nutrient_snapshot_json,
+            image_url=self.image_url,  # Preserve existing image_url
         )
 
     def total_calories(self) -> Optional[int]:
