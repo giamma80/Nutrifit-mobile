@@ -6,6 +6,13 @@ Formato ispirato a [Keep a Changelog](https://keepachangelog.com/it-IT/1.1.0/) e
 
 ## [Unreleased]
 
+### Fixed
+- remove unused import and add return type annotations
+- restore display_name field in normalization pipeline
+
+## [0.6.1] - 2025-10-20
+
+
 ### Changed
 - removed legacy logic
 
