@@ -40,6 +40,7 @@ class NormalizedMealItem:
     fiber: Optional[float]
     sugar: Optional[float] = None
     sodium: Optional[float] = None
+    display_name: Optional[str] = None  # Campo display_name per preservazione UI
     category: Optional[str] = None
     # heuristic|default|category_profile
     enrichment_source: Optional[str] = None

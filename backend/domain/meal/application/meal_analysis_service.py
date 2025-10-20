@@ -117,6 +117,7 @@ class MealAnalysisService:
             fiber=meal_item.fiber,
             sugar=meal_item.sugar,
             sodium=meal_item.sodium,
+            display_name=meal_item.display_name,  # Preserva display_name
             enrichment_source=meal_item.enrichment_source,
         )
 
@@ -125,6 +126,7 @@ class MealAnalysisService:
         return MealItem(
             label=norm_item.label,
             confidence=1.0,  # La normalizzazione non modifica confidence
+            display_name=norm_item.display_name,  # Ripristina display_name
             quantity_g=norm_item.quantity_g,
             calories=int(round(norm_item.calories)) if norm_item.calories else None,
             protein=norm_item.protein,
