@@ -1,0 +1,1 @@
+"""Meal domain unit tests."""

@@ -1,0 +1,1 @@
+"""Barcode service unit tests."""

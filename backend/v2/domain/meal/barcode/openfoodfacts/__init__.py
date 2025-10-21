@@ -1,0 +1,1 @@
+"""OpenFoodFacts-specific components."""
