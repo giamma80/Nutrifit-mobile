@@ -2,3 +2,16 @@
 max-line-length = 100
 extend-ignore = E203,W503
 exclude = .venv,dist,build
+# Exclude E501 (line too long) for prompt files where readability is more important
+per-file-ignores =
+    v2/domain/meal/recognition/prompts.py:E501
+    v2/tests/domain/meal/recognition/test_service.py:E501
+    v2/tests/domain/meal/recognition/test_text_extractor.py:E501
+    v2/tests/unit/infrastructure/ai/test_openai_client.py:E501
+    v2/tests/unit/infrastructure/usda/test_api_client.py:E501
+    v2/tests/unit/infrastructure/openfoodfacts/test_api_client.py:E501
+    v2/tests/unit/application/nutrition/test_enrichment_service.py:E501
+    v2/tests/unit/infrastructure/database/test_analysis_repository_mongo.py:E501
+    v2/tests/unit/application/meal/test_orchestration_service.py:E501
+    v2/infrastructure/ai/openai_client.py:E501
+    v2/application/meal/orchestration_service.py:E501
