@@ -12,14 +12,14 @@
 | Phase | Tasks | Completed | In Progress | Blocked | Not Started |
 |-------|-------|-----------|-------------|---------|-------------|
 | **Phase 0** | 4 | 4 | 0 | 0 | 0 |
-| **Phase 1** | 5 | 0 | 0 | 0 | 5 |
+| **Phase 1** | 5 | 1 | 0 | 0 | 4 |
 | **Phase 2** | 3 | 0 | 0 | 0 | 3 |
 | **Phase 3** | 7 | 0 | 0 | 0 | 7 |
 | **Phase 4** | 4 | 0 | 0 | 0 | 4 |
 | **Phase 5** | 4 | 0 | 0 | 0 | 4 |
 | **Phase 6** | 3 | 0 | 0 | 0 | 3 |
 | **Phase 7** | 2 | 0 | 0 | 0 | 2 |
-| **TOTAL** | **32** | **4** | **0** | **0** | **28** |
+| **TOTAL** | **32** | **5** | **0** | **0** | **27** |
 
 ---
 
@@ -60,12 +60,12 @@
 
 | ID | Task | Description | Reference Doc | Expected Result | Status | Notes |
 |----|------|-------------|---------------|-----------------|--------|-------|
-| **P1.1** | **Value Objects** | Implementare value objects core | `02_DOMAIN_LAYER.md` §40-150 | 4 value objects implementati e testati | ⚪ NOT_STARTED | - |
-| P1.1.1 | MealId value object | `domain/meal/core/value_objects/meal_id.py` | `01_IMPLEMENTATION_GUIDE.md` §193-207 | MealId con UUID, frozen dataclass | ⚪ NOT_STARTED | Include: generate(), __str__() |
-| P1.1.2 | Quantity value object | `domain/meal/core/value_objects/quantity.py` | `01_IMPLEMENTATION_GUIDE.md` §209-229 | Quantity con validazione e conversione | ⚪ NOT_STARTED | Include: validation, to_grams() |
-| P1.1.3 | Timestamp value object | `domain/meal/core/value_objects/timestamp.py` | `02_DOMAIN_LAYER.md` §100-130 | Timestamp con timezone UTC | ⚪ NOT_STARTED | Include: now(), __str__() |
-| P1.1.4 | Confidence value object | `domain/meal/core/value_objects/confidence.py` | `02_DOMAIN_LAYER.md` §140-150 | Confidence 0.0-1.0 validato | ⚪ NOT_STARTED | Include: validation, is_high() |
-| P1.1.5 | Tests value objects | `tests/unit/domain/meal/core/test_value_objects.py` | `01_IMPLEMENTATION_GUIDE.md` §231-233 | Test suite completa value objects | ⚪ NOT_STARTED | Coverage >90% |
+| **P1.1** | **Value Objects** | Implementare value objects core | `02_DOMAIN_LAYER.md` §40-150 | 4 value objects implementati e testati | 🟢 COMPLETED | 33 tests passing, commit 9f518a0 |
+| P1.1.1 | MealId value object | `domain/meal/core/value_objects/meal_id.py` | `01_IMPLEMENTATION_GUIDE.md` §193-207 | MealId con UUID, frozen dataclass | 🟢 COMPLETED | Includes: generate(), from_string(), __str__() |
+| P1.1.2 | Quantity value object | `domain/meal/core/value_objects/quantity.py` | `01_IMPLEMENTATION_GUIDE.md` §209-229 | Quantity con validazione e conversione | 🟢 COMPLETED | Includes: validation, to_grams(), scale() |
+| P1.1.3 | Timestamp value object | `domain/meal/core/value_objects/timestamp.py` | `02_DOMAIN_LAYER.md` §100-130 | Timestamp con timezone UTC | 🟢 COMPLETED | Includes: now(), from_iso(), is_today() |
+| P1.1.4 | Confidence value object | `domain/meal/core/value_objects/confidence.py` | `02_DOMAIN_LAYER.md` §140-150 | Confidence 0.0-1.0 validato | 🟢 COMPLETED | Includes: high(), medium(), low(), is_reliable() |
+| P1.1.5 | Tests value objects | `tests/unit/domain/meal/core/test_value_objects.py` | `01_IMPLEMENTATION_GUIDE.md` §231-233 | Test suite completa value objects | 🟢 COMPLETED | 33 tests, 100% pass rate |
 | **P1.2** | **Domain Events** | Implementare eventi di dominio | `02_DOMAIN_LAYER.md` §200-350 | 4 eventi implementati | ⚪ NOT_STARTED | - |
 | P1.2.1 | MealAnalyzed event | `domain/meal/core/events/meal_analyzed.py` | `01_IMPLEMENTATION_GUIDE.md` §239-254 | Evento MealAnalyzed con factory | ⚪ NOT_STARTED | Include: meal_id, user_id, source, occurred_at |
 | P1.2.2 | MealConfirmed event | `domain/meal/core/events/meal_confirmed.py` | `02_DOMAIN_LAYER.md` §220-250 | Evento MealConfirmed | ⚪ NOT_STARTED | - |
