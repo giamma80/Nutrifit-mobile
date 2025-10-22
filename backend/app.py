@@ -31,13 +31,14 @@ from repository.activities import (
 from repository.health_totals import health_totals_repo  # NEW
 from repository.ai_meal_photo import meal_photo_repo
 from inference.adapter import get_active_adapter
-from graphql.types_meal import (
-    MealEntry,
-    DailySummary,
-    LogMealInput,
-    UpdateMealInput,
-    enrich_from_product,
-)
+# TEMPORARILY DISABLED DURING REFACTOR - Phase 0
+# from graphql.types_meal import (
+#     MealEntry,
+#     DailySummary,
+#     LogMealInput,
+#     UpdateMealInput,
+#     enrich_from_product,
+# )
 from domain.nutrition.integration import get_nutrition_integration_service
 from graphql.types_ai import (
     MealPhotoAnalysisStatus,
@@ -569,11 +570,13 @@ class Mutation:
         uid = input.user_id or DEFAULT_USER_ID
         now_iso = datetime.datetime.utcnow().isoformat() + "Z"
 
+        # TEMPORARILY DISABLED DURING REFACTOR - Phase 0
         # Domain service V2 (only path)
-        from domain.meal.application.meal_analysis_service import (
-            MealAnalysisService,
-        )
-        from domain.meal.model import MealAnalysisRequest
+        # from domain.meal.application.meal_analysis_service import (
+        #     MealAnalysisService,
+        # )
+        # from domain.meal.model import MealAnalysisRequest
+        raise NotImplementedError("Meal analysis service temporarily disabled during refactor")
 
         # Check idempotency prima di procedere
         if input.idempotency_key:
