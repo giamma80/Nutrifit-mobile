@@ -11,7 +11,7 @@
 
 | Phase | Tasks | Completed | In Progress | Blocked | Not Started |
 |-------|-------|-----------|-------------|---------|-------------|
-| **Phase 0** | 4 | 3 | 1 | 0 | 0 |
+| **Phase 0** | 4 | 4 | 0 | 0 | 0 |
 | **Phase 1** | 5 | 0 | 0 | 0 | 5 |
 | **Phase 2** | 3 | 0 | 0 | 0 | 3 |
 | **Phase 3** | 7 | 0 | 0 | 0 | 7 |
@@ -19,7 +19,7 @@
 | **Phase 5** | 4 | 0 | 0 | 0 | 4 |
 | **Phase 6** | 3 | 0 | 0 | 0 | 3 |
 | **Phase 7** | 2 | 0 | 0 | 0 | 2 |
-| **TOTAL** | **32** | **3** | **1** | **0** | **28** |
+| **TOTAL** | **32** | **4** | **0** | **0** | **28** |
 
 ---
 
@@ -43,7 +43,7 @@
 | P0.3.2 | Remove domain files | Rimuovere file obsoleti (`errors.py`, `integration.py`, etc.) | `01_IMPLEMENTATION_GUIDE.md` §149 | File obsoleti rimossi | 🟢 COMPLETED | All old domain files removed |
 | P0.3.3 | Remove GraphQL resolvers | Rimuovere `meal_resolver.py` e `types_meal.py` | `01_IMPLEMENTATION_GUIDE.md` §151-153 | File GraphQL vecchi rimossi | 🟢 COMPLETED | Removed meal_resolver.py + types_meal.py |
 | P0.3.4 | Commit cleanup | `git commit -m "refactor(meal): selective cleanup - preserve external clients"` | `01_IMPLEMENTATION_GUIDE.md` §155-158 | Commit cleanup creato | 🟢 COMPLETED | Commit fba58cf (BREAKING CHANGE) |
-| **P0.4** | **Create New Structure** | Creare struttura cartelle per nuova architettura | `01_IMPLEMENTATION_GUIDE.md` §165-181 | Struttura completa domain/application/infrastructure/tests | 🔵 IN_PROGRESS | Folders created, commit pending |
+| **P0.4** | **Create New Structure** | Creare struttura cartelle per nuova architettura | `01_IMPLEMENTATION_GUIDE.md` §165-181 | Struttura completa domain/application/infrastructure/tests | 🟢 COMPLETED | 75 directories + __init__.py created, commit 78b4930 |
 | P0.4.1 | Create domain structure | `mkdir -p backend/domain/meal/{nutrition,recognition,barcode,core}/...` | `01_IMPLEMENTATION_GUIDE.md` §167-169 | Cartelle domain create | 🟢 COMPLETED | Created with capabilities structure |
 | P0.4.2 | Create application structure | `mkdir -p backend/application/meal/{commands,queries,orchestrators,...}` | `01_IMPLEMENTATION_GUIDE.md` §171-172 | Cartelle application create | 🟢 COMPLETED | Created CQRS structure |
 | P0.4.3 | Create infrastructure structure | `mkdir -p backend/infrastructure/{ai,external_apis,persistence,...}` | `01_IMPLEMENTATION_GUIDE.md` §174-175 | Cartelle infrastructure create | 🟢 COMPLETED | Created adapters structure |
