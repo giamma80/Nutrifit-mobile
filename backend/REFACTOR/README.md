@@ -28,6 +28,19 @@ Il refactor risolve tutte le **incoerenze** trovate nei documenti precedenti e f
 | **05** | [Testing Strategy](./05_TESTING_STRATEGY.md) | TDD, unit/integration/e2e tests | 45 min read |
 | **06** | [GraphQL API](./06_GRAPHQL_API.md) | Complete schema, resolvers, SpectaQL | 60 min read |
 
+### 🎯 Implementation Tracking
+
+| Document | Description | Purpose |
+|----------|-------------|---------|
+| **[📋 IMPLEMENTATION TRACKER](./IMPLEMENTATION_TRACKER.md)** | **32 main tasks + 100+ subtasks in tabular format** | Track progress, manage issues, verify completion |
+
+**Key Features:**
+- ✅ Detailed task breakdown by phase (P0-P7)
+- ✅ Each task has: ID, description, reference doc, expected result, status
+- ✅ Progress overview and completion tracking
+- ✅ Critical path identification
+- ✅ Status legend and commit conventions
+
 **Total Reading Time:** ~5 hours  
 **Total Implementation Time:** ~80-100 hours (2-3 weeks)
 
@@ -36,6 +49,10 @@ Il refactor risolve tutte le **incoerenze** trovate nei documenti precedenti e f
 ## 🚀 Quick Start
 
 ### For Developers Starting Implementation
+
+> **📋 PRIMA DI INIZIARE**: Consulta [IMPLEMENTATION_TRACKER.md](./IMPLEMENTATION_TRACKER.md) per la lista completa di task e subtask. Ogni task ha un ID univoco, riferimenti alla documentazione, e criteri di completamento.
+
+---
 
 #### **Step 0: Upgrade Dependencies (CRITICAL - Do This First!)**
 
