@@ -12,14 +12,14 @@
 | Phase | Tasks | Completed | In Progress | Blocked | Not Started |
 |-------|-------|-----------|-------------|---------|-------------|
 | **Phase 0** | 4 | 4 | 0 | 0 | 0 |
-| **Phase 1** | 5 | 1 | 0 | 0 | 4 |
+| **Phase 1** | 5 | 2 | 0 | 0 | 3 |
 | **Phase 2** | 3 | 0 | 0 | 0 | 3 |
 | **Phase 3** | 7 | 0 | 0 | 0 | 7 |
 | **Phase 4** | 4 | 0 | 0 | 0 | 4 |
 | **Phase 5** | 4 | 0 | 0 | 0 | 4 |
 | **Phase 6** | 3 | 0 | 0 | 0 | 3 |
 | **Phase 7** | 2 | 0 | 0 | 0 | 2 |
-| **TOTAL** | **32** | **5** | **0** | **0** | **27** |
+| **TOTAL** | **32** | **6** | **0** | **0** | **26** |
 
 ---
 
@@ -66,12 +66,12 @@
 | P1.1.3 | Timestamp value object | `domain/meal/core/value_objects/timestamp.py` | `02_DOMAIN_LAYER.md` §100-130 | Timestamp con timezone UTC | 🟢 COMPLETED | Includes: now(), from_iso(), is_today() |
 | P1.1.4 | Confidence value object | `domain/meal/core/value_objects/confidence.py` | `02_DOMAIN_LAYER.md` §140-150 | Confidence 0.0-1.0 validato | 🟢 COMPLETED | Includes: high(), medium(), low(), is_reliable() |
 | P1.1.5 | Tests value objects | `tests/unit/domain/meal/core/test_value_objects.py` | `01_IMPLEMENTATION_GUIDE.md` §231-233 | Test suite completa value objects | 🟢 COMPLETED | 33 tests, 100% pass rate |
-| **P1.2** | **Domain Events** | Implementare eventi di dominio | `02_DOMAIN_LAYER.md` §200-350 | 4 eventi implementati | ⚪ NOT_STARTED | - |
-| P1.2.1 | MealAnalyzed event | `domain/meal/core/events/meal_analyzed.py` | `01_IMPLEMENTATION_GUIDE.md` §239-254 | Evento MealAnalyzed con factory | ⚪ NOT_STARTED | Include: meal_id, user_id, source, occurred_at |
-| P1.2.2 | MealConfirmed event | `domain/meal/core/events/meal_confirmed.py` | `02_DOMAIN_LAYER.md` §220-250 | Evento MealConfirmed | ⚪ NOT_STARTED | - |
-| P1.2.3 | MealUpdated event | `domain/meal/core/events/meal_updated.py` | `02_DOMAIN_LAYER.md` §260-280 | Evento MealUpdated | ⚪ NOT_STARTED | - |
-| P1.2.4 | MealDeleted event | `domain/meal/core/events/meal_deleted.py` | `02_DOMAIN_LAYER.md` §290-310 | Evento MealDeleted | ⚪ NOT_STARTED | - |
-| P1.2.5 | Tests domain events | `tests/unit/domain/meal/core/test_events.py` | `02_DOMAIN_LAYER.md` §320-350 | Test suite eventi | ⚪ NOT_STARTED | - |
+| **P1.2** | **Domain Events** | Implementare eventi di dominio | `02_DOMAIN_LAYER.md` §200-350 | 4 eventi implementati | 🟢 COMPLETED | 20 tests passing, commit 5ab566e |
+| P1.2.1 | MealAnalyzed event | `domain/meal/core/events/meal_analyzed.py` | `01_IMPLEMENTATION_GUIDE.md` §239-254 | Evento MealAnalyzed con factory | 🟢 COMPLETED | Includes: source validation, confidence range |
+| P1.2.2 | MealConfirmed event | `domain/meal/core/events/meal_confirmed.py` | `02_DOMAIN_LAYER.md` §220-250 | Evento MealConfirmed | 🟢 COMPLETED | Tracks confirmed/rejected entry counts |
+| P1.2.3 | MealUpdated event | `domain/meal/core/events/meal_updated.py` | `02_DOMAIN_LAYER.md` §260-280 | Evento MealUpdated | 🟢 COMPLETED | Tracks updated_fields list |
+| P1.2.4 | MealDeleted event | `domain/meal/core/events/meal_deleted.py` | `02_DOMAIN_LAYER.md` §290-310 | Evento MealDeleted | 🟢 COMPLETED | Soft delete marker |
+| P1.2.5 | Tests domain events | `tests/unit/domain/meal/core/test_events.py` | `02_DOMAIN_LAYER.md` §320-350 | Test suite eventi | 🟢 COMPLETED | 20 tests, validation + immutability |
 | **P1.3** | **Core Entities** | Implementare entità core Meal e MealEntry | `02_DOMAIN_LAYER.md` §400-700 | 2 entità implementate | ⚪ NOT_STARTED | - |
 | P1.3.1 | MealEntry entity | `domain/meal/core/entities/meal_entry.py` | `01_IMPLEMENTATION_GUIDE.md` §260-295 | MealEntry con nutrienti denormalizzati | ⚪ NOT_STARTED | Include: id, meal_id, name, quantity_g, nutrients |
 | P1.3.2 | Meal aggregate | `domain/meal/core/entities/meal.py` | `02_DOMAIN_LAYER.md` §500-650 | Meal aggregate root con metodi business | ⚪ NOT_STARTED | Include: add_entry(), calculate_totals(), confirm() |
