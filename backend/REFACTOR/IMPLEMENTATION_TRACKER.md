@@ -11,7 +11,7 @@
 
 | Phase | Tasks | Completed | In Progress | Blocked | Not Started |
 |-------|-------|-----------|-------------|---------|-------------|
-| **Phase 0** | 4 | 0 | 0 | 0 | 4 |
+| **Phase 0** | 4 | 3 | 1 | 0 | 0 |
 | **Phase 1** | 5 | 0 | 0 | 0 | 5 |
 | **Phase 2** | 3 | 0 | 0 | 0 | 3 |
 | **Phase 3** | 7 | 0 | 0 | 0 | 7 |
@@ -19,7 +19,7 @@
 | **Phase 5** | 4 | 0 | 0 | 0 | 4 |
 | **Phase 6** | 3 | 0 | 0 | 0 | 3 |
 | **Phase 7** | 2 | 0 | 0 | 0 | 2 |
-| **TOTAL** | **32** | **0** | **0** | **0** | **32** |
+| **TOTAL** | **32** | **3** | **1** | **0** | **28** |
 
 ---
 
@@ -29,26 +29,26 @@
 
 | ID | Task | Description | Reference Doc | Expected Result | Status | Notes |
 |----|------|-------------|---------------|-----------------|--------|-------|
-| **P0.1** | **Upgrade OpenAI Dependencies** | Aggiornare `pyproject.toml` con OpenAI 2.5.0+, circuitbreaker, tenacity | `01_IMPLEMENTATION_GUIDE.md` §95-130 | `openai==^2.5.0`, `circuitbreaker==^1.4.0`, `tenacity==^8.2.0` installati e verificati | ⚪ NOT_STARTED | **CRITICAL**: Blocking per structured outputs |
-| P0.1.1 | Modifica pyproject.toml | Aggiornare dependencies in `[project.dependencies]` | `01_IMPLEMENTATION_GUIDE.md` §104-113 | File `pyproject.toml` modificato | ⚪ NOT_STARTED | Include: openai, httpx, circuitbreaker, tenacity, pydantic |
-| P0.1.2 | Installa dipendenze | Eseguire `uv sync` | `01_IMPLEMENTATION_GUIDE.md` §115-117 | Dipendenze installate, `uv.lock` aggiornato | ⚪ NOT_STARTED | - |
-| P0.1.3 | Verifica OpenAI version | Eseguire `uv run python -c "import openai; print(openai.__version__)"` | `01_IMPLEMENTATION_GUIDE.md` §119-121 | Output: `2.5.0` o superiore | ⚪ NOT_STARTED | - |
-| P0.1.4 | Verifica nuove dipendenze | Eseguire test import circuitbreaker e tenacity | `01_IMPLEMENTATION_GUIDE.md` §123-124 | Output: `✓ OK` | ⚪ NOT_STARTED | - |
-| P0.1.5 | Commit upgrade | `git commit -m "build(deps): upgrade openai to 2.5.0+ for structured outputs"` | `01_IMPLEMENTATION_GUIDE.md` §126-130 | Commit creato e pushato | ⚪ NOT_STARTED | - |
-| **P0.2** | **Analyze Dependencies** | Identificare tutti gli import di vecchio codice meal domain | `01_IMPLEMENTATION_GUIDE.md` §135-139 | Lista completa dipendenze identificate | ⚪ NOT_STARTED | Usare grep per trovare import |
-| P0.2.1 | Find domain imports | `grep -r "from backend.domain.meal" backend/ --include="*.py"` | `01_IMPLEMENTATION_GUIDE.md` §137 | Lista file che importano domain.meal | ⚪ NOT_STARTED | - |
-| P0.2.2 | Find GraphQL imports | `grep -r "from backend.graphql.meal" backend/ --include="*.py"` | `01_IMPLEMENTATION_GUIDE.md` §138 | Lista file che importano graphql.meal | ⚪ NOT_STARTED | - |
-| **P0.3** | **Selective Cleanup** | Rimuovere architettura obsoleta preservando client esterni | `01_IMPLEMENTATION_GUIDE.md` §141-163 | Domain meal pulito, client esterni preservati | ⚪ NOT_STARTED | **NON** cancellare ai_models/ e openfoodfacts/ |
-| P0.3.1 | Remove domain folders | Rimuovere cartelle obsolete in `backend/domain/meal/` | `01_IMPLEMENTATION_GUIDE.md` §145-149 | Cartelle `adapters/`, `application/`, `entities/`, etc. rimosse | ⚪ NOT_STARTED | KEEP: ai_models/, openfoodfacts/ |
-| P0.3.2 | Remove domain files | Rimuovere file obsoleti (`errors.py`, `integration.py`, etc.) | `01_IMPLEMENTATION_GUIDE.md` §149 | File obsoleti rimossi | ⚪ NOT_STARTED | - |
-| P0.3.3 | Remove GraphQL resolvers | Rimuovere `meal_resolver.py` e `types_meal.py` | `01_IMPLEMENTATION_GUIDE.md` §151-153 | File GraphQL vecchi rimossi | ⚪ NOT_STARTED | - |
-| P0.3.4 | Commit cleanup | `git commit -m "refactor(meal): selective cleanup - preserve external clients"` | `01_IMPLEMENTATION_GUIDE.md` §155-158 | Commit cleanup creato | ⚪ NOT_STARTED | - |
-| **P0.4** | **Create New Structure** | Creare struttura cartelle per nuova architettura | `01_IMPLEMENTATION_GUIDE.md` §165-181 | Struttura completa domain/application/infrastructure/tests | ⚪ NOT_STARTED | - |
-| P0.4.1 | Create domain structure | `mkdir -p backend/domain/meal/{nutrition,recognition,barcode,core}/...` | `01_IMPLEMENTATION_GUIDE.md` §167-169 | Cartelle domain create | ⚪ NOT_STARTED | Include: entities, value_objects, services, ports |
-| P0.4.2 | Create application structure | `mkdir -p backend/application/meal/{commands,queries,orchestrators,...}` | `01_IMPLEMENTATION_GUIDE.md` §171-172 | Cartelle application create | ⚪ NOT_STARTED | Include: dtos, event_handlers |
-| P0.4.3 | Create infrastructure structure | `mkdir -p backend/infrastructure/{ai,external_apis,persistence,...}` | `01_IMPLEMENTATION_GUIDE.md` §174-175 | Cartelle infrastructure create | ⚪ NOT_STARTED | Include: usda, openfoodfacts, in_memory, mongodb, redis |
-| P0.4.4 | Create GraphQL structure | `mkdir -p backend/graphql/resolvers/meal` | `01_IMPLEMENTATION_GUIDE.md` §177-178 | Cartelle GraphQL create | ⚪ NOT_STARTED | - |
-| P0.4.5 | Create tests structure | `mkdir -p backend/tests/{unit,integration,e2e}/...` | `01_IMPLEMENTATION_GUIDE.md` §180-181 | Cartelle tests create | ⚪ NOT_STARTED | Include: domain, application, infrastructure, graphql |
+| **P0.1** | **Upgrade OpenAI Dependencies** | Aggiornare `pyproject.toml` con OpenAI 2.5.0+, circuitbreaker, tenacity | `01_IMPLEMENTATION_GUIDE.md` §95-130 | `openai==^2.5.0`, `circuitbreaker==^1.4.0`, `tenacity==^8.2.0` installati e verificati | 🟢 COMPLETED | OpenAI 2.6.0 installed successfully |
+| P0.1.1 | Modifica pyproject.toml | Aggiornare dependencies in `[project.dependencies]` | `01_IMPLEMENTATION_GUIDE.md` §104-113 | File `pyproject.toml` modificato | 🟢 COMPLETED | Added: openai >=2.5.0, pydantic >=2.0.0, circuitbreaker, tenacity, ruff, pytest-cov |
+| P0.1.2 | Installa dipendenze | Eseguire `uv sync` | `01_IMPLEMENTATION_GUIDE.md` §115-117 | Dipendenze installate, `uv.lock` aggiornato | 🟢 COMPLETED | All packages installed |
+| P0.1.3 | Verifica OpenAI version | Eseguire `uv run python -c "import openai; print(openai.__version__)"` | `01_IMPLEMENTATION_GUIDE.md` §119-121 | Output: `2.5.0` o superiore | 🟢 COMPLETED | OpenAI 2.6.0 verified |
+| P0.1.4 | Verifica nuove dipendenze | Eseguire test import circuitbreaker e tenacity | `01_IMPLEMENTATION_GUIDE.md` §123-124 | Output: `✓ OK` | 🟢 COMPLETED | All imports successful |
+| P0.1.5 | Commit upgrade | `git commit -m "build(deps): upgrade openai to 2.5.0+ for structured outputs"` | `01_IMPLEMENTATION_GUIDE.md` §126-130 | Commit creato e pushato | 🟢 COMPLETED | Commit f860b4d |
+| **P0.2** | **Analyze Dependencies** | Identificare tutti gli import di vecchio codice meal domain | `01_IMPLEMENTATION_GUIDE.md` §135-139 | Lista completa dipendenze identificate | 🟢 COMPLETED | Found old domain/meal + clients to preserve |
+| P0.2.1 | Find domain imports | `grep -r "from backend.domain.meal" backend/ --include="*.py"` | `01_IMPLEMENTATION_GUIDE.md` §137 | Lista file che importano domain.meal | 🟢 COMPLETED | Found: graphql/meal_resolver.py, app.py, tests/* |
+| P0.2.2 | Find GraphQL imports | `grep -r "from backend.graphql.meal" backend/ --include="*.py"` | `01_IMPLEMENTATION_GUIDE.md` §138 | Lista file che importano graphql.meal | 🟢 COMPLETED | No imports found (flat structure) |
+| **P0.3** | **Selective Cleanup** | Rimuovere architettura obsoleta preservando client esterni | `01_IMPLEMENTATION_GUIDE.md` §141-163 | Domain meal pulito, client esterni preservati | 🟢 COMPLETED | 38 files removed, clients preserved |
+| P0.3.1 | Remove domain folders | Rimuovere cartelle obsolete in `backend/domain/meal/` | `01_IMPLEMENTATION_GUIDE.md` §145-149 | Cartelle `adapters/`, `application/`, `entities/`, etc. rimosse | 🟢 COMPLETED | Removed entire backend/domain/meal/ |
+| P0.3.2 | Remove domain files | Rimuovere file obsoleti (`errors.py`, `integration.py`, etc.) | `01_IMPLEMENTATION_GUIDE.md` §149 | File obsoleti rimossi | 🟢 COMPLETED | All old domain files removed |
+| P0.3.3 | Remove GraphQL resolvers | Rimuovere `meal_resolver.py` e `types_meal.py` | `01_IMPLEMENTATION_GUIDE.md` §151-153 | File GraphQL vecchi rimossi | 🟢 COMPLETED | Removed meal_resolver.py + types_meal.py |
+| P0.3.4 | Commit cleanup | `git commit -m "refactor(meal): selective cleanup - preserve external clients"` | `01_IMPLEMENTATION_GUIDE.md` §155-158 | Commit cleanup creato | 🟢 COMPLETED | Commit fba58cf (BREAKING CHANGE) |
+| **P0.4** | **Create New Structure** | Creare struttura cartelle per nuova architettura | `01_IMPLEMENTATION_GUIDE.md` §165-181 | Struttura completa domain/application/infrastructure/tests | 🔵 IN_PROGRESS | Folders created, commit pending |
+| P0.4.1 | Create domain structure | `mkdir -p backend/domain/meal/{nutrition,recognition,barcode,core}/...` | `01_IMPLEMENTATION_GUIDE.md` §167-169 | Cartelle domain create | 🟢 COMPLETED | Created with capabilities structure |
+| P0.4.2 | Create application structure | `mkdir -p backend/application/meal/{commands,queries,orchestrators,...}` | `01_IMPLEMENTATION_GUIDE.md` §171-172 | Cartelle application create | 🟢 COMPLETED | Created CQRS structure |
+| P0.4.3 | Create infrastructure structure | `mkdir -p backend/infrastructure/{ai,external_apis,persistence,...}` | `01_IMPLEMENTATION_GUIDE.md` §174-175 | Cartelle infrastructure create | 🟢 COMPLETED | Created adapters structure |
+| P0.4.4 | Create GraphQL structure | `mkdir -p backend/graphql/resolvers/meal` | `01_IMPLEMENTATION_GUIDE.md` §177-178 | Cartelle GraphQL create | 🟢 COMPLETED | Created resolvers/meal |
+| P0.4.5 | Create tests structure | `mkdir -p backend/tests/{unit,integration,e2e}/...` | `01_IMPLEMENTATION_GUIDE.md` §180-181 | Cartelle tests create | 🟢 COMPLETED | Created test pyramid structure |
 
 **Milestone P0:** ✅ Workspace pulito, dipendenze aggiornate, struttura creata, client esterni preservati
 
