@@ -68,9 +68,7 @@ class MealConfirmed(DomainEvent):
             )
 
         if rejected_entry_count < 0:
-            raise ValueError(
-                f"rejected_entry_count cannot be negative, got {rejected_entry_count}"
-            )
+            raise ValueError(f"rejected_entry_count cannot be negative, got {rejected_entry_count}")
 
         return cls(
             event_id=uuid4(),

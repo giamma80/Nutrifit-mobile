@@ -72,8 +72,7 @@ class MealAnalyzed(DomainEvent):
 
         if not 0.0 <= average_confidence <= 1.0:
             raise ValueError(
-                f"average_confidence must be between 0.0 and 1.0, "
-                f"got {average_confidence}"
+                f"average_confidence must be between 0.0 and 1.0, " f"got {average_confidence}"
             )
 
         if source not in ["PHOTO", "BARCODE", "DESCRIPTION"]:

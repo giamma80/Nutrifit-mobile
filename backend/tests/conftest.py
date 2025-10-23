@@ -9,16 +9,19 @@ from __future__ import annotations
 import os
 import pytest
 import pytest_asyncio
-from typing import Generator, AsyncIterator, cast, Any
+from typing import Generator, AsyncIterator, cast, Any, Callable, TYPE_CHECKING
 from dataclasses import dataclass
 
-# Type-only imports for type hints (not evaluated at runtime with __future__ annotations)
-# Note: AsyncClient imported below at runtime when APP_AVAILABLE
-# if TYPE_CHECKING:
-#     from httpx import AsyncClient
+# Type-only imports for proper type hints
+if TYPE_CHECKING:
+    from fastapi import FastAPI
 
 # Check if running unit tests only (env var set by Makefile.test)
 UNIT_TESTS_ONLY = os.getenv("PYTEST_UNIT_ONLY", "0") == "1"
+
+# Module-level type annotations for conditional imports
+app: FastAPI | None
+reset_all: Callable[[], None] | None
 
 # Try to import app and metrics, but handle gracefully if missing during refactor
 # or if running unit tests only
@@ -29,7 +32,7 @@ if UNIT_TESTS_ONLY:
 else:
     try:
         from metrics.ai_meal_photo import reset_all
-        from httpx import AsyncClient, ASGITransport  # type: ignore[misc]
+        from httpx import AsyncClient, ASGITransport
         from app import app
 
         APP_AVAILABLE = True
@@ -141,7 +144,7 @@ async def client() -> AsyncIterator[AsyncClient]:
     if not APP_AVAILABLE or app is None:
         pytest.skip("App not available during refactor - integration tests disabled")
         # This line never executes but satisfies type checker
-        yield  # type: ignore
+        yield
 
     # AsyncClient and ASGITransport already imported at module level (line 31)
     # Cast a Any per soddisfare la firma attesa (FastAPI è compatibile ASGI)
@@ -476,7 +479,7 @@ def mock_meal_enrichment(monkeypatch: pytest.MonkeyPatch) -> Generator[bool, Non
         # Mock OpenFoodFactsAdapter per enrichment automatico
         from domain.meal.port import ProductLookupPort
 
-        class MockOpenFoodFactsAdapter(ProductLookupPort):
+        class MockOpenFoodFactsAdapter(ProductLookupPort):  # type: ignore[misc]
             async def lookup_by_barcode(self, barcode: str) -> Any:
                 # Metodo richiesto dall'interface ProductLookupPort
                 # Simula prodotto base per test
@@ -572,4 +575,4 @@ def mock_meal_enrichment(monkeypatch: pytest.MonkeyPatch) -> Generator[bool, Non
 
     monkeypatch.setattr(MealIntegrationService, "_initialize_services", mock_meal_service_init)
 
-    return True
+    yield True

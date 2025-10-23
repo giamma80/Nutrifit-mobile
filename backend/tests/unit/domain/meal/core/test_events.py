@@ -39,9 +39,7 @@ class TestDomainEvent:
 
     def test_immutability(self) -> None:
         """Test that DomainEvent is immutable (frozen)."""
-        event = DomainEvent(
-            event_id=uuid4(), occurred_at=datetime.now(timezone.utc)
-        )
+        event = DomainEvent(event_id=uuid4(), occurred_at=datetime.now(timezone.utc))
 
         with pytest.raises(AttributeError):
             event.event_id = uuid4()  # type: ignore

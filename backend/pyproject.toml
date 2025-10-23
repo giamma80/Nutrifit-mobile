@@ -61,6 +61,16 @@ addopts = "-q"
 # Aggiungiamo anche 'backend' per consentire import 'app' quando pytest parte dalla root repo.
 pythonpath = [".", "backend"]
 
+# Separate test configurations
+testpaths = ["tests"]
+
+# Markers for different test types
+markers = [
+    "unit: Unit tests (isolated, no dependencies)",
+    "integration: Integration tests (with real dependencies)",
+    "e2e: End-to-end tests (full system)"
+]
+
 [build-system]
 requires = ["setuptools", "wheel"]
 build-backend = "setuptools.build_meta"

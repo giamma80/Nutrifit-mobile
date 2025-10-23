@@ -436,12 +436,14 @@ class Mutation:
     #
     #     return await get_meal_resolver().update_meal(info, input)
 
-    @strawberry.mutation(description="Cancella un pasto")  # type: ignore[misc]
-    async def delete_meal(self, info: Info[Any, Any], id: str) -> bool:  # noqa: ARG002
-        # Feature flag routing to domain integration
-        from graphql.meal_resolver import get_meal_resolver
-
-        return await get_meal_resolver().delete_meal(info, id)
+    # TEMPORARILY DISABLED DURING REFACTOR - Phase 0: meal_resolver removed
+    # Will be reimplemented in Phase 5 with new GraphQL schema
+    # @strawberry.mutation(description="Cancella un pasto")  # type: ignore[misc]
+    # async def delete_meal(self, info: Info[Any, Any], id: str) -> bool:  # noqa: ARG002
+    #     # Feature flag routing to domain integration
+    #     from graphql.meal_resolver import get_meal_resolver
+    #
+    #     return await get_meal_resolver().delete_meal(info, id)
 
     @strawberry.mutation(  # type: ignore[misc]
         description="Ingest batch minute activity events (idempotent)"
