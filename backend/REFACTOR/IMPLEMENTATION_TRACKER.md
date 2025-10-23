@@ -1,9 +1,9 @@
 # 🎯 Nutrifit Meal Domain Refactor - Implementation Tracker
 
-**Version:** 2.3
+**Version:** 2.4
 **Date:** 23 Ottobre 2025
 **Branch:** `refactor`
-**Status:** 🟡 Phase 2 In Progress (1/3 completed)
+**Status:** 🟡 Phase 2 In Progress (2/3 completed)
 
 ---
 
@@ -13,13 +13,13 @@
 |-------|-------|-----------|-------------|---------|-------------|
 | **Phase 0** | 4 | 4 | 0 | 0 | 0 |
 | **Phase 1** | 5 | 5 | 0 | 0 | 0 |
-| **Phase 2** | 3 | 1 | 0 | 0 | 2 |
+| **Phase 2** | 3 | 2 | 0 | 0 | 1 |
 | **Phase 3** | 7 | 0 | 0 | 0 | 7 |
 | **Phase 4** | 4 | 0 | 0 | 0 | 4 |
 | **Phase 5** | 4 | 0 | 0 | 0 | 4 |
 | **Phase 6** | 3 | 0 | 0 | 0 | 3 |
 | **Phase 7** | 2 | 0 | 0 | 0 | 2 |
-| **TOTAL** | **32** | **10** | **0** | **0** | **22** |
+| **TOTAL** | **32** | **11** | **0** | **0** | **21** |
 
 ---
 
@@ -102,13 +102,12 @@
 | P2.1.2 | INutritionProvider port | `nutrition/ports/nutrition_provider.py` | `02_DOMAIN_LAYER.md` §1290-1320 | Port (interface) per USDA client | 🟢 COMPLETED | Protocol with get_nutrients() method - Dependency Inversion |
 | P2.1.3 | EnrichmentService | `nutrition/services/enrichment_service.py` | `02_DOMAIN_LAYER.md` §1330-1380 | Service orchestrazione enrichment | 🟢 COMPLETED | Cascade strategy: USDA → Category → Fallback, includes enrich_batch() |
 | P2.1.4 | Tests nutrition | `tests/unit/domain/meal/nutrition/test_*.py` | `02_DOMAIN_LAYER.md` §1390-1400 | Test suite nutrition | 🟢 COMPLETED | 35 tests: 24 for NutrientProfile, 11 for EnrichmentService with mocked providers |
-| **P2.2** | **Recognition Capability** | Implementare capability recognition con port | `02_DOMAIN_LAYER.md` §1500-1800 | Recognition capability completa | ⚪ NOT_STARTED | Port per OpenAI client |
-| P2.2.1 | Confidence VO | `recognition/value_objects/confidence.py` | `02_DOMAIN_LAYER.md` §1520-1550 | Value object confidence score | ⚪ NOT_STARTED | Validazione 0.0-1.0 |
-| P2.2.2 | FoodLabel VO | `recognition/value_objects/food_label.py` | `02_DOMAIN_LAYER.md` §1560-1590 | Value object label USDA-compatible | ⚪ NOT_STARTED | Validazione formato |
-| P2.2.3 | RecognizedFood entity | `recognition/entities/recognized_food.py` | `02_DOMAIN_LAYER.md` §1600-1660 | Entity cibo riconosciuto | ⚪ NOT_STARTED | Include: name, label, quantity, confidence |
-| P2.2.4 | IVisionProvider port | `recognition/ports/vision_provider.py` | `02_DOMAIN_LAYER.md` §1670-1700 | Port (interface) per OpenAI client | ⚪ NOT_STARTED | Metodo: recognize_food(photo_url, hint) |
-| P2.2.5 | RecognitionService | `recognition/services/recognition_service.py` | `02_DOMAIN_LAYER.md` §1710-1770 | Service orchestrazione recognition | ⚪ NOT_STARTED | Usa IVisionProvider port |
-| P2.2.6 | Tests recognition | `tests/unit/domain/meal/recognition/test_*.py` | `02_DOMAIN_LAYER.md` §1780-1800 | Test suite recognition | ⚪ NOT_STARTED | Mock IVisionProvider |
+| **P2.2** | **Recognition Capability** | Implementare capability recognition con port | `02_DOMAIN_LAYER.md` §1500-1800 | Recognition capability completa | 🟢 COMPLETED | 36 tests passing, commit 0abd028 |
+| P2.2.1 | RecognizedFood entity | `recognition/entities/recognized_food.py` | `02_DOMAIN_LAYER.md` §1600-1660 | Entity cibo riconosciuto | 🟢 COMPLETED | Includes: label, display_name, quantity_g, confidence, is_reliable() |
+| P2.2.2 | FoodRecognitionResult entity | `recognition/entities/recognized_food.py` | `02_DOMAIN_LAYER.md` §1600-1660 | Entity risultato recognition completo | 🟢 COMPLETED | Auto-calculates average confidence, methods: reliable_items(), total_quantity_g() |
+| P2.2.3 | IVisionProvider port | `recognition/ports/vision_provider.py` | `02_DOMAIN_LAYER.md` §1670-1700 | Port (interface) per OpenAI client | 🟢 COMPLETED | Protocol with analyze_photo(), analyze_text() - Dependency Inversion |
+| P2.2.4 | RecognitionService | `recognition/services/recognition_service.py` | `02_DOMAIN_LAYER.md` §1710-1770 | Service orchestrazione recognition | 🟢 COMPLETED | Includes: recognize_from_photo(), recognize_from_text(), validate_recognition() |
+| P2.2.5 | Tests recognition | `tests/unit/domain/meal/recognition/test_*.py` | `02_DOMAIN_LAYER.md` §1780-1800 | Test suite recognition | 🟢 COMPLETED | 36 tests: 22 for entities, 14 for service with mocked IVisionProvider |
 | **P2.3** | **Barcode Capability** | Implementare capability barcode con port | `02_DOMAIN_LAYER.md` §1900-2100 | Barcode capability completa | ⚪ NOT_STARTED | Port per OpenFoodFacts |
 | P2.3.1 | BarcodeProduct entity | `barcode/entities/barcode_product.py` | `02_DOMAIN_LAYER.md` §1920-1970 | Entity prodotto da barcode | ⚪ NOT_STARTED | Include: barcode, name, brand, nutrients, image_url |
 | P2.3.2 | IBarcodeProvider port | `barcode/ports/barcode_provider.py` | `02_DOMAIN_LAYER.md` §1980-2010 | Port (interface) per OpenFoodFacts | ⚪ NOT_STARTED | Metodo: lookup_barcode(barcode) |
@@ -372,6 +371,18 @@ make quality           # lint + typecheck + format
 
 ### 23 Ottobre 2025
 
+- ✅ **P2.2 COMPLETED** - Recognition Capability
+  - Commit: `0abd028` feat(domain): implement P2.2 - Recognition Capability
+  - 36 new tests for recognition capability (212 total)
+  - Components:
+    * RecognizedFood entity with confidence tracking (label, display_name, quantity_g, confidence, is_reliable())
+    * FoodRecognitionResult entity with auto-calculated average confidence (reliable_items(), total_quantity_g(), item_count())
+    * IVisionProvider port (Protocol for Dependency Inversion) with analyze_photo(), analyze_text()
+    * FoodRecognitionService with orchestration (recognize_from_photo(), recognize_from_text(), validate_recognition())
+  - Files: recognized_food.py, vision_provider.py, recognition_service.py, test_recognized_food.py, test_recognition_service.py
+  - **PHASE 2 STATUS:** 67% COMPLETE (2/3 tasks)
+  - **IMPORTANT NOTE:** Domain supports specific USDA labels (e.g., "roasted_chicken" vs "chicken") via label/display_name fields
+
 - ✅ **P2.1 COMPLETED** - Nutrition Capability
   - Commit: `a6f2630` feat(domain): implement P2.1 - Nutrition Capability
   - 35 new tests for nutrition capability (176 total)
@@ -456,7 +467,7 @@ make quality           # lint + typecheck + format
 ---
 
 **Ultimo aggiornamento:** 23 Ottobre 2025
-**Prossimo task:** P2.2 - Recognition Capability
-**Current Progress:** 10/32 tasks completed (31.25%)
+**Prossimo task:** P2.3 - Barcode Capability
+**Current Progress:** 11/32 tasks completed (34.375%)
 **Phase 1 Status:** ✅ COMPLETED (5/5 tasks - 100%)
-**Phase 2 Status:** 🟡 IN PROGRESS (1/3 tasks - 33%)
+**Phase 2 Status:** 🟡 IN PROGRESS (2/3 tasks - 67%)
