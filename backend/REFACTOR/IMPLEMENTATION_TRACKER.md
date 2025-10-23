@@ -1,9 +1,9 @@
 # 🎯 Nutrifit Meal Domain Refactor - Implementation Tracker
 
-**Version:** 2.2
+**Version:** 2.3
 **Date:** 23 Ottobre 2025
 **Branch:** `refactor`
-**Status:** ✅ Phase 1 Complete - Ready for Phase 2
+**Status:** 🟡 Phase 2 In Progress (1/3 completed)
 
 ---
 
@@ -13,13 +13,13 @@
 |-------|-------|-----------|-------------|---------|-------------|
 | **Phase 0** | 4 | 4 | 0 | 0 | 0 |
 | **Phase 1** | 5 | 5 | 0 | 0 | 0 |
-| **Phase 2** | 3 | 0 | 0 | 0 | 3 |
+| **Phase 2** | 3 | 1 | 0 | 0 | 2 |
 | **Phase 3** | 7 | 0 | 0 | 0 | 7 |
 | **Phase 4** | 4 | 0 | 0 | 0 | 4 |
 | **Phase 5** | 4 | 0 | 0 | 0 | 4 |
 | **Phase 6** | 3 | 0 | 0 | 0 | 3 |
 | **Phase 7** | 2 | 0 | 0 | 0 | 2 |
-| **TOTAL** | **32** | **9** | **0** | **0** | **23** |
+| **TOTAL** | **32** | **10** | **0** | **0** | **22** |
 
 ---
 
@@ -97,13 +97,11 @@
 
 | ID | Task | Description | Reference Doc | Expected Result | Status | Notes |
 |----|------|-------------|---------------|-----------------|--------|-------|
-| **P2.1** | **Nutrition Capability** | Implementare capability nutrition con port | `02_DOMAIN_LAYER.md` §1100-1400 | Nutrition capability completa | ⚪ NOT_STARTED | Port per USDA client |
-| P2.1.1 | MacroNutrients VO | `nutrition/value_objects/macro_nutrients.py` | `02_DOMAIN_LAYER.md` §1120-1160 | Value object macronutrienti | ⚪ NOT_STARTED | protein, carbs, fat, fiber |
-| P2.1.2 | MicroNutrients VO | `nutrition/value_objects/micro_nutrients.py` | `02_DOMAIN_LAYER.md` §1170-1210 | Value object micronutrienti | ⚪ NOT_STARTED | vitamins, minerals |
-| P2.1.3 | NutrientProfile entity | `nutrition/entities/nutrient_profile.py` | `02_DOMAIN_LAYER.md` §1220-1280 | Entity profilo nutrizionale completo | ⚪ NOT_STARTED | Include: calculate_per_100g() |
-| P2.1.4 | INutritionProvider port | `nutrition/ports/nutrition_provider.py` | `02_DOMAIN_LAYER.md` §1290-1320 | Port (interface) per USDA client | ⚪ NOT_STARTED | Metodo: get_nutrients(label, quantity_g) |
-| P2.1.5 | EnrichmentService | `nutrition/services/enrichment_service.py` | `02_DOMAIN_LAYER.md` §1330-1380 | Service orchestrazione enrichment | ⚪ NOT_STARTED | Usa INutritionProvider port |
-| P2.1.6 | Tests nutrition | `tests/unit/domain/meal/nutrition/test_*.py` | `02_DOMAIN_LAYER.md` §1390-1400 | Test suite nutrition | ⚪ NOT_STARTED | Mock INutritionProvider |
+| **P2.1** | **Nutrition Capability** | Implementare capability nutrition con port | `02_DOMAIN_LAYER.md` §1100-1400 | Nutrition capability completa | 🟢 COMPLETED | 35 tests passing, commit a6f2630 |
+| P2.1.1 | NutrientProfile entity | `nutrition/entities/nutrient_profile.py` | `02_DOMAIN_LAYER.md` §1220-1280 | Entity profilo nutrizionale completo | 🟢 COMPLETED | Includes: scale_to_quantity(), calories_from_macros(), is_high_quality(), macro_distribution() |
+| P2.1.2 | INutritionProvider port | `nutrition/ports/nutrition_provider.py` | `02_DOMAIN_LAYER.md` §1290-1320 | Port (interface) per USDA client | 🟢 COMPLETED | Protocol with get_nutrients() method - Dependency Inversion |
+| P2.1.3 | EnrichmentService | `nutrition/services/enrichment_service.py` | `02_DOMAIN_LAYER.md` §1330-1380 | Service orchestrazione enrichment | 🟢 COMPLETED | Cascade strategy: USDA → Category → Fallback, includes enrich_batch() |
+| P2.1.4 | Tests nutrition | `tests/unit/domain/meal/nutrition/test_*.py` | `02_DOMAIN_LAYER.md` §1390-1400 | Test suite nutrition | 🟢 COMPLETED | 35 tests: 24 for NutrientProfile, 11 for EnrichmentService with mocked providers |
 | **P2.2** | **Recognition Capability** | Implementare capability recognition con port | `02_DOMAIN_LAYER.md` §1500-1800 | Recognition capability completa | ⚪ NOT_STARTED | Port per OpenAI client |
 | P2.2.1 | Confidence VO | `recognition/value_objects/confidence.py` | `02_DOMAIN_LAYER.md` §1520-1550 | Value object confidence score | ⚪ NOT_STARTED | Validazione 0.0-1.0 |
 | P2.2.2 | FoodLabel VO | `recognition/value_objects/food_label.py` | `02_DOMAIN_LAYER.md` §1560-1590 | Value object label USDA-compatible | ⚪ NOT_STARTED | Validazione formato |
@@ -374,6 +372,16 @@ make quality           # lint + typecheck + format
 
 ### 23 Ottobre 2025
 
+- ✅ **P2.1 COMPLETED** - Nutrition Capability
+  - Commit: `a6f2630` feat(domain): implement P2.1 - Nutrition Capability
+  - 35 new tests for nutrition capability (176 total)
+  - Components:
+    * NutrientProfile entity with business logic (scale_to_quantity, calories_from_macros, is_high_quality, macro_distribution)
+    * INutritionProvider port (Protocol for Dependency Inversion)
+    * NutritionEnrichmentService with cascade strategy (USDA → Category → Fallback)
+  - Files: nutrient_profile.py, nutrition_provider.py, enrichment_service.py, test_nutrient_profile.py, test_enrichment_service.py
+  - **PHASE 2 STATUS:** 33% COMPLETE (1/3 tasks)
+
 - 🎉 **PHASE 1 COMPLETED (100%)** - Core Domain Layer fully implemented!
   - All 5 major tasks completed: Value Objects, Events, Entities, Exceptions, Factories
   - **TOTAL TESTS:** 141/141 unit tests passing ✅
@@ -448,6 +456,7 @@ make quality           # lint + typecheck + format
 ---
 
 **Ultimo aggiornamento:** 23 Ottobre 2025
-**Prossimo task:** P2.1 - Nutrition Capability
-**Current Progress:** 9/32 tasks completed (28.125%)
+**Prossimo task:** P2.2 - Recognition Capability
+**Current Progress:** 10/32 tasks completed (31.25%)
 **Phase 1 Status:** ✅ COMPLETED (5/5 tasks - 100%)
+**Phase 2 Status:** 🟡 IN PROGRESS (1/3 tasks - 33%)
