@@ -31,6 +31,7 @@ from repository.activities import (
 from repository.health_totals import health_totals_repo  # NEW
 from repository.ai_meal_photo import meal_photo_repo
 from inference.adapter import get_active_adapter
+
 # TEMPORARILY DISABLED DURING REFACTOR - Phase 0
 # from graphql.types_meal import (
 #     MealEntry,
@@ -128,102 +129,103 @@ class ActivityMinuteInput:
 DEFAULT_USER_ID = "default"
 
 
-_enrich_from_product = enrich_from_product  # retro compat
+# TEMPORARILY DISABLED DURING REFACTOR - Phase 0
+# _enrich_from_product = enrich_from_product  # retro compat
 
 
-# Helper functions for daily summary
+# TEMPORARILY DISABLED DURING REFACTOR - Phase 0: DailySummary type removed
+# Helper functions for daily summary will be reimplemented in Phase 5
 
-
-def _daily_summary_nutrition_domain(
-    uid: str,
-    date: str,
-    nutrition_integration: Any,
-) -> DailySummary:
-    """Daily summary with nutrition domain V2 integration."""
-    # Calculate base summary data for nutrition domain to enhance
-    all_meals = meal_repo.list_all(uid)
-    day_meals = [m for m in all_meals if m.timestamp.startswith(date)]
-
-    def _acc(name: str) -> float:
-        total = 0.0
-        for m in day_meals:
-            val = getattr(m, name)
-            if val is not None:
-                total += float(val)
-        return total
-
-    calories_total = int(_acc("calories")) if day_meals else 0
-
-    def _opt(name: str) -> Optional[float]:
-        if not day_meals:
-            return 0.0
-        val = _acc(name)
-        return round(val, 2)
-
-    # Get activity data from health_totals_repo
-    steps_tot, cal_out_tot = health_totals_repo.daily_totals(user_id=uid, date=date)
-    act_stats = activity_repo.get_daily_stats(uid, date + "T00:00:00Z")
-    events_count = act_stats.get("events_count", 0)
-    calories_deficit = int(round(cal_out_tot - calories_total))
-
-    if cal_out_tot > 0:
-        pct = (calories_total / cal_out_tot) * 100
-        if pct < 0:
-            pct = 0
-        if pct > 999:
-            pct = 999
-        calories_replenished_percent = int(round(pct))
-    else:
-        calories_replenished_percent = 0
-
-    # Create base summary for nutrition domain to enhance
-    base_summary = {
-        "date": date,
-        "user_id": uid,
-        "meals": len(day_meals),
-        "calories": calories_total,
-        "protein": _opt("protein"),
-        "carbs": _opt("carbs"),
-        "fat": _opt("fat"),
-        "fiber": _opt("fiber"),
-        "sugar": _opt("sugar"),
-        "sodium": _opt("sodium"),
-        "activity_steps": steps_tot,
-        "activity_calories_out": cal_out_tot,
-        "activity_events": events_count,
-        "calories_deficit": calories_deficit,
-        "calories_replenished_percent": calories_replenished_percent,
-    }
-
-    # Get enhanced summary from nutrition domain
-    enhanced_dict = nutrition_integration.enhanced_daily_summary(
-        user_id=uid,
-        date=date,
-        fallback_summary=base_summary,
-    )
-
-    # Create DailySummary from enhanced data
-    return DailySummary(
-        date=enhanced_dict["date"],
-        user_id=enhanced_dict["user_id"],
-        meals=enhanced_dict["meals"],
-        calories=enhanced_dict["calories"],
-        protein=enhanced_dict["protein"],
-        carbs=enhanced_dict["carbs"],
-        fat=enhanced_dict["fat"],
-        fiber=enhanced_dict["fiber"],
-        sugar=enhanced_dict["sugar"],
-        sodium=enhanced_dict["sodium"],
-        activity_steps=enhanced_dict["activity_steps"],
-        activity_calories_out=enhanced_dict["activity_calories_out"],
-        activity_events=enhanced_dict["activity_events"],
-        calories_deficit=enhanced_dict.get("enhanced_calculations", {}).get(
-            "deficit_v2", enhanced_dict["calories_deficit"]
-        ),
-        calories_replenished_percent=enhanced_dict.get("enhanced_calculations", {}).get(
-            "replenished_pct_v2", enhanced_dict["calories_replenished_percent"]
-        ),
-    )
+# def _daily_summary_nutrition_domain(
+#     uid: str,
+#     date: str,
+#     nutrition_integration: Any,
+# ) -> DailySummary:
+#     """Daily summary with nutrition domain V2 integration."""
+#     # Calculate base summary data for nutrition domain to enhance
+#     all_meals = meal_repo.list_all(uid)
+#     day_meals = [m for m in all_meals if m.timestamp.startswith(date)]
+#
+#     def _acc(name: str) -> float:
+#         total = 0.0
+#         for m in day_meals:
+#             val = getattr(m, name)
+#             if val is not None:
+#                 total += float(val)
+#         return total
+#
+#     calories_total = int(_acc("calories")) if day_meals else 0
+#
+#     def _opt(name: str) -> Optional[float]:
+#         if not day_meals:
+#             return 0.0
+#         val = _acc(name)
+#         return round(val, 2)
+#
+#     # Get activity data from health_totals_repo
+#     steps_tot, cal_out_tot = health_totals_repo.daily_totals(user_id=uid, date=date)
+#     act_stats = activity_repo.get_daily_stats(uid, date + "T00:00:00Z")
+#     events_count = act_stats.get("events_count", 0)
+#     calories_deficit = int(round(cal_out_tot - calories_total))
+#
+#     if cal_out_tot > 0:
+#         pct = (calories_total / cal_out_tot) * 100
+#         if pct < 0:
+#             pct = 0
+#         if pct > 999:
+#             pct = 999
+#         calories_replenished_percent = int(round(pct))
+#     else:
+#         calories_replenished_percent = 0
+#
+#     # Create base summary for nutrition domain to enhance
+#     base_summary = {
+#         "date": date,
+#         "user_id": uid,
+#         "meals": len(day_meals),
+#         "calories": calories_total,
+#         "protein": _opt("protein"),
+#         "carbs": _opt("carbs"),
+#         "fat": _opt("fat"),
+#         "fiber": _opt("fiber"),
+#         "sugar": _opt("sugar"),
+#         "sodium": _opt("sodium"),
+#         "activity_steps": steps_tot,
+#         "activity_calories_out": cal_out_tot,
+#         "activity_events": events_count,
+#         "calories_deficit": calories_deficit,
+#         "calories_replenished_percent": calories_replenished_percent,
+#     }
+#
+#     # Get enhanced summary from nutrition domain
+#     enhanced_dict = nutrition_integration.enhanced_daily_summary(
+#         user_id=uid,
+#         date=date,
+#         fallback_summary=base_summary,
+#     )
+#
+#     # Create DailySummary from enhanced data
+#     return DailySummary(
+#         date=enhanced_dict["date"],
+#         user_id=enhanced_dict["user_id"],
+#         meals=enhanced_dict["meals"],
+#         calories=enhanced_dict["calories"],
+#         protein=enhanced_dict["protein"],
+#         carbs=enhanced_dict["carbs"],
+#         fat=enhanced_dict["fat"],
+#         fiber=enhanced_dict["fiber"],
+#         sugar=enhanced_dict["sugar"],
+#         sodium=enhanced_dict["sodium"],
+#         activity_steps=enhanced_dict["activity_steps"],
+#         activity_calories_out=enhanced_dict["activity_calories_out"],
+#         activity_events=enhanced_dict["activity_events"],
+#         calories_deficit=enhanced_dict.get("enhanced_calculations", {}).get(
+#             "deficit_v2", enhanced_dict["calories_deficit"]
+#         ),
+#         calories_replenished_percent=enhanced_dict.get("enhanced_calculations", {}).get(
+#             "replenished_pct_v2", enhanced_dict["calories_replenished_percent"]
+#         ),
+#     )
 
 
 @strawberry.type
@@ -259,39 +261,43 @@ class Query:
         cache.set(key, prod, PRODUCT_CACHE_TTL_S)
         return prod
 
-    @strawberry.field(description="Lista pasti più recenti (desc)")  # type: ignore[misc]
-    def meal_entries(
-        self,
-        info: Info[Any, Any],  # noqa: ARG002
-        limit: int = 20,
-        after: Optional[str] = None,
-        before: Optional[str] = None,
-        user_id: Optional[str] = None,
-    ) -> List[MealEntry]:
-        if limit <= 0:
-            limit = 20
-        if limit > 200:
-            limit = 200
-        uid = user_id or DEFAULT_USER_ID
-        records = meal_repo.list(uid, limit, after, before)
-        return [MealEntry(**dataclasses.asdict(r)) for r in records]
+    # TEMPORARILY DISABLED DURING REFACTOR - Phase 0: MealEntry type removed
+    # Will be reimplemented in Phase 5 with new GraphQL schema
+    # @strawberry.field(description="Lista pasti più recenti (desc)")  # type: ignore[misc]
+    # def meal_entries(
+    #     self,
+    #     info: Info[Any, Any],  # noqa: ARG002
+    #     limit: int = 20,
+    #     after: Optional[str] = None,
+    #     before: Optional[str] = None,
+    #     user_id: Optional[str] = None,
+    # ) -> List[MealEntry]:
+    #     if limit <= 0:
+    #         limit = 20
+    #     if limit > 200:
+    #         limit = 200
+    #     uid = user_id or DEFAULT_USER_ID
+    #     records = meal_repo.list(uid, limit, after, before)
+    #     return [MealEntry(**dataclasses.asdict(r)) for r in records]
 
-    @strawberry.field(description="Riepilogo nutrienti per giorno (UTC)")  # type: ignore[misc]
-    def daily_summary(
-        self,
-        info: Info[Any, Any],  # noqa: ARG002
-        date: str,
-        user_id: Optional[str] = None,
-    ) -> DailySummary:
-        """Aggrega nutrienti dei pasti il cui timestamp inizia con 'date'.
-
-        'date' formato YYYY-MM-DD. Validazione minima per ora.
-        """
-        uid = user_id or DEFAULT_USER_ID
-
-        # Nutrition domain V2 è sempre attivo
-        nutrition_integration = get_nutrition_integration_service()
-        return _daily_summary_nutrition_domain(uid, date, nutrition_integration)
+    # TEMPORARILY DISABLED DURING REFACTOR - Phase 0: DailySummary type removed
+    # Will be reimplemented in Phase 5 with new GraphQL schema
+    # @strawberry.field(description="Riepilogo nutrienti per giorno (UTC)")  # type: ignore[misc]
+    # def daily_summary(
+    #     self,
+    #     info: Info[Any, Any],  # noqa: ARG002
+    #     date: str,
+    #     user_id: Optional[str] = None,
+    # ) -> DailySummary:
+    #     """Aggrega nutrienti dei pasti il cui timestamp inizia con 'date'.
+    #
+    #     'date' formato YYYY-MM-DD. Validazione minima per ora.
+    #     """
+    #     uid = user_id or DEFAULT_USER_ID
+    #
+    #     # Nutrition domain V2 è sempre attivo
+    #     nutrition_integration = get_nutrition_integration_service()
+    #     return _daily_summary_nutrition_domain(uid, date, nutrition_integration)
 
     @strawberry.field(  # type: ignore[misc]
         description="Lista eventi activity minuto (diagnostica)"
@@ -348,91 +354,95 @@ class Query:
 
 @strawberry.type
 class Mutation:
-    @strawberry.mutation(
-        description=("Log di un pasto con arricchimento nutrienti se barcode noto")
-    )  # type: ignore[misc]
-    async def log_meal(
-        self, info: Info[Any, Any], input: LogMealInput
-    ) -> MealEntry:  # noqa: ARG002
-        # Feature flag routing to domain integration
-        from graphql.meal_resolver import get_meal_resolver
+    # TEMPORARILY DISABLED DURING REFACTOR - Phase 0: LogMealInput, MealEntry types removed
+    # Will be reimplemented in Phase 5 with new GraphQL schema
+    # @strawberry.mutation(
+    #     description=("Log di un pasto con arricchimento nutrienti se barcode noto")
+    # )  # type: ignore[misc]
+    # async def log_meal(
+    #     self, info: Info[Any, Any], input: LogMealInput
+    # ) -> MealEntry:  # noqa: ARG002
+    #     # Feature flag routing to domain integration
+    #     from graphql.meal_resolver import get_meal_resolver
+    #
+    #     return await get_meal_resolver().log_meal(info, input)
+    #     if input.quantity_g <= 0:
+    #         raise GraphQLError("INVALID_QUANTITY: quantity_g deve essere > 0")
+    #     ts = input.timestamp or datetime.datetime.utcnow().isoformat() + "Z"
+    #     user_id = input.user_id or DEFAULT_USER_ID
+    #     # Idempotency key non deve dipendere da timestamp server; se timestamp
+    #     # non è fornito dall'utente non lo includiamo nella chiave.
+    #     # se utente non specifica timestamp non includerlo nella chiave
+    #     base_ts_for_key = input.timestamp or ""
+    #     idempotency_key = input.idempotency_key or (
+    #         f"{input.name.lower()}|{round(input.quantity_g, 3)}|"
+    #         f"{base_ts_for_key}|{input.barcode or ''}|{user_id}"
+    #     )
+    #     existing = meal_repo.find_by_idempotency(user_id, idempotency_key)
+    #     if existing:
+    #         return MealEntry(**dataclasses.asdict(existing))
+    #
+    #     nutrients: Dict[str, Optional[float]] = {k: None for k in NUTRIENT_FIELDS}
+    #
+    #     prod: Optional[Product] = None
+    #     if input.barcode:
+    #         key = f"product:{input.barcode}"
+    #         prod_cached = cache.get(key)
+    #         if prod_cached:
+    #             prod = prod_cached
+    #         else:
+    #             try:
+    #                 dto = await adapter.fetch_product(input.barcode)
+    #                 prod = _map_product(dto)
+    #                 cache.set(key, prod, PRODUCT_CACHE_TTL_S)
+    #             except adapter.ProductNotFound:
+    #                 prod = None
+    #             except adapter.OpenFoodFactsError:
+    #                 prod = None
+    #     if prod:
+    #         nutrients = _enrich_from_product(prod, input.quantity_g)
+    #
+    #     meal = MealRecord(
+    #         id=str(uuid.uuid4()),
+    #         user_id=user_id,
+    #         name=input.name,
+    #         quantity_g=input.quantity_g,
+    #         timestamp=ts,
+    #         barcode=input.barcode,
+    #         idempotency_key=idempotency_key,
+    #         nutrient_snapshot_json=(
+    #             __import__("json").dumps(
+    #                 {k: nutrients[k] for k in NUTRIENT_FIELDS},
+    #                 sort_keys=True,
+    #             )
+    #             if prod
+    #             else None
+    #         ),
+    #         calories=(
+    #             nutrients["calories"]
+    #             if nutrients["calories"] is None
+    #             else int(nutrients["calories"])
+    #         ),
+    #         protein=nutrients["protein"],
+    #         carbs=nutrients["carbs"],
+    #         fat=nutrients["fat"],
+    #         fiber=nutrients["fiber"],
+    #         sugar=nutrients["sugar"],
+    #         sodium=nutrients["sodium"],
+    #     )
+    #     meal_repo.add(meal)
+    #     return MealEntry(**dataclasses.asdict(meal))
 
-        return await get_meal_resolver().log_meal(info, input)
-        if input.quantity_g <= 0:
-            raise GraphQLError("INVALID_QUANTITY: quantity_g deve essere > 0")
-        ts = input.timestamp or datetime.datetime.utcnow().isoformat() + "Z"
-        user_id = input.user_id or DEFAULT_USER_ID
-        # Idempotency key non deve dipendere da timestamp server; se timestamp
-        # non è fornito dall'utente non lo includiamo nella chiave.
-        # se utente non specifica timestamp non includerlo nella chiave
-        base_ts_for_key = input.timestamp or ""
-        idempotency_key = input.idempotency_key or (
-            f"{input.name.lower()}|{round(input.quantity_g, 3)}|"
-            f"{base_ts_for_key}|{input.barcode or ''}|{user_id}"
-        )
-        existing = meal_repo.find_by_idempotency(user_id, idempotency_key)
-        if existing:
-            return MealEntry(**dataclasses.asdict(existing))
-
-        nutrients: Dict[str, Optional[float]] = {k: None for k in NUTRIENT_FIELDS}
-
-        prod: Optional[Product] = None
-        if input.barcode:
-            key = f"product:{input.barcode}"
-            prod_cached = cache.get(key)
-            if prod_cached:
-                prod = prod_cached
-            else:
-                try:
-                    dto = await adapter.fetch_product(input.barcode)
-                    prod = _map_product(dto)
-                    cache.set(key, prod, PRODUCT_CACHE_TTL_S)
-                except adapter.ProductNotFound:
-                    prod = None
-                except adapter.OpenFoodFactsError:
-                    prod = None
-        if prod:
-            nutrients = _enrich_from_product(prod, input.quantity_g)
-
-        meal = MealRecord(
-            id=str(uuid.uuid4()),
-            user_id=user_id,
-            name=input.name,
-            quantity_g=input.quantity_g,
-            timestamp=ts,
-            barcode=input.barcode,
-            idempotency_key=idempotency_key,
-            nutrient_snapshot_json=(
-                __import__("json").dumps(
-                    {k: nutrients[k] for k in NUTRIENT_FIELDS},
-                    sort_keys=True,
-                )
-                if prod
-                else None
-            ),
-            calories=(
-                nutrients["calories"]
-                if nutrients["calories"] is None
-                else int(nutrients["calories"])
-            ),
-            protein=nutrients["protein"],
-            carbs=nutrients["carbs"],
-            fat=nutrients["fat"],
-            fiber=nutrients["fiber"],
-            sugar=nutrients["sugar"],
-            sodium=nutrients["sodium"],
-        )
-        meal_repo.add(meal)
-        return MealEntry(**dataclasses.asdict(meal))
-
-    @strawberry.mutation(description="Aggiorna un pasto esistente")  # type: ignore[misc]
-    async def update_meal(
-        self, info: Info[Any, Any], input: UpdateMealInput
-    ) -> MealEntry:  # noqa: ARG002
-        # Feature flag routing to domain integration
-        from graphql.meal_resolver import get_meal_resolver
-
-        return await get_meal_resolver().update_meal(info, input)
+    # TEMPORARILY DISABLED DURING REFACTOR - Phase 0: UpdateMealInput, MealEntry types removed
+    # Will be reimplemented in Phase 5 with new GraphQL schema
+    # @strawberry.mutation(description="Aggiorna un pasto esistente")  # type: ignore[misc]
+    # async def update_meal(
+    #     self, info: Info[Any, Any], input: UpdateMealInput
+    # ) -> MealEntry:  # noqa: ARG002
+    #     # Feature flag routing to domain integration
+    #     from graphql.meal_resolver import get_meal_resolver
+    #
+    #     return await get_meal_resolver().update_meal(info, input)
 
     @strawberry.mutation(description="Cancella un pasto")  # type: ignore[misc]
     async def delete_meal(self, info: Info[Any, Any], id: str) -> bool:  # noqa: ARG002
@@ -577,211 +587,6 @@ class Mutation:
         # )
         # from domain.meal.model import MealAnalysisRequest
         raise NotImplementedError("Meal analysis service temporarily disabled during refactor")
-
-        # Check idempotency prima di procedere
-        if input.idempotency_key:
-            key = (uid, input.idempotency_key)
-            existing_id = meal_photo_repo._idemp.get(key)
-            if existing_id:
-                existing_analysis = meal_photo_repo._analyses.get((uid, existing_id))
-                if existing_analysis:
-                    # Restituisce l'analisi esistente convertita in GraphQL format
-                    items = []
-                    for item in existing_analysis.items:
-                        prediction = object.__new__(MealPhotoItemPrediction)
-                        object.__setattr__(prediction, "label", item.label)
-                        object.__setattr__(
-                            prediction, "display_name", getattr(item, "display_name", None)
-                        )
-                        object.__setattr__(prediction, "confidence", item.confidence)
-                        object.__setattr__(prediction, "quantity_g", item.quantity_g)
-                        object.__setattr__(prediction, "calories", item.calories)
-                        object.__setattr__(prediction, "protein", item.protein)
-                        object.__setattr__(prediction, "carbs", item.carbs)
-                        object.__setattr__(prediction, "fat", item.fat)
-                        object.__setattr__(prediction, "fiber", item.fiber)
-                        object.__setattr__(prediction, "sugar", item.sugar)
-                        object.__setattr__(prediction, "sodium", item.sodium)
-                        object.__setattr__(prediction, "enrichment_source", item.enrichment_source)
-                        object.__setattr__(prediction, "calorie_corrected", item.calorie_corrected)
-                        items.append(prediction)
-                    return MealPhotoAnalysis(
-                        id=existing_analysis.id,
-                        user_id=existing_analysis.user_id,
-                        status=MealPhotoAnalysisStatus.COMPLETED,
-                        created_at=existing_analysis.created_at,
-                        source=existing_analysis.source,
-                        photo_url=existing_analysis.photo_url,
-                        dish_name=existing_analysis.dish_name,
-                        items=items,
-                        raw_json=existing_analysis.raw_json,
-                        idempotency_key_used=existing_analysis.idempotency_key_used,
-                        total_calories=sum(item.calories or 0 for item in items),
-                        analysis_errors=[],
-                        failure_reason=None,
-                    )
-
-        # Domain whitelist (issue #54)
-        if input.photo_url:
-            try:
-                from urllib.parse import urlparse
-
-                parsed = urlparse(input.photo_url)
-                host = parsed.netloc.lower()
-                allowed = os.getenv("AI_PHOTO_URL_ALLOWED_HOSTS")
-                if allowed:
-                    allow_hosts = [h.strip().lower() for h in allowed.split(",") if h.strip()]
-                    if host not in allow_hosts:
-                        raise GraphQLError("INVALID_IMAGE: domain not allowed")
-            except ValueError:
-                raise GraphQLError("INVALID_IMAGE: malformed URL")
-
-        # Determina modalità normalizzazione
-        norm_mode = os.getenv("AI_NORMALIZATION_MODE", "off").strip().lower()
-
-        service = MealAnalysisService.create_with_defaults()
-        request = MealAnalysisRequest(
-            user_id=uid,
-            photo_id=input.photo_id,
-            photo_url=input.photo_url,
-            now_iso=now_iso,
-            normalization_mode=norm_mode,
-            dish_hint=input.dish_hint,
-        )
-
-        result = await service.analyze_meal_photo(request)
-
-        # Converte da domain a GraphQL response
-        import uuid
-        from ai_models.meal_photo_models import (
-            MealPhotoAnalysisRecord,
-            MealPhotoItemPredictionRecord,
-        )
-
-        analysis_id = uuid.uuid4().hex
-        items = []
-        for meal_item in result.items:
-            # Crea oggetto Strawberry usando object.__new__
-            prediction = object.__new__(MealPhotoItemPrediction)
-            object.__setattr__(prediction, "label", meal_item.label)
-            object.__setattr__(prediction, "display_name", meal_item.display_name)
-            object.__setattr__(prediction, "confidence", meal_item.confidence)
-            object.__setattr__(prediction, "quantity_g", meal_item.quantity_g)
-            object.__setattr__(prediction, "calories", meal_item.calories)
-            object.__setattr__(prediction, "protein", meal_item.protein)
-            object.__setattr__(prediction, "carbs", meal_item.carbs)
-            object.__setattr__(prediction, "fat", meal_item.fat)
-            object.__setattr__(prediction, "fiber", meal_item.fiber)
-            object.__setattr__(prediction, "sugar", meal_item.sugar)
-            object.__setattr__(prediction, "sodium", meal_item.sodium)
-            object.__setattr__(prediction, "enrichment_source", meal_item.enrichment_source)
-            object.__setattr__(prediction, "calorie_corrected", meal_item.calorie_corrected)
-            items.append(prediction)
-
-        # Salva l'analisi nel repository per consentire confirmMealPhoto
-        repo_items = [
-            MealPhotoItemPredictionRecord(
-                label=meal_item.label,
-                display_name=meal_item.display_name,
-                confidence=meal_item.confidence,
-                quantity_g=meal_item.quantity_g,
-                calories=meal_item.calories,
-                protein=meal_item.protein,
-                carbs=meal_item.carbs,
-                fat=meal_item.fat,
-                fiber=meal_item.fiber,
-                sugar=meal_item.sugar,
-                sodium=meal_item.sodium,
-                enrichment_source=meal_item.enrichment_source,
-                calorie_corrected=meal_item.calorie_corrected,
-            )
-            for meal_item in result.items
-        ]
-
-        repo_record = MealPhotoAnalysisRecord(
-            id=analysis_id,
-            user_id=uid,
-            status="COMPLETED",
-            created_at=now_iso,
-            source=f"{result.source}_v2",
-            items=repo_items,
-            raw_json=None,
-            idempotency_key_used=input.idempotency_key,
-            dish_name=result.dish_name,
-            photo_url=input.photo_url,
-        )
-
-        # Salva nel repository in-memory
-        meal_photo_repo._analyses[(uid, analysis_id)] = repo_record
-        if input.idempotency_key:
-            meal_photo_repo._idemp[(uid, input.idempotency_key)] = analysis_id
-
-        return MealPhotoAnalysis(
-            id=analysis_id,
-            user_id=uid,
-            status=MealPhotoAnalysisStatus.COMPLETED,
-            created_at=now_iso,
-            source=f"{result.source}_v2",
-            photo_url=input.photo_url,
-            dish_name=result.dish_name,
-            items=items,
-            raw_json=None,
-            idempotency_key_used=input.idempotency_key,
-            total_calories=result.total_calories,
-            analysis_errors=[],
-            failure_reason=None,
-        )
-
-    @strawberry.mutation(  # type: ignore[misc]
-        description="Conferma items analisi foto e crea MealEntry"
-    )
-    def confirm_meal_photo(
-        self,
-        info: Info[Any, Any],  # noqa: ARG002
-        input: ConfirmMealPhotoInput,
-    ) -> ConfirmMealPhotoResult:
-        uid = input.user_id or DEFAULT_USER_ID
-        analysis = meal_photo_repo.get(uid, input.analysis_id)
-        if not analysis:
-            raise GraphQLError("NOT_FOUND: analysis")
-        # Validazione indici
-        max_index = len(analysis.items) - 1
-        created: List[MealEntry] = []
-        for idx in input.accepted_indexes:
-            if idx < 0 or idx > max_index:
-                raise GraphQLError("INVALID_INDEX: out of range")
-        # Creazione MealEntries
-        for idx in input.accepted_indexes:
-            pred = analysis.items[idx]
-            meal = MealRecord(
-                id=str(uuid.uuid4()),
-                user_id=uid,
-                name=pred.label,
-                quantity_g=pred.quantity_g or 0.0,
-                timestamp=datetime.datetime.utcnow().isoformat() + "Z",
-                barcode=None,
-                idempotency_key=f"ai:{analysis.id}:{idx}",
-                nutrient_snapshot_json=None,
-                calories=pred.calories,
-                protein=pred.protein,
-                carbs=pred.carbs,
-                fat=pred.fat,
-                fiber=pred.fiber,
-                sugar=pred.sugar,
-                sodium=pred.sodium,
-                image_url=analysis.photo_url,  # Include image URL from analysis
-            )
-            # Idempotenza meal: se già creato restituiamo esistente
-            existing = meal_repo.find_by_idempotency(uid, meal.idempotency_key or "")
-            if existing:
-                created.append(MealEntry(**dataclasses.asdict(existing)))
-            else:
-                meal_repo.add(meal)
-                created.append(MealEntry(**dataclasses.asdict(meal)))
-        return ConfirmMealPhotoResult(
-            analysis_id=analysis.id,
-            created_meals=created,
-        )
 
 
 schema = strawberry.Schema(

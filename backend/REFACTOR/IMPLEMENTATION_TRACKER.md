@@ -42,7 +42,8 @@
 | P0.3.1 | Remove domain folders | Rimuovere cartelle obsolete in `backend/domain/meal/` | `01_IMPLEMENTATION_GUIDE.md` §145-149 | Cartelle `adapters/`, `application/`, `entities/`, etc. rimosse | 🟢 COMPLETED | Removed entire backend/domain/meal/ |
 | P0.3.2 | Remove domain files | Rimuovere file obsoleti (`errors.py`, `integration.py`, etc.) | `01_IMPLEMENTATION_GUIDE.md` §149 | File obsoleti rimossi | 🟢 COMPLETED | All old domain files removed |
 | P0.3.3 | Remove GraphQL resolvers | Rimuovere `meal_resolver.py` e `types_meal.py` | `01_IMPLEMENTATION_GUIDE.md` §151-153 | File GraphQL vecchi rimossi | 🟢 COMPLETED | Removed meal_resolver.py + types_meal.py |
-| P0.3.4 | Commit cleanup | `git commit -m "refactor(meal): selective cleanup - preserve external clients"` | `01_IMPLEMENTATION_GUIDE.md` §155-158 | Commit cleanup creato | 🟢 COMPLETED | Commit fba58cf (BREAKING CHANGE) |
+| P0.3.4 | Fix app.py undefined names | Commentare resolver che usano tipi rimossi | - | app.py senza errori F821 | 🟢 COMPLETED | Commented meal_entries, daily_summary, log_meal, update_meal, analyze_meal_photo |
+| P0.3.5 | Commit cleanup | `git commit -m "refactor(meal): selective cleanup - preserve external clients"` | `01_IMPLEMENTATION_GUIDE.md` §155-158 | Commit cleanup creato | 🟢 COMPLETED | Commit fba58cf (BREAKING CHANGE) |
 | **P0.4** | **Create New Structure** | Creare struttura cartelle per nuova architettura | `01_IMPLEMENTATION_GUIDE.md` §165-181 | Struttura completa domain/application/infrastructure/tests | 🟢 COMPLETED | 75 directories + __init__.py created, commit 78b4930 |
 | P0.4.1 | Create domain structure | `mkdir -p backend/domain/meal/{nutrition,recognition,barcode,core}/...` | `01_IMPLEMENTATION_GUIDE.md` §167-169 | Cartelle domain create | 🟢 COMPLETED | Created with capabilities structure |
 | P0.4.2 | Create application structure | `mkdir -p backend/application/meal/{commands,queries,orchestrators,...}` | `01_IMPLEMENTATION_GUIDE.md` §171-172 | Cartelle application create | 🟢 COMPLETED | Created CQRS structure |
@@ -371,6 +372,13 @@ make quality           # lint + typecheck + format
 ## 📅 Changelog
 
 ### 23 Ottobre 2025
+- ✅ **P0.3 CLEANUP COMPLETED** - Fixed app.py undefined names (P0.3.4)
+  - Fixed 17 F821 errors by commenting out resolvers using removed types
+  - Removed unreachable code after NotImplementedError
+  - Fixed conftest.py duplicate AsyncClient import
+  - All lint critical errors resolved (0 F821, 0 E999, 0 E116)
+  - Unit tests still passing: 86/86 ✅
+
 - ✅ **P1.3 COMPLETED** - Core Entities (MealEntry + Meal aggregate)
   - Commit: `60a682b` feat(domain): implement core entities MealEntry and Meal aggregate (P1.3)
   - 33 new tests (86 total passing)

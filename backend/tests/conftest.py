@@ -13,8 +13,9 @@ from typing import Generator, AsyncIterator, cast, Any, TYPE_CHECKING
 from dataclasses import dataclass
 
 # Type-only imports for type hints (not evaluated at runtime with __future__ annotations)
-if TYPE_CHECKING:
-    from httpx import AsyncClient
+# Note: AsyncClient imported below at runtime when APP_AVAILABLE
+# if TYPE_CHECKING:
+#     from httpx import AsyncClient
 
 # Check if running unit tests only (env var set by Makefile.test)
 UNIT_TESTS_ONLY = os.getenv("PYTEST_UNIT_ONLY", "0") == "1"
@@ -142,8 +143,7 @@ async def client() -> AsyncIterator[AsyncClient]:
         # This line never executes but satisfies type checker
         yield  # type: ignore
 
-    from httpx import AsyncClient, ASGITransport
-
+    # AsyncClient and ASGITransport already imported at module level (line 31)
     # Cast a Any per soddisfare la firma attesa (FastAPI è compatibile ASGI)
     transport = ASGITransport(app=cast(Any, app))
     async with AsyncClient(
