@@ -2,14 +2,13 @@ from __future__ import annotations
 
 # Standard library
 import os
-import uuid
 import datetime
 import dataclasses
 import hashlib as _hashlib  # NEW
 import json as _json  # NEW
 import logging as _logging
 from contextlib import asynccontextmanager
-from typing import Final, Any, Optional, Dict, List, cast
+from typing import Final, Any, Optional, List, cast
 
 # Third-party
 import strawberry
@@ -20,16 +19,13 @@ from graphql import GraphQLError
 
 # Local application imports
 from cache import cache
-from nutrients import NUTRIENT_FIELDS
 from openfoodfacts import adapter
-from repository.meals import meal_repo, MealRecord  # NEW
 from repository.activities import (
     activity_repo,
     ActivityEventRecord as _ActivityEventRecord,
     ActivitySource as _RepoActivitySource,
 )  # NEW
 from repository.health_totals import health_totals_repo  # NEW
-from repository.ai_meal_photo import meal_photo_repo
 from inference.adapter import get_active_adapter
 
 # TEMPORARILY DISABLED DURING REFACTOR - Phase 0
@@ -40,14 +36,10 @@ from inference.adapter import get_active_adapter
 #     UpdateMealInput,
 #     enrich_from_product,
 # )
-from domain.nutrition.integration import get_nutrition_integration_service
+# from domain.nutrition.integration import get_nutrition_integration_service
 from graphql.types_ai import (
-    MealPhotoAnalysisStatus,
-    MealPhotoItemPrediction,
     MealPhotoAnalysis,
-    ConfirmMealPhotoResult,
     AnalyzeMealPhotoInput,
-    ConfirmMealPhotoInput,
 )
 from graphql.types_activity_health import (
     ActivitySource,
@@ -577,10 +569,10 @@ class Mutation:
         Evita uso di asyncio.run dentro event loop (pytest/strawberry) e
         utilizza il nuovo percorso create_or_get_async.
         """
-        uid = input.user_id or DEFAULT_USER_ID
-        now_iso = datetime.datetime.utcnow().isoformat() + "Z"
-
         # TEMPORARILY DISABLED DURING REFACTOR - Phase 0
+        # uid = input.user_id or DEFAULT_USER_ID
+        # now_iso = datetime.datetime.utcnow().isoformat() + "Z"
+
         # Domain service V2 (only path)
         # from domain.meal.application.meal_analysis_service import (
         #     MealAnalysisService,

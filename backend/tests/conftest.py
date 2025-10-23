@@ -9,7 +9,7 @@ from __future__ import annotations
 import os
 import pytest
 import pytest_asyncio
-from typing import Generator, AsyncIterator, cast, Any, TYPE_CHECKING
+from typing import Generator, AsyncIterator, cast, Any
 from dataclasses import dataclass
 
 # Type-only imports for type hints (not evaluated at runtime with __future__ annotations)

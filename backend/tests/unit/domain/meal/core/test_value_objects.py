@@ -12,7 +12,6 @@ from domain.meal.core.value_objects import (
     MealId,
     Quantity,
     Timestamp,
-    Unit,
 )
 
 
