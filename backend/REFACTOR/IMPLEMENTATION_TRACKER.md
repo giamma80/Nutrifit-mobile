@@ -12,14 +12,14 @@
 | Phase | Tasks | Completed | In Progress | Blocked | Not Started |
 |-------|-------|-----------|-------------|---------|-------------|
 | **Phase 0** | 4 | 4 | 0 | 0 | 0 |
-| **Phase 1** | 5 | 2 | 0 | 0 | 3 |
+| **Phase 1** | 5 | 3 | 0 | 0 | 2 |
 | **Phase 2** | 3 | 0 | 0 | 0 | 3 |
 | **Phase 3** | 7 | 0 | 0 | 0 | 7 |
 | **Phase 4** | 4 | 0 | 0 | 0 | 4 |
 | **Phase 5** | 4 | 0 | 0 | 0 | 4 |
 | **Phase 6** | 3 | 0 | 0 | 0 | 3 |
 | **Phase 7** | 2 | 0 | 0 | 0 | 2 |
-| **TOTAL** | **32** | **6** | **0** | **0** | **26** |
+| **TOTAL** | **32** | **7** | **0** | **0** | **25** |
 
 ---
 
@@ -72,10 +72,10 @@
 | P1.2.3 | MealUpdated event | `domain/meal/core/events/meal_updated.py` | `02_DOMAIN_LAYER.md` §260-280 | Evento MealUpdated | 🟢 COMPLETED | Tracks updated_fields list |
 | P1.2.4 | MealDeleted event | `domain/meal/core/events/meal_deleted.py` | `02_DOMAIN_LAYER.md` §290-310 | Evento MealDeleted | 🟢 COMPLETED | Soft delete marker |
 | P1.2.5 | Tests domain events | `tests/unit/domain/meal/core/test_events.py` | `02_DOMAIN_LAYER.md` §320-350 | Test suite eventi | 🟢 COMPLETED | 20 tests, validation + immutability |
-| **P1.3** | **Core Entities** | Implementare entità core Meal e MealEntry | `02_DOMAIN_LAYER.md` §400-700 | 2 entità implementate | ⚪ NOT_STARTED | - |
-| P1.3.1 | MealEntry entity | `domain/meal/core/entities/meal_entry.py` | `01_IMPLEMENTATION_GUIDE.md` §260-295 | MealEntry con nutrienti denormalizzati | ⚪ NOT_STARTED | Include: id, meal_id, name, quantity_g, nutrients |
-| P1.3.2 | Meal aggregate | `domain/meal/core/entities/meal.py` | `02_DOMAIN_LAYER.md` §500-650 | Meal aggregate root con metodi business | ⚪ NOT_STARTED | Include: add_entry(), calculate_totals(), confirm() |
-| P1.3.3 | Tests entities | `tests/unit/domain/meal/core/test_entities.py` | `02_DOMAIN_LAYER.md` §660-700 | Test suite entità | ⚪ NOT_STARTED | Test business logic |
+| **P1.3** | **Core Entities** | Implementare entità core Meal e MealEntry | `02_DOMAIN_LAYER.md` §400-700 | 2 entità implementate | 🟢 COMPLETED | 86 tests passing |
+| P1.3.1 | MealEntry entity | `domain/meal/core/entities/meal_entry.py` | `01_IMPLEMENTATION_GUIDE.md` §260-295 | MealEntry con nutrienti denormalizzati | 🟢 COMPLETED | Includes: scale_nutrients(), update_quantity(), is_reliable() |
+| P1.3.2 | Meal aggregate | `domain/meal/core/entities/meal.py` | `02_DOMAIN_LAYER.md` §500-650 | Meal aggregate root con metodi business | 🟢 COMPLETED | Includes: add_entry(), remove_entry(), update_entry(), validate_invariants() |
+| P1.3.3 | Tests entities | `tests/unit/domain/meal/core/test_entities.py` | `02_DOMAIN_LAYER.md` §660-700 | Test suite entità | 🟢 COMPLETED | 33 tests for MealEntry + Meal business logic |
 | **P1.4** | **Domain Exceptions** | Implementare eccezioni custom domain | `02_DOMAIN_LAYER.md` §750-850 | 5+ eccezioni implementate | ⚪ NOT_STARTED | - |
 | P1.4.1 | Base exceptions | `domain/meal/core/exceptions/base.py` | `02_DOMAIN_LAYER.md` §760-780 | MealDomainException, ValidationError | ⚪ NOT_STARTED | Base classes per eccezioni |
 | P1.4.2 | Specific exceptions | `domain/meal/core/exceptions/*.py` | `02_DOMAIN_LAYER.md` §790-830 | MealNotFound, InvalidQuantity, etc. | ⚪ NOT_STARTED | - |
