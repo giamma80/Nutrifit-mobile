@@ -1,9 +1,9 @@
 # 🎯 Nutrifit Meal Domain Refactor - Implementation Tracker
 
-**Version:** 2.0  
-**Date:** 22 Ottobre 2025  
-**Branch:** `refactor`  
-**Status:** 🟡 In Progress
+**Version:** 2.1
+**Date:** 23 Ottobre 2025
+**Branch:** `refactor`
+**Status:** 🟡 In Progress - Phase 1 (3/5 completed)
 
 ---
 
@@ -72,10 +72,11 @@
 | P1.2.3 | MealUpdated event | `domain/meal/core/events/meal_updated.py` | `02_DOMAIN_LAYER.md` §260-280 | Evento MealUpdated | 🟢 COMPLETED | Tracks updated_fields list |
 | P1.2.4 | MealDeleted event | `domain/meal/core/events/meal_deleted.py` | `02_DOMAIN_LAYER.md` §290-310 | Evento MealDeleted | 🟢 COMPLETED | Soft delete marker |
 | P1.2.5 | Tests domain events | `tests/unit/domain/meal/core/test_events.py` | `02_DOMAIN_LAYER.md` §320-350 | Test suite eventi | 🟢 COMPLETED | 20 tests, validation + immutability |
-| **P1.3** | **Core Entities** | Implementare entità core Meal e MealEntry | `02_DOMAIN_LAYER.md` §400-700 | 2 entità implementate | 🟢 COMPLETED | 86 tests passing |
+| **P1.3** | **Core Entities** | Implementare entità core Meal e MealEntry | `02_DOMAIN_LAYER.md` §400-700 | 2 entità implementate | 🟢 COMPLETED | 86 tests passing, commit 60a682b |
 | P1.3.1 | MealEntry entity | `domain/meal/core/entities/meal_entry.py` | `01_IMPLEMENTATION_GUIDE.md` §260-295 | MealEntry con nutrienti denormalizzati | 🟢 COMPLETED | Includes: scale_nutrients(), update_quantity(), is_reliable() |
 | P1.3.2 | Meal aggregate | `domain/meal/core/entities/meal.py` | `02_DOMAIN_LAYER.md` §500-650 | Meal aggregate root con metodi business | 🟢 COMPLETED | Includes: add_entry(), remove_entry(), update_entry(), validate_invariants() |
 | P1.3.3 | Tests entities | `tests/unit/domain/meal/core/test_entities.py` | `02_DOMAIN_LAYER.md` §660-700 | Test suite entità | 🟢 COMPLETED | 33 tests for MealEntry + Meal business logic |
+| P1.3.4 | Test infrastructure | `tests/conftest.py`, `Makefile.test` | - | Test isolation per unit tests | 🟢 COMPLETED | UNIT_TESTS_ONLY flag, TYPE_CHECKING guard |
 | **P1.4** | **Domain Exceptions** | Implementare eccezioni custom domain | `02_DOMAIN_LAYER.md` §750-850 | 5+ eccezioni implementate | ⚪ NOT_STARTED | - |
 | P1.4.1 | Base exceptions | `domain/meal/core/exceptions/base.py` | `02_DOMAIN_LAYER.md` §760-780 | MealDomainException, ValidationError | ⚪ NOT_STARTED | Base classes per eccezioni |
 | P1.4.2 | Specific exceptions | `domain/meal/core/exceptions/*.py` | `02_DOMAIN_LAYER.md` §790-830 | MealNotFound, InvalidQuantity, etc. | ⚪ NOT_STARTED | - |
@@ -367,5 +368,45 @@ make quality           # lint + typecheck + format
 
 ---
 
-**Ultimo aggiornamento:** 22 Ottobre 2025  
-**Prossimo task:** P0.1 - Upgrade OpenAI Dependencies
+## 📅 Changelog
+
+### 23 Ottobre 2025
+- ✅ **P1.3 COMPLETED** - Core Entities (MealEntry + Meal aggregate)
+  - Commit: `60a682b` feat(domain): implement core entities MealEntry and Meal aggregate (P1.3)
+  - 33 new tests (86 total passing)
+  - Files: meal_entry.py, meal.py, test_entities.py
+  - Test infrastructure fix: conftest.py isolation with UNIT_TESTS_ONLY flag
+  - Added Makefile.test for unit/integration/e2e separation
+
+### 22 Ottobre 2025
+- ✅ **P1.2 COMPLETED** - Domain Events
+  - Commit: `5ab566e` feat(domain): implement domain events (P1.2)
+  - 20 tests for MealAnalyzed, MealConfirmed, MealUpdated, MealDeleted
+  - Files: events/*.py, test_events.py
+
+- ✅ **P1.1 COMPLETED** - Value Objects
+  - Commit: `9f518a0` feat(domain): implement value objects (P1.1)
+  - 33 tests for MealId, Quantity, Timestamp, Confidence
+  - Files: value_objects/*.py, test_value_objects.py
+
+- ✅ **P0.4 COMPLETED** - Create New Structure
+  - Commit: `78b4930` refactor(meal): create clean architecture structure (P0.4)
+  - 75 directories created with capabilities-based organization
+
+- ✅ **P0.3 COMPLETED** - Selective Cleanup
+  - Commit: `fba58cf` refactor(meal)!: selective cleanup - preserve external clients (P0.3)
+  - BREAKING CHANGE: removed old domain/meal, graphql resolvers
+  - Preserved: USDA, OpenFoodFacts, OpenAI clients
+
+- ✅ **P0.2 COMPLETED** - Analyze Dependencies
+  - Analyzed imports and identified external clients to preserve
+
+- ✅ **P0.1 COMPLETED** - Upgrade OpenAI Dependencies
+  - Commit: `f860b4d` build(deps): upgrade openai to 2.6.0 + add circuitbreaker, tenacity
+  - OpenAI 2.6.0, pydantic 2.x, circuitbreaker, tenacity installed
+
+---
+
+**Ultimo aggiornamento:** 23 Ottobre 2025
+**Prossimo task:** P1.4 - Domain Exceptions
+**Current Progress:** 7/32 tasks completed (21.875%)
