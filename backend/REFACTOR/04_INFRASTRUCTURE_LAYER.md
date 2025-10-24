@@ -1199,7 +1199,7 @@ from datetime import datetime
 import structlog
 
 from domain.meal.core.entities.meal import Meal
-from domain.shared.ports.repository import IMealRepository
+from domain.shared.ports.meal_repository import IMealRepository
 
 logger = structlog.get_logger(__name__)
 
