@@ -14,12 +14,12 @@
 | **Phase 0** | 4 | 4 | 0 | 0 | 0 |
 | **Phase 1** | 5 | 5 | 0 | 0 | 0 |
 | **Phase 2** | 3 | 3 | 0 | 0 | 0 |
-| **Phase 3** | 7 | 2 | 0 | 0 | 5 |
+| **Phase 3** | 7 | 3 | 0 | 0 | 4 |
 | **Phase 4** | 4 | 0 | 0 | 0 | 4 |
 | **Phase 5** | 4 | 0 | 0 | 0 | 4 |
 | **Phase 6** | 3 | 0 | 0 | 0 | 3 |
 | **Phase 7** | 2 | 0 | 0 | 0 | 2 |
-| **TOTAL** | **32** | **14** | **0** | **0** | **18** |
+| **TOTAL** | **32** | **15** | **0** | **0** | **17** |
 
 ---
 
@@ -138,12 +138,12 @@
 | P3.2.5 | USDA mapper | `infrastructure/external_apis/usda/mapper.py` (se necessario) | `04_INFRASTRUCTURE_LAYER.md` §550-600 | Mapper USDA response → NutrientProfile | 🟢 COMPLETED | Integrated in client._extract_nutrients() |
 | P3.2.6 | USDA categories | `infrastructure/external_apis/usda/categories.py` (se necessario) | `04_INFRASTRUCTURE_LAYER.md` §610-640 | Categorizzazione alimenti | 🟢 COMPLETED | normalize_food_label() provides categorization |
 | P3.2.7 | Tests USDA client | `tests/integration/infrastructure/test_usda_client.py` | `04_INFRASTRUCTURE_LAYER.md` §650-660 | Integration tests USDA | 🟢 COMPLETED | 15 unit tests with mocked API |
-| **P3.3** | **OpenFoodFacts Adapter** | Adattare client OpenFoodFacts per implementare IBarcodeProvider | `04_INFRASTRUCTURE_LAYER.md` §740-900 | OpenFoodFacts client adattato | ⚪ NOT_STARTED | **ADATTARE**, non riscrivere |
-| P3.3.1 | Spostare OpenFoodFacts | `openfoodfacts/adapter.py` → `infrastructure/external_apis/openfoodfacts/client.py` | `01_IMPLEMENTATION_GUIDE.md` §844-860 | File spostato | ⚪ NOT_STARTED | - |
-| P3.3.2 | Implementare IBarcodeProvider | Aggiungere `class OpenFoodFactsClient(IBarcodeProvider)` | `01_IMPLEMENTATION_GUIDE.md` §861-877 | Port implementato | ⚪ NOT_STARTED | **PRESERVARE** logica barcode lookup |
-| P3.3.3 | Add circuit breaker | Aggiungere `@circuit` decorator | `01_IMPLEMENTATION_GUIDE.md` §867 | Circuit breaker aggiunto | ⚪ NOT_STARTED | - |
-| P3.3.4 | OpenFoodFacts mapper | `infrastructure/external_apis/openfoodfacts/mapper.py` (se necessario) | `04_INFRASTRUCTURE_LAYER.md` §850-880 | Mapper OFF response → BarcodeProduct | ⚪ NOT_STARTED | Solo se serve |
-| P3.3.5 | Tests OpenFoodFacts | `tests/integration/infrastructure/test_openfoodfacts_client.py` | `04_INFRASTRUCTURE_LAYER.md` §890-900 | Integration tests OFF | ⚪ NOT_STARTED | Test con mock API |
+| **P3.3** | **OpenFoodFacts Adapter** | Adattare client OpenFoodFacts per implementare IBarcodeProvider | `04_INFRASTRUCTURE_LAYER.md` §740-900 | OpenFoodFacts client adattato | 🟢 COMPLETED | 15 tests passing, commit pending |
+| P3.3.1 | Spostare OpenFoodFacts | `openfoodfacts/adapter.py` → `infrastructure/external_apis/openfoodfacts/client.py` | `01_IMPLEMENTATION_GUIDE.md` §844-860 | File spostato | 🟢 COMPLETED | Adapted from existing client |
+| P3.3.2 | Implementare IBarcodeProvider | Aggiungere `class OpenFoodFactsClient(IBarcodeProvider)` | `01_IMPLEMENTATION_GUIDE.md` §861-877 | Port implementato | 🟢 COMPLETED | All existing logic preserved |
+| P3.3.3 | Add circuit breaker | Aggiungere `@circuit` decorator | `01_IMPLEMENTATION_GUIDE.md` §867 | Circuit breaker aggiunto | 🟢 COMPLETED | On lookup_barcode method |
+| P3.3.4 | OpenFoodFacts mapper | `infrastructure/external_apis/openfoodfacts/mapper.py` (se necessario) | `04_INFRASTRUCTURE_LAYER.md` §850-880 | Mapper OFF response → BarcodeProduct | 🟢 COMPLETED | Integrated in client._map_to_barcode_product() |
+| P3.3.5 | Tests OpenFoodFacts | `tests/integration/infrastructure/test_openfoodfacts_client.py` | `04_INFRASTRUCTURE_LAYER.md` §890-900 | Integration tests OFF | 🟢 COMPLETED | 15 unit tests with mocked API |
 | **P3.4** | **In-Memory Repository** | Implementare repository in-memory per testing | `04_INFRASTRUCTURE_LAYER.md` §1000-1150 | InMemoryMealRepository implementato | ⚪ NOT_STARTED | - |
 | P3.4.1 | IMealRepository port | `domain/shared/ports/meal_repository.py` | `04_INFRASTRUCTURE_LAYER.md` §1010-1050 | Port repository definito | ⚪ NOT_STARTED | CRUD + query methods |
 | P3.4.2 | InMemoryMealRepository | `infrastructure/persistence/in_memory/meal_repository.py` | `04_INFRASTRUCTURE_LAYER.md` §1060-1130 | Repository in-memory implementato | ⚪ NOT_STARTED | Dict-based storage |
@@ -371,8 +371,22 @@ make quality           # lint + typecheck + format
 
 ### 24 Ottobre 2025
 
+- ✅ **P3.3 COMPLETED** - OpenFoodFacts Adapter
+  - Commit: PENDING - feat(infrastructure): implement P3.3 - OpenFoodFacts Adapter
+  - 15 new tests for OpenFoodFacts client (308 total)
+  - Components:
+    * Adapted existing OpenFoodFacts client to implement IBarcodeProvider port
+    * Preserved all existing logic: nutrient extraction, fallbacks (energy kJ→kcal, salt→sodium), metadata extraction
+    * Added circuit breaker (5 failures → 60s timeout) on lookup_barcode
+    * Added retry logic with exponential backoff (3 attempts)
+    * Nutrient extraction: energy-kcal_100g, proteins, carbs, fat, fiber, sugars, sodium (with fallbacks)
+    * Metadata extraction: name, brand, category, image_url
+  - Files: infrastructure/external_apis/openfoodfacts/client.py, __init__.py, test_openfoodfacts_client.py
+  - **PHASE 3 STATUS:** 42.9% COMPLETE (3/7 tasks)
+  - **NEXT:** Phase 3.4 - In-Memory Repository
+
 - ✅ **P3.2 COMPLETED** - USDA Client Adapter
-  - Commit: PENDING - feat(infrastructure): implement P3.2 - USDA Client Adapter
+  - Commit: `62e7c8b` feat(infrastructure): implement P3.1 & P3.2 - External API Adapters
   - 15 new tests for USDA client (293 total)
   - Components:
     * Adapted existing USDA client to implement INutritionProvider port
@@ -383,10 +397,9 @@ make quality           # lint + typecheck + format
     * Label normalization with @lru_cache for performance
   - Files: infrastructure/external_apis/usda/client.py, __init__.py, test_usda_client.py
   - **PHASE 3 STATUS:** 28.6% COMPLETE (2/7 tasks)
-  - **NEXT:** Phase 3.3 - OpenFoodFacts Adapter
 
 - ✅ **P3.1 COMPLETED** - OpenAI Client Adapter
-  - Commit: PENDING - feat(infrastructure): implement P3.1 - OpenAI Client Adapter
+  - Commit: `62e7c8b` feat(infrastructure): implement P3.1 & P3.2 - External API Adapters
   - 13 new tests for OpenAI client (278 total)
   - Components: IVisionProvider implementation with structured outputs, prompt caching
   - **PHASE 3 STATUS:** 14.3% COMPLETE (1/7 tasks)
@@ -506,8 +519,8 @@ make quality           # lint + typecheck + format
 ---
 
 **Ultimo aggiornamento:** 24 Ottobre 2025
-**Prossimo task:** P3.3 - OpenFoodFacts Adapter
-**Current Progress:** 14/32 tasks completed (43.75%)
+**Prossimo task:** P3.4 - In-Memory Repository
+**Current Progress:** 15/32 tasks completed (46.875%)
 **Phase 1 Status:** ✅ COMPLETED (5/5 tasks - 100%)
 **Phase 2 Status:** ✅ COMPLETED (3/3 tasks - 100%)
-**Phase 3 Status:** 🟡 IN PROGRESS (2/7 tasks - 28.6%)
+**Phase 3 Status:** 🟡 IN PROGRESS (3/7 tasks - 42.9%)
