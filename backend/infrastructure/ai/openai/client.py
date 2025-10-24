@@ -73,6 +73,39 @@ class OpenAIVisionClient:
         self._temperature = temperature
         self._cache_stats = {"hits": 0, "misses": 0}
 
+    async def __aenter__(self) -> "OpenAIVisionClient":
+        """
+        Enter async context manager.
+
+        Returns:
+            Self for use in 'async with' statement
+
+        Example:
+            >>> async with OpenAIVisionClient(api_key="sk-...") as client:
+            ...     result = await client.analyze_photo("url")
+        """
+        return self
+
+    async def __aexit__(
+        self,
+        exc_type: Optional[type[BaseException]],
+        exc_val: Optional[BaseException],
+        exc_tb: Optional[Any],
+    ) -> None:
+        """
+        Exit async context manager and close AsyncOpenAI client.
+
+        Args:
+            exc_type: Exception type if an error occurred
+            exc_val: Exception value if an error occurred
+            exc_tb: Exception traceback if an error occurred
+
+        Note:
+            Ensures AsyncOpenAI HTTP connections are properly closed
+        """
+        await self._client.close()
+        logger.debug("OpenAI client closed")
+
     @circuit(failure_threshold=5, recovery_timeout=60, name="openai_vision")  # type: ignore[misc]
     @retry(  # type: ignore[misc]
         stop=stop_after_attempt(3),

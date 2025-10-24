@@ -121,6 +121,46 @@ class TestOpenAIVisionClientInit:
         assert client._temperature == 0.5
 
 
+class TestContextManager:
+    """Test async context manager functionality."""
+
+    @pytest.mark.asyncio
+    async def test_context_manager_closes_client(self, mock_openai_client) -> None:
+        """Test that context manager properly closes AsyncOpenAI client."""
+        # Create client and mock close method
+        mock_instance = mock_openai_client.return_value
+        mock_instance.close = AsyncMock()
+
+        # Use context manager
+        async with OpenAIVisionClient(api_key="test-key") as client:
+            # Client should be available inside context
+            assert client is not None
+            assert isinstance(client, OpenAIVisionClient)
+
+        # Verify close was called after exiting context
+        mock_instance.close.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_context_manager_closes_on_exception(
+        self, mock_openai_client
+    ) -> None:
+        """Test that context manager closes client even when exception occurs."""
+        # Create client and mock close method
+        mock_instance = mock_openai_client.return_value
+        mock_instance.close = AsyncMock()
+
+        # Use context manager with exception
+        try:
+            async with OpenAIVisionClient(api_key="test-key") as client:
+                # Simulate an error inside the context
+                raise ValueError("Test error")
+        except ValueError:
+            pass  # Expected exception
+
+        # Verify close was still called despite exception
+        mock_instance.close.assert_called_once()
+
+
 class TestAnalyzePhoto:
     """Test analyze_photo method."""
 
