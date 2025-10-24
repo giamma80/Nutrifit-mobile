@@ -66,9 +66,7 @@ class TestSubscribe:
     """Test subscribe method."""
 
     @pytest.mark.asyncio
-    async def test_subscribe_single_handler(
-        self, event_bus: InMemoryEventBus
-    ) -> None:
+    async def test_subscribe_single_handler(self, event_bus: InMemoryEventBus) -> None:
         """Test subscribing a single handler."""
         calls: List[MealAnalyzed] = []
 
@@ -99,9 +97,7 @@ class TestSubscribe:
         assert event_bus.get_handler_count(MealAnalyzed) == 2
 
     @pytest.mark.asyncio
-    async def test_subscribe_different_events(
-        self, event_bus: InMemoryEventBus
-    ) -> None:
+    async def test_subscribe_different_events(self, event_bus: InMemoryEventBus) -> None:
         """Test subscribing handlers to different events."""
         calls1: List[MealAnalyzed] = []
         calls2: List[MealConfirmed] = []
@@ -253,10 +249,9 @@ class TestUnsubscribe:
     """Test unsubscribe method."""
 
     @pytest.mark.asyncio
-    async def test_unsubscribe_existing_handler(
-        self, event_bus: InMemoryEventBus
-    ) -> None:
+    async def test_unsubscribe_existing_handler(self, event_bus: InMemoryEventBus) -> None:
         """Test unsubscribing an existing handler."""
+
         async def handler(event: MealAnalyzed) -> None:
             pass
 
@@ -267,10 +262,9 @@ class TestUnsubscribe:
         assert event_bus.get_handler_count(MealAnalyzed) == 0
 
     @pytest.mark.asyncio
-    async def test_unsubscribe_non_existent_handler(
-        self, event_bus: InMemoryEventBus
-    ) -> None:
+    async def test_unsubscribe_non_existent_handler(self, event_bus: InMemoryEventBus) -> None:
         """Test unsubscribing non-existent handler returns False."""
+
         async def handler(event: MealAnalyzed) -> None:
             pass
 
@@ -278,10 +272,9 @@ class TestUnsubscribe:
         assert result is False
 
     @pytest.mark.asyncio
-    async def test_unsubscribe_one_of_multiple_handlers(
-        self, event_bus: InMemoryEventBus
-    ) -> None:
+    async def test_unsubscribe_one_of_multiple_handlers(self, event_bus: InMemoryEventBus) -> None:
         """Test unsubscribing one handler leaves others."""
+
         async def handler1(event: MealAnalyzed) -> None:
             pass
 
@@ -318,10 +311,9 @@ class TestClear:
     """Test clear method."""
 
     @pytest.mark.asyncio
-    async def test_clear_removes_all_handlers(
-        self, event_bus: InMemoryEventBus
-    ) -> None:
+    async def test_clear_removes_all_handlers(self, event_bus: InMemoryEventBus) -> None:
         """Test clear removes all handlers for all events."""
+
         async def handler1(event: MealAnalyzed) -> None:
             pass
 

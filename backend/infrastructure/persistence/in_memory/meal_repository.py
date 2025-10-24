@@ -50,9 +50,7 @@ class InMemoryMealRepository:
         # Store deep copy to prevent external modifications
         self._storage[meal.id] = deepcopy(meal)
 
-    async def get_by_id(
-        self, meal_id: UUID, user_id: str
-    ) -> Optional[Meal]:
+    async def get_by_id(self, meal_id: UUID, user_id: str) -> Optional[Meal]:
         """
         Retrieve meal by ID for a specific user.
 
@@ -90,16 +88,13 @@ class InMemoryMealRepository:
             List of meal deep copies ordered by timestamp descending
         """
         # Filter by user
-        user_meals = [
-            meal for meal in self._storage.values()
-            if meal.user_id == user_id
-        ]
+        user_meals = [meal for meal in self._storage.values() if meal.user_id == user_id]
 
         # Sort by timestamp descending (newest first)
         user_meals.sort(key=lambda m: m.timestamp, reverse=True)
 
         # Apply pagination
-        paginated = user_meals[offset:offset + limit]
+        paginated = user_meals[offset : offset + limit]
 
         # Return deep copies
         return [deepcopy(meal) for meal in paginated]
@@ -123,9 +118,9 @@ class InMemoryMealRepository:
         """
         # Filter by user and date range
         filtered_meals = [
-            meal for meal in self._storage.values()
-            if meal.user_id == user_id
-            and start_date <= meal.timestamp <= end_date
+            meal
+            for meal in self._storage.values()
+            if meal.user_id == user_id and start_date <= meal.timestamp <= end_date
         ]
 
         # Sort by timestamp ascending (oldest first)
@@ -179,10 +174,7 @@ class InMemoryMealRepository:
         Returns:
             Total number of meals for user
         """
-        return sum(
-            1 for meal in self._storage.values()
-            if meal.user_id == user_id
-        )
+        return sum(1 for meal in self._storage.values() if meal.user_id == user_id)
 
     def clear(self) -> None:
         """

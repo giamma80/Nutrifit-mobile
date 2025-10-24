@@ -9,7 +9,7 @@ from typing import Protocol, Callable, Awaitable, Type, TypeVar
 from domain.meal.core.events.base import DomainEvent
 
 # Type variable for domain events
-TEvent = TypeVar('TEvent', bound=DomainEvent)
+TEvent = TypeVar("TEvent", bound=DomainEvent)
 
 # Event handler type: async function that takes an event and returns None
 EventHandler = Callable[[TEvent], Awaitable[None]]

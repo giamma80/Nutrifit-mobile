@@ -11,6 +11,7 @@ Key Features:
 - Nutrient extraction and mapping
 - Label normalization
 """
+
 # mypy: warn-unused-ignores=False
 
 import asyncio
@@ -71,9 +72,7 @@ class USDAClient:
 
     async def __aenter__(self) -> "USDAClient":
         """Async context manager entry."""
-        self._session = aiohttp.ClientSession(
-            timeout=aiohttp.ClientTimeout(total=5.0)
-        )
+        self._session = aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=5.0))
         return self
 
     async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
@@ -87,9 +86,7 @@ class USDAClient:
         wait=wait_exponential(multiplier=1, min=2, max=10),
         retry=retry_if_exception_type((asyncio.TimeoutError, ConnectionError)),
     )
-    async def search_food(
-        self, query: str, limit: int = 5
-    ) -> List[Dict[str, Any]]:
+    async def search_food(self, query: str, limit: int = 5) -> List[Dict[str, Any]]:
         """
         Search for foods in USDA database.
 
@@ -106,9 +103,7 @@ class USDAClient:
             ...     fdc_id = foods[0]["fdcId"]
         """
         if not self._session:
-            raise RuntimeError(
-                "Client not initialized. Use async context manager."
-            )
+            raise RuntimeError("Client not initialized. Use async context manager.")
 
         params: Dict[str, str] = {
             "query": query,
@@ -176,9 +171,7 @@ class USDAClient:
             Dictionary with nutrient values or None if error
         """
         if not self._session:
-            raise RuntimeError(
-                "Client not initialized. Use async context manager."
-            )
+            raise RuntimeError("Client not initialized. Use async context manager.")
 
         params: Dict[str, str] = {}
         if self.api_key:
@@ -205,9 +198,7 @@ class USDAClient:
             )
             return None
 
-    async def get_nutrients(
-        self, identifier: str, quantity_g: float
-    ) -> Optional[NutrientProfile]:
+    async def get_nutrients(self, identifier: str, quantity_g: float) -> Optional[NutrientProfile]:
         """
         Get nutrient profile for a food identifier.
 

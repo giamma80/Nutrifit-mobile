@@ -59,9 +59,7 @@ class IMealRepository(Protocol):
         """
         ...
 
-    async def get_by_id(
-        self, meal_id: UUID, user_id: str
-    ) -> Optional[Meal]:
+    async def get_by_id(self, meal_id: UUID, user_id: str) -> Optional[Meal]:
         """
         Retrieve meal by ID for a specific user.
 

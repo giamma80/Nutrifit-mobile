@@ -11,6 +11,7 @@ Key Features:
 - Nutrient extraction with fallbacks (energy kJ→kcal, salt→sodium)
 - Metadata extraction (name, brand, category, image)
 """
+
 # mypy: warn-unused-ignores=False
 
 import asyncio
@@ -59,9 +60,7 @@ class OpenFoodFactsClient:
 
     async def __aenter__(self) -> "OpenFoodFactsClient":
         """Async context manager entry."""
-        self._session = httpx.AsyncClient(
-            timeout=httpx.Timeout(self.TIMEOUT_S)
-        )
+        self._session = httpx.AsyncClient(timeout=httpx.Timeout(self.TIMEOUT_S))
         return self
 
     async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
@@ -75,9 +74,7 @@ class OpenFoodFactsClient:
     @retry(  # type: ignore[misc]
         stop=stop_after_attempt(3),
         wait=wait_exponential(multiplier=1, min=2, max=10),
-        retry=retry_if_exception_type(
-            (asyncio.TimeoutError, ConnectionError, httpx.HTTPError)
-        ),
+        retry=retry_if_exception_type((asyncio.TimeoutError, ConnectionError, httpx.HTTPError)),
     )
     async def lookup_barcode(self, barcode: str) -> Optional[BarcodeProduct]:
         """
@@ -100,9 +97,7 @@ class OpenFoodFactsClient:
             ...     print(f"Calories: {product.nutrients.calories}")
         """
         if not self._session:
-            raise RuntimeError(
-                "Client not initialized. Use async context manager."
-            )
+            raise RuntimeError("Client not initialized. Use async context manager.")
 
         url = f"{self.BASE_URL}/{barcode}.json"
 
@@ -153,9 +148,7 @@ class OpenFoodFactsClient:
                     return None
 
                 # Map to domain entity
-                barcode_product = self._map_to_barcode_product(
-                    barcode, product_data
-                )
+                barcode_product = self._map_to_barcode_product(barcode, product_data)
 
                 logger.info(
                     "Barcode lookup successful",
@@ -187,9 +180,7 @@ class OpenFoodFactsClient:
             )
             raise
 
-    def _map_to_barcode_product(
-        self, barcode: str, product_data: Dict[str, Any]
-    ) -> BarcodeProduct:
+    def _map_to_barcode_product(self, barcode: str, product_data: Dict[str, Any]) -> BarcodeProduct:
         """
         Map OpenFoodFacts product data to BarcodeProduct domain entity.
 
@@ -206,11 +197,7 @@ class OpenFoodFactsClient:
             ValueError: If required data is missing
         """
         # Extract name (product_name or generic_name)
-        name = (
-            product_data.get("product_name")
-            or product_data.get("generic_name")
-            or "Unknown"
-        )
+        name = product_data.get("product_name") or product_data.get("generic_name") or "Unknown"
 
         # Extract brand (first brand if multiple)
         brands = product_data.get("brands") or ""
@@ -231,9 +218,7 @@ class OpenFoodFactsClient:
             serving_size_g=100.0,  # OpenFoodFacts nutrients are per 100g
         )
 
-    def _extract_nutrients(
-        self, product_data: Dict[str, Any]
-    ) -> NutrientProfile:
+    def _extract_nutrients(self, product_data: Dict[str, Any]) -> NutrientProfile:
         """
         Extract nutrients from OpenFoodFacts product data.
 

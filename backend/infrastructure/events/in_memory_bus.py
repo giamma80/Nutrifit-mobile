@@ -10,7 +10,7 @@ from domain.meal.core.events.base import DomainEvent
 
 logger = logging.getLogger(__name__)
 
-TEvent = TypeVar('TEvent', bound=DomainEvent)
+TEvent = TypeVar("TEvent", bound=DomainEvent)
 
 
 class InMemoryEventBus:
@@ -36,10 +36,7 @@ class InMemoryEventBus:
 
     def __init__(self) -> None:
         """Initialize event bus with empty handler registry."""
-        self._handlers: Dict[
-            Type[DomainEvent],
-            List[Callable[[Any], Awaitable[None]]]
-        ] = {}
+        self._handlers: Dict[Type[DomainEvent], List[Callable[[Any], Awaitable[None]]]] = {}
 
     def subscribe(
         self,

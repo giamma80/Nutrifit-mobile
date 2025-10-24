@@ -137,9 +137,7 @@ class TestAnalyzePhoto:
         )
 
         # Execute
-        result = await openai_client.analyze_photo(
-            photo_url="https://example.com/food.jpg"
-        )
+        result = await openai_client.analyze_photo(photo_url="https://example.com/food.jpg")
 
         # Assert
         assert isinstance(result, FoodRecognitionResult)
@@ -173,8 +171,7 @@ class TestAnalyzePhoto:
         messages = call_args.kwargs["messages"]
         user_message = messages[1]  # After system message
         assert any(
-            item.get("text") == "Dish hint: pasta carbonara"
-            for item in user_message["content"]
+            item.get("text") == "Dish hint: pasta carbonara" for item in user_message["content"]
         )
 
     @pytest.mark.asyncio
@@ -190,9 +187,7 @@ class TestAnalyzePhoto:
         )
 
         # Execute
-        result = await openai_client.analyze_photo(
-            photo_url="https://example.com/empty.jpg"
-        )
+        result = await openai_client.analyze_photo(photo_url="https://example.com/empty.jpg")
 
         # Assert - should return placeholder item for empty result
         assert isinstance(result, FoodRecognitionResult)
@@ -315,9 +310,7 @@ class TestCacheStats:
             prompt_tokens_details=MagicMock(cached_tokens=500),
         )
 
-        openai_client._client.beta.chat.completions.parse = AsyncMock(
-            return_value=mock_response
-        )
+        openai_client._client.beta.chat.completions.parse = AsyncMock(return_value=mock_response)
 
         # Execute
         await openai_client.analyze_text("test food")
@@ -360,9 +353,7 @@ class TestErrorHandling:
         # Mock API error with generic Exception
         # (OpenAI APIError requires complex initialization)
         error = ConnectionError("API connection failed")
-        openai_client._client.beta.chat.completions.parse = AsyncMock(
-            side_effect=error
-        )
+        openai_client._client.beta.chat.completions.parse = AsyncMock(side_effect=error)
 
         # Should raise RetryError after retries (tenacity wraps the original exception)
         with pytest.raises(RetryError):
@@ -373,18 +364,14 @@ class TestErrorHandling:
         """Test handling of empty parsed response."""
         # Mock response with no parsed data
         mock_response = MagicMock()
-        mock_response.choices = [
-            MagicMock(message=MagicMock(parsed=None))
-        ]
+        mock_response.choices = [MagicMock(message=MagicMock(parsed=None))]
         mock_response.usage = MagicMock(
             total_tokens=1000,
             prompt_tokens=800,
             completion_tokens=200,
         )
 
-        openai_client._client.beta.chat.completions.parse = AsyncMock(
-            return_value=mock_response
-        )
+        openai_client._client.beta.chat.completions.parse = AsyncMock(return_value=mock_response)
 
         # Should raise ValueError
         with pytest.raises(ValueError, match="empty parsed response"):

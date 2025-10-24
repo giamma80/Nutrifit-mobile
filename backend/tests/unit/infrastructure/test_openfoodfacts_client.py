@@ -38,8 +38,7 @@ def sample_off_response() -> dict[str, Any]:
             "product_name": "Galletti Biscuits",
             "brands": "Mulino Bianco",
             "image_front_url": (
-                "https://images.openfoodfacts.org/images/products/"
-                "800/150/500/5707/front_it.jpg"
+                "https://images.openfoodfacts.org/images/products/" "800/150/500/5707/front_it.jpg"
             ),
             "nutriments": {
                 "energy-kcal_100g": 450,
@@ -150,9 +149,7 @@ class TestLookupBarcode:
         assert product.brand is None
 
     @pytest.mark.asyncio
-    async def test_lookup_barcode_not_found_404(
-        self, off_client: OpenFoodFactsClient
-    ) -> None:
+    async def test_lookup_barcode_not_found_404(self, off_client: OpenFoodFactsClient) -> None:
         """Test barcode lookup with 404 response."""
         # Mock HTTP 404 response
         mock_response = MagicMock()
@@ -167,9 +164,7 @@ class TestLookupBarcode:
         assert product is None
 
     @pytest.mark.asyncio
-    async def test_lookup_barcode_not_found_status_0(
-        self, off_client: OpenFoodFactsClient
-    ) -> None:
+    async def test_lookup_barcode_not_found_status_0(self, off_client: OpenFoodFactsClient) -> None:
         """Test barcode lookup with status=0 (not found)."""
         # Mock HTTP response with status=0
         mock_response = MagicMock()
@@ -185,9 +180,7 @@ class TestLookupBarcode:
         assert product is None
 
     @pytest.mark.asyncio
-    async def test_lookup_barcode_empty_product(
-        self, off_client: OpenFoodFactsClient
-    ) -> None:
+    async def test_lookup_barcode_empty_product(self, off_client: OpenFoodFactsClient) -> None:
         """Test barcode lookup with empty product data."""
         # Mock HTTP response with empty product
         mock_response = MagicMock()
@@ -203,9 +196,7 @@ class TestLookupBarcode:
         assert product is None
 
     @pytest.mark.asyncio
-    async def test_lookup_barcode_server_error(
-        self, off_client: OpenFoodFactsClient
-    ) -> None:
+    async def test_lookup_barcode_server_error(self, off_client: OpenFoodFactsClient) -> None:
         """Test barcode lookup with server error."""
         # Mock HTTP 500 response
         mock_response = MagicMock()
@@ -301,15 +292,11 @@ class TestNutrientExtraction:
 class TestProductMapping:
     """Test _map_to_barcode_product method."""
 
-    def test_map_to_barcode_product_complete(
-        self, sample_off_response: dict[str, Any]
-    ) -> None:
+    def test_map_to_barcode_product_complete(self, sample_off_response: dict[str, Any]) -> None:
         """Test mapping with complete product data."""
         client = OpenFoodFactsClient()
 
-        product = client._map_to_barcode_product(
-            "8001505005707", sample_off_response["product"]
-        )
+        product = client._map_to_barcode_product("8001505005707", sample_off_response["product"])
 
         assert product.barcode == "8001505005707"
         assert product.name == "Galletti Biscuits"

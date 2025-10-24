@@ -139,9 +139,7 @@ class TestGetById:
         assert retrieved.user_id == "user123"
 
     @pytest.mark.asyncio
-    async def test_get_by_id_not_found(
-        self, repository: InMemoryMealRepository
-    ) -> None:
+    async def test_get_by_id_not_found(self, repository: InMemoryMealRepository) -> None:
         """Test retrieving non-existent meal."""
         retrieved = await repository.get_by_id(uuid4(), "user123")
         assert retrieved is None
@@ -179,9 +177,7 @@ class TestGetByUser:
     """Test get_by_user method."""
 
     @pytest.mark.asyncio
-    async def test_get_by_user_empty(
-        self, repository: InMemoryMealRepository
-    ) -> None:
+    async def test_get_by_user_empty(self, repository: InMemoryMealRepository) -> None:
         """Test get_by_user with no meals."""
         meals = await repository.get_by_user("user123")
         assert meals == []
@@ -199,9 +195,7 @@ class TestGetByUser:
         assert meals[0].id == sample_meal.id
 
     @pytest.mark.asyncio
-    async def test_get_by_user_multiple_meals(
-        self, repository: InMemoryMealRepository
-    ) -> None:
+    async def test_get_by_user_multiple_meals(self, repository: InMemoryMealRepository) -> None:
         """Test get_by_user with multiple meals."""
         now = datetime.now(timezone.utc)
 
@@ -246,9 +240,7 @@ class TestGetByUser:
         assert meals[0].user_id == "user123"
 
     @pytest.mark.asyncio
-    async def test_get_by_user_pagination(
-        self, repository: InMemoryMealRepository
-    ) -> None:
+    async def test_get_by_user_pagination(self, repository: InMemoryMealRepository) -> None:
         """Test get_by_user pagination."""
         now = datetime.now(timezone.utc)
 
@@ -288,9 +280,7 @@ class TestGetByUserAndDateRange:
         now = datetime.now(timezone.utc)
         yesterday = now - timedelta(days=1)
 
-        meals = await repository.get_by_user_and_date_range(
-            "user123", yesterday, now
-        )
+        meals = await repository.get_by_user_and_date_range("user123", yesterday, now)
         assert meals == []
 
     @pytest.mark.asyncio
@@ -322,9 +312,7 @@ class TestGetByUserAndDateRange:
         await repository.save(meal_out_of_range)
 
         # Query range: yesterday to now
-        meals = await repository.get_by_user_and_date_range(
-            "user123", yesterday, now
-        )
+        meals = await repository.get_by_user_and_date_range("user123", yesterday, now)
 
         assert len(meals) == 1
         assert meals[0].id == meal_in_range.id
@@ -348,9 +336,7 @@ class TestGetByUserAndDateRange:
             )
             await repository.save(meal)
 
-        meals = await repository.get_by_user_and_date_range(
-            "user123", yesterday, now
-        )
+        meals = await repository.get_by_user_and_date_range("user123", yesterday, now)
 
         assert len(meals) == 3
         # Should be ordered by timestamp ascending (oldest first)
@@ -373,9 +359,7 @@ class TestDelete:
         assert sample_meal.id not in repository._storage
 
     @pytest.mark.asyncio
-    async def test_delete_not_found(
-        self, repository: InMemoryMealRepository
-    ) -> None:
+    async def test_delete_not_found(self, repository: InMemoryMealRepository) -> None:
         """Test deleting non-existent meal."""
         result = await repository.delete(uuid4(), "user123")
         assert result is False
@@ -398,9 +382,7 @@ class TestExists:
     """Test exists method."""
 
     @pytest.mark.asyncio
-    async def test_exists_true(
-        self, repository: InMemoryMealRepository, sample_meal: Meal
-    ) -> None:
+    async def test_exists_true(self, repository: InMemoryMealRepository, sample_meal: Meal) -> None:
         """Test exists returns True for existing meal."""
         await repository.save(sample_meal)
 
@@ -408,9 +390,7 @@ class TestExists:
         assert result is True
 
     @pytest.mark.asyncio
-    async def test_exists_false_not_found(
-        self, repository: InMemoryMealRepository
-    ) -> None:
+    async def test_exists_false_not_found(self, repository: InMemoryMealRepository) -> None:
         """Test exists returns False for non-existent meal."""
         result = await repository.exists(uuid4(), "user123")
         assert result is False
@@ -430,9 +410,7 @@ class TestCountByUser:
     """Test count_by_user method."""
 
     @pytest.mark.asyncio
-    async def test_count_by_user_empty(
-        self, repository: InMemoryMealRepository
-    ) -> None:
+    async def test_count_by_user_empty(self, repository: InMemoryMealRepository) -> None:
         """Test count with no meals."""
         count = await repository.count_by_user("user123")
         assert count == 0
@@ -448,9 +426,7 @@ class TestCountByUser:
         assert count == 1
 
     @pytest.mark.asyncio
-    async def test_count_by_user_multiple(
-        self, repository: InMemoryMealRepository
-    ) -> None:
+    async def test_count_by_user_multiple(self, repository: InMemoryMealRepository) -> None:
         """Test count with multiple meals."""
         now = datetime.now(timezone.utc)
 
@@ -487,9 +463,7 @@ class TestClear:
     """Test clear utility method."""
 
     @pytest.mark.asyncio
-    async def test_clear(
-        self, repository: InMemoryMealRepository, sample_meal: Meal
-    ) -> None:
+    async def test_clear(self, repository: InMemoryMealRepository, sample_meal: Meal) -> None:
         """Test clear removes all meals."""
         await repository.save(sample_meal)
         assert len(repository._storage) == 1
