@@ -14,12 +14,12 @@
 | **Phase 0** | 4 | 4 | 0 | 0 | 0 |
 | **Phase 1** | 5 | 5 | 0 | 0 | 0 |
 | **Phase 2** | 3 | 3 | 0 | 0 | 0 |
-| **Phase 3** | 7 | 4 | 0 | 0 | 3 |
+| **Phase 3** | 7 | 5 | 0 | 0 | 2 |
 | **Phase 4** | 4 | 0 | 0 | 0 | 4 |
 | **Phase 5** | 4 | 0 | 0 | 0 | 4 |
 | **Phase 6** | 3 | 0 | 0 | 0 | 3 |
 | **Phase 7** | 2 | 0 | 0 | 0 | 2 |
-| **TOTAL** | **32** | **16** | **0** | **0** | **16** |
+| **TOTAL** | **32** | **17** | **0** | **0** | **15** |
 
 ---
 
@@ -148,10 +148,10 @@
 | P3.4.1 | IMealRepository port | `domain/shared/ports/meal_repository.py` | `04_INFRASTRUCTURE_LAYER.md` §1010-1050 | Port repository definito | 🟢 COMPLETED | CRUD + query methods (7 methods) |
 | P3.4.2 | InMemoryMealRepository | `infrastructure/persistence/in_memory/meal_repository.py` | `04_INFRASTRUCTURE_LAYER.md` §1060-1130 | Repository in-memory implementato | 🟢 COMPLETED | Dict-based storage with deep copy |
 | P3.4.3 | Tests repository | `tests/unit/infrastructure/test_in_memory_repository.py` | `04_INFRASTRUCTURE_LAYER.md` §1140-1150 | Test suite repository | 🟢 COMPLETED | 26 unit tests with full coverage |
-| **P3.5** | **Event Bus** | Implementare event bus in-memory | `04_INFRASTRUCTURE_LAYER.md` §1200-1350 | Event bus implementato | ⚪ NOT_STARTED | - |
-| P3.5.1 | IEventBus port | `domain/shared/ports/event_bus.py` | `04_INFRASTRUCTURE_LAYER.md` §1210-1240 | Port event bus definito | ⚪ NOT_STARTED | publish(), subscribe() |
-| P3.5.2 | InMemoryEventBus | `infrastructure/events/in_memory_bus.py` | `04_INFRASTRUCTURE_LAYER.md` §1250-1320 | Event bus in-memory implementato | ⚪ NOT_STARTED | Dict-based handlers |
-| P3.5.3 | Tests event bus | `tests/unit/infrastructure/test_event_bus.py` | `04_INFRASTRUCTURE_LAYER.md` §1330-1350 | Test suite event bus | ⚪ NOT_STARTED | - |
+| **P3.5** | **Event Bus** | Implementare event bus in-memory | `04_INFRASTRUCTURE_LAYER.md` §1200-1350 | Event bus implementato | 🟢 COMPLETED | 16 tests passing |
+| P3.5.1 | IEventBus port | `domain/shared/ports/event_bus.py` | `04_INFRASTRUCTURE_LAYER.md` §1210-1240 | Port event bus definito | 🟢 COMPLETED | publish(), subscribe(), unsubscribe(), clear() |
+| P3.5.2 | InMemoryEventBus | `infrastructure/events/in_memory_bus.py` | `04_INFRASTRUCTURE_LAYER.md` §1250-1320 | Event bus in-memory implementato | 🟢 COMPLETED | Dict-based handlers with error handling |
+| P3.5.3 | Tests event bus | `tests/unit/infrastructure/test_event_bus.py` | `04_INFRASTRUCTURE_LAYER.md` §1330-1350 | Test suite event bus | 🟢 COMPLETED | 16 tests: subscribe, publish, unsubscribe, clear, order, error handling |
 | **P3.6** | **Docker Compose Setup** | Setup Docker Compose per local development | `01_IMPLEMENTATION_GUIDE.md` §891-969 | Docker compose funzionante | ⚪ NOT_STARTED | - |
 | P3.6.1 | Create docker-compose.yml | Creare file nella root con MongoDB + Redis + Backend | `01_IMPLEMENTATION_GUIDE.md` §899-932 | File docker-compose.yml creato | ⚪ NOT_STARTED | Include volumes per persistenza |
 | P3.6.2 | Update make.sh | Aggiungere target: docker-up, docker-down, docker-logs, docker-restart | `01_IMPLEMENTATION_GUIDE.md` §936-955 | Target Docker aggiunti a make.sh | ⚪ NOT_STARTED | - |
@@ -371,6 +371,20 @@ make quality           # lint + typecheck + format
 
 ### 24 Ottobre 2025
 
+- ✅ **P3.5 COMPLETED** - Event Bus
+  - Commit: PENDING - feat(infrastructure): implement P3.5 - Event Bus
+  - 16 new tests for event bus (350 total)
+  - Components:
+    * IEventBus port interface (domain layer) with 4 methods: subscribe(), publish(), unsubscribe(), clear()
+    * InMemoryEventBus adapter (infrastructure) with dict-based handlers
+    * Event publishing with error handling (failed handlers don't block others)
+    * Handler execution in subscription order
+    * TypeVar support for generic event types (TEvent bound to DomainEvent)
+    * EventHandler type alias: Callable[[TEvent], Awaitable[None]]
+  - Files: domain/shared/ports/event_bus.py, infrastructure/events/in_memory_bus.py, test_event_bus.py
+  - **PHASE 3 STATUS:** 71.4% COMPLETE (5/7 tasks)
+  - **NEXT:** Phase 4 - Application Layer (CQRS) - Skip P3.6, P3.7 per plan
+
 - ✅ **P3.4 COMPLETED** - In-Memory Repository
   - Commit: PENDING - feat(infrastructure): implement P3.4 - In-Memory Repository
   - 26 new tests for repository (334 total)
@@ -534,8 +548,8 @@ make quality           # lint + typecheck + format
 ---
 
 **Ultimo aggiornamento:** 24 Ottobre 2025
-**Prossimo task:** P3.5 - Event Bus
-**Current Progress:** 16/32 tasks completed (50.0%)
+**Prossimo task:** P4.1 - Commands (Application Layer - CQRS)
+**Current Progress:** 17/32 tasks completed (53.1%)
 **Phase 1 Status:** ✅ COMPLETED (5/5 tasks - 100%)
 **Phase 2 Status:** ✅ COMPLETED (3/3 tasks - 100%)
-**Phase 3 Status:** 🟡 IN PROGRESS (4/7 tasks - 57.1%)
+**Phase 3 Status:** 🟡 IN PROGRESS (5/7 tasks - 71.4%)
