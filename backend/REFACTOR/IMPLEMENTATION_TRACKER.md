@@ -179,7 +179,7 @@
 | P4.1.4 | ConfirmAnalysisCommand | `application/meal/commands/confirm_analysis.py` | `03_APPLICATION_LAYER.md` §290-340 | Command + handler confirmation | 🟢 COMPLETED | 2-step process, entry selection |
 | P4.1.5 | UpdateMealCommand | `application/meal/commands/update_meal.py` | `03_APPLICATION_LAYER.md` §350-370 | Command + handler update | 🟢 COMPLETED | Allowed fields: meal_type, timestamp, notes |
 | P4.1.6 | DeleteMealCommand | `application/meal/commands/delete_meal.py` | `03_APPLICATION_LAYER.md` §380-400 | Command + handler delete (soft) | 🟢 COMPLETED | Authorization checks included |
-| P4.1.7 | Tests commands | `tests/unit/application/meal/commands/test_*.py` | `03_APPLICATION_LAYER.md` §410-440 | Test suite commands | ⚪ NOT_STARTED | Next task |
+| P4.1.7 | Tests commands | `tests/unit/application/meal/commands/test_*.py` | `03_APPLICATION_LAYER.md` §410-440 | Test suite commands | 🟢 COMPLETED | 17 tests for all 5 commands |
 | **P4.2** | **Queries** | Implementare tutte le queries CQRS | `03_APPLICATION_LAYER.md` §500-850 | 7 queries implementate | ⚪ NOT_STARTED | - |
 | P4.2.1 | GetMealQuery | `application/meal/queries/get_meal.py` | `03_APPLICATION_LAYER.md` §520-560 | Query single meal by ID | ⚪ NOT_STARTED | - |
 | P4.2.2 | GetMealHistoryQuery | `application/meal/queries/get_meal_history.py` | `03_APPLICATION_LAYER.md` §570-610 | Query meal list con filtri | ⚪ NOT_STARTED | - |
@@ -193,7 +193,7 @@
 | P4.3.1 | PhotoOrchestrator | `application/meal/orchestrators/photo_orchestrator.py` | `03_APPLICATION_LAYER.md` §970-1030 | Orchestrator photo → recognition → enrichment | 🟢 COMPLETED | Coordinates 3 services |
 | P4.3.2 | BarcodeOrchestrator | `application/meal/orchestrators/barcode_orchestrator.py` | `03_APPLICATION_LAYER.md` §1040-1090 | Orchestrator barcode → lookup → enrichment | 🟢 COMPLETED | Includes nutrient scaling |
 | P4.3.3 | TextAnalysisOrchestrator | `application/meal/orchestrators/text_analysis_orchestrator.py` | `03_APPLICATION_LAYER.md` §1100-1150 | Orchestrator text → parse → enrichment | ⚪ NOT_STARTED | Deferred to next phase |
-| P4.3.4 | Tests orchestrators | `tests/unit/application/meal/orchestrators/test_*.py` | `03_APPLICATION_LAYER.md` §1160-1180 | Test suite orchestrators | ⚪ NOT_STARTED | Next task |
+| P4.3.4 | Tests orchestrators | `tests/unit/application/meal/orchestrators/test_*.py` | `03_APPLICATION_LAYER.md` §1160-1180 | Test suite orchestrators | 🟢 COMPLETED | 5 tests for Photo & Barcode orchestrators |
 | **P4.4** | **Event Handlers** | Implementare event handlers per side effects | `03_APPLICATION_LAYER.md` §1250-1350 | Event handlers implementati | ⚪ NOT_STARTED | - |
 | P4.4.1 | MealAnalyzedHandler | `application/meal/event_handlers/meal_analyzed_handler.py` | `03_APPLICATION_LAYER.md` §1270-1300 | Handler per evento MealAnalyzed | ⚪ NOT_STARTED | Log, metrics |
 | P4.4.2 | MealConfirmedHandler | `application/meal/event_handlers/meal_confirmed_handler.py` | `03_APPLICATION_LAYER.md` §1310-1330 | Handler per evento MealConfirmed | ⚪ NOT_STARTED | - |
@@ -370,6 +370,24 @@ make quality           # lint + typecheck + format
 ## 📅 Changelog
 
 ### 24 Ottobre 2025
+
+- ✅ **P4.1 & P4.3 TEST SUITE COMPLETED** - Unit tests for Commands & Orchestrators
+  - Commit: PENDING - test(application): add unit tests for P4.1 Commands & P4.3 Orchestrators
+  - 22 new unit tests (374 total):
+    * Command tests: 17 tests across 5 command files
+      - test_analyze_photo.py: 2 tests (success, defaults)
+      - test_analyze_barcode.py: 2 tests (success, defaults)
+      - test_confirm_analysis.py: 3 tests (confirm all, confirm some, not found)
+      - test_update_meal.py: 3 tests (success, not found, no changes)
+      - test_delete_meal.py: 7 tests (success, not found, unauthorized, etc.)
+    * Orchestrator tests: 5 tests across 2 orchestrator files
+      - test_photo_orchestrator.py: 2 tests (success workflow, defaults)
+      - test_barcode_orchestrator.py: 3 tests (with nutrients, USDA fallback, not found)
+  - All tests passing: 374/374 ✅
+  - Mock-based testing with AsyncMock for service coordination
+  - Test coverage: Commands (authorization, events, service calls), Orchestrators (service coordination, nutrient scaling)
+  - **TESTS STATUS:** P4.1.7 & P4.3.4 COMPLETED
+  - **NEXT:** Commit test suite, then proceed with P4.2 - Queries
 
 - ✅ **P4.1 & P4.3 COMPLETED** - Commands & Orchestrators (Application Layer - CQRS)
   - Commit: PENDING - feat(application): implement P4.1 Commands & P4.3 Orchestrators
