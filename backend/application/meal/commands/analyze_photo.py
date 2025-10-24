@@ -13,6 +13,7 @@ from domain.meal.core.entities.meal import Meal
 from domain.meal.core.events.meal_analyzed import MealAnalyzed
 from domain.shared.ports.meal_repository import IMealRepository
 from domain.shared.ports.event_bus import IEventBus
+from domain.shared.ports.idempotency_cache import IIdempotencyCache
 from ..orchestrators.photo_orchestrator import PhotoOrchestrator
 
 logger = logging.getLogger(__name__)
@@ -47,7 +48,8 @@ class AnalyzeMealPhotoCommandHandler:
         self,
         orchestrator: PhotoOrchestrator,
         repository: IMealRepository,
-        event_bus: IEventBus
+        event_bus: IEventBus,
+        idempotency_cache: IIdempotencyCache
     ):
         """
         Initialize handler.
@@ -56,10 +58,12 @@ class AnalyzeMealPhotoCommandHandler:
             orchestrator: Photo analysis orchestrator
             repository: Meal repository port
             event_bus: Event bus port
+            idempotency_cache: Idempotency cache port
         """
         self._orchestrator = orchestrator
         self._repository = repository
         self._event_bus = event_bus
+        self._idempotency_cache = idempotency_cache
 
     async def handle(self, command: AnalyzeMealPhotoCommand) -> Meal:
         """
@@ -104,6 +108,30 @@ class AnalyzeMealPhotoCommandHandler:
             },
         )
 
+        # Check idempotency cache if key provided
+        if command.idempotency_key:
+            cached_meal_id = await self._idempotency_cache.get(
+                command.idempotency_key
+            )
+            if cached_meal_id:
+                logger.info(
+                    "Idempotency cache hit - returning existing meal",
+                    extra={
+                        "idempotency_key": command.idempotency_key,
+                        "cached_meal_id": str(cached_meal_id),
+                    },
+                )
+                meal = await self._repository.get_by_id(
+                    cached_meal_id, command.user_id
+                )
+                if meal:
+                    return meal
+                # If meal not found in repository, proceed with analysis
+                logger.warning(
+                    "Cached meal not found in repository, re-analyzing",
+                    extra={"cached_meal_id": str(cached_meal_id)},
+                )
+
         # 1. Orchestrate analysis workflow (recognition + enrichment)
         meal = await self._orchestrator.analyze(
             user_id=command.user_id,
@@ -136,5 +164,20 @@ class AnalyzeMealPhotoCommandHandler:
         )
 
         await self._event_bus.publish(event)
+
+        # 4. Cache meal ID for idempotency (1 hour TTL)
+        if command.idempotency_key:
+            await self._idempotency_cache.set(
+                command.idempotency_key,
+                meal.id,
+                ttl_seconds=3600
+            )
+            logger.debug(
+                "Cached meal ID for idempotency",
+                extra={
+                    "idempotency_key": command.idempotency_key,
+                    "meal_id": str(meal.id),
+                },
+            )
 
         return meal

@@ -8,7 +8,6 @@ Tests focus on:
 
 import pytest
 from unittest.mock import AsyncMock, MagicMock
-from datetime import datetime, timezone
 
 from application.meal.orchestrators.photo_orchestrator import PhotoOrchestrator
 from domain.meal.core.entities.meal import Meal
