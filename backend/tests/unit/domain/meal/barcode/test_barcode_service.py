@@ -189,6 +189,85 @@ class TestValidateProduct:
 
         assert is_valid is True
 
+
+class TestBarcodeServiceEdgeCases:
+    """Test edge cases for BarcodeService."""
+
+    @pytest.mark.asyncio
+    async def test_lookup_with_very_long_barcode(self) -> None:
+        """Test handling of unusually long barcodes."""
+        nutrients = NutrientProfile(
+            calories=450,
+            protein=6.5,
+            carbs=68.0,
+            fat=16.0,
+        )
+
+        mock_product = BarcodeProduct(
+            barcode="12345678901234567890",  # 20 digits
+            name="Product",
+            brand="Brand",
+            nutrients=nutrients,
+        )
+
+        provider = MockBarcodeProvider(result=mock_product)
+        service = BarcodeService(provider)
+
+        result = await service.lookup("12345678901234567890")
+
+        assert result is not None
+        assert result.barcode == "12345678901234567890"
+
+    @pytest.mark.asyncio
+    async def test_lookup_with_short_barcode(self) -> None:
+        """Test handling of short barcodes (e.g., UPC-E)."""
+        nutrients = NutrientProfile(
+            calories=450,
+            protein=6.5,
+            carbs=68.0,
+            fat=16.0,
+        )
+
+        mock_product = BarcodeProduct(
+            barcode="12345678",  # 8 digits (UPC-E)
+            name="Product",
+            brand="Brand",
+            nutrients=nutrients,
+        )
+
+        provider = MockBarcodeProvider(result=mock_product)
+        service = BarcodeService(provider)
+
+        result = await service.lookup("12345678")
+
+        assert result is not None
+        assert result.barcode == "12345678"
+
+    @pytest.mark.asyncio
+    async def test_lookup_with_mixed_case_alphanumeric(self) -> None:
+        """Test barcodes with mixed case alphanumeric."""
+        nutrients = NutrientProfile(
+            calories=450,
+            protein=6.5,
+            carbs=68.0,
+            fat=16.0,
+        )
+
+        mock_product = BarcodeProduct(
+            barcode="ABC123xyz",
+            name="Product",
+            brand="Brand",
+            nutrients=nutrients,
+        )
+
+        provider = MockBarcodeProvider(result=mock_product)
+        service = BarcodeService(provider)
+
+        result = await service.lookup("ABC123xyz")
+
+        assert result is not None
+        assert result.barcode == "ABC123xyz"
+
     @pytest.mark.asyncio
     async def test_validates_low_confidence_product(self) -> None:
         """Test validation fails for low confidence."""

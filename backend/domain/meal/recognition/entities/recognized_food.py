@@ -37,9 +37,7 @@ class RecognizedFood:
             raise ValueError(f"Quantity must be positive, got {self.quantity_g}")
 
         if not 0.0 <= self.confidence <= 1.0:
-            raise ValueError(
-                f"Confidence must be between 0.0 and 1.0, got {self.confidence}"
-            )
+            raise ValueError(f"Confidence must be between 0.0 and 1.0, got {self.confidence}")
 
     def is_reliable(self) -> bool:
         """
@@ -82,9 +80,7 @@ class FoodRecognitionResult:
 
         # Auto-calculate average confidence if not provided
         if self.confidence == 0.0:
-            self.confidence = sum(item.confidence for item in self.items) / len(
-                self.items
-            )
+            self.confidence = sum(item.confidence for item in self.items) / len(self.items)
 
     def is_reliable(self) -> bool:
         """

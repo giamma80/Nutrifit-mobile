@@ -269,6 +269,38 @@ class TestEnrichmentServiceScaling:
         assert usda.called_with[0] == ("test food", 100.0)
 
 
+class TestEnrichmentServiceFallbackEdgeCases:
+    """Test suite for fallback edge cases."""
+
+    @pytest.mark.asyncio
+    async def test_handles_fallback_returning_none(self) -> None:
+        """Test graceful handling when fallback returns None."""
+
+        class BrokenFallbackProvider:
+            """Fallback that violates contract by returning None."""
+
+            async def get_nutrients(
+                self, identifier: str, quantity_g: float
+            ) -> Optional[NutrientProfile]:
+                return None  # Contract violation
+
+        usda = MockUSDAProvider(return_value=None)
+        category = MockCategoryProvider(return_value=None)
+        fallback = BrokenFallbackProvider()
+
+        service = NutritionEnrichmentService(usda, category, fallback)
+
+        result = await service.enrich("unknown", 100.0)
+
+        # Should return minimal profile as safety net
+        assert result.calories == 100
+        assert result.protein == 5.0
+        assert result.carbs == 15.0
+        assert result.fat == 3.0
+        assert result.source == "AI_ESTIMATE"
+        assert result.confidence == 0.3
+
+
 class TestEnrichBatch:
     """Test suite for enrich_batch method."""
 
@@ -351,7 +383,7 @@ class TestEnrichBatch:
         results = await service.enrich_batch(items)
 
         assert len(results) == 3
-        # All should use fallback with same base profile, but different quantities
+        # All use fallback with same base, but different quantities
         assert results[0].quantity_g == 100.0
         assert results[1].quantity_g == 200.0
         assert results[2].quantity_g == 150.0

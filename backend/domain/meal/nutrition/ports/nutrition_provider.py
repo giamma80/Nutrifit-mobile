@@ -23,9 +23,7 @@ class INutritionProvider(Protocol):
     - Fallback provider (low quality, generic estimates)
     """
 
-    async def get_nutrients(
-        self, identifier: str, quantity_g: float
-    ) -> Optional[NutrientProfile]:
+    async def get_nutrients(self, identifier: str, quantity_g: float) -> Optional[NutrientProfile]:
         """
         Get nutrient profile for a food identifier.
 

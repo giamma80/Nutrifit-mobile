@@ -369,3 +369,103 @@ class TestBarcodeProduct:
         )
 
         assert product.is_high_quality() is False
+
+
+class TestBarcodeProductEdgeCases:
+    """Test edge cases for BarcodeProduct."""
+
+    def test_display_name_with_empty_brand_string(self) -> None:
+        """Test display_name when brand is empty string."""
+        nutrients = NutrientProfile(
+            calories=450,
+            protein=6.5,
+            carbs=68.0,
+            fat=16.0,
+        )
+
+        product = BarcodeProduct(
+            barcode="8001505005707",
+            name="Generic Product",
+            brand="   ",  # Whitespace only
+            nutrients=nutrients,
+        )
+
+        # Should return only name (brand is whitespace)
+        assert product.display_name() == "Generic Product"
+
+    def test_very_small_serving_size(self) -> None:
+        """Test very small serving sizes (e.g., supplements, spices)."""
+        nutrients = NutrientProfile(
+            calories=5,
+            protein=0.5,
+            carbs=1.0,
+            fat=0.1,
+        )
+
+        product = BarcodeProduct(
+            barcode="1234567890123",
+            name="Supplement",
+            brand="Brand",
+            nutrients=nutrients,
+            serving_size_g=0.5,  # 500mg serving
+        )
+        assert product.serving_size_g == 0.5
+
+    def test_very_large_serving_size(self) -> None:
+        """Test large serving sizes (e.g., bulk products)."""
+        nutrients = NutrientProfile(
+            calories=3500,
+            protein=100.0,
+            carbs=500.0,
+            fat=100.0,
+        )
+
+        product = BarcodeProduct(
+            barcode="1234567890123",
+            name="Bulk Flour",
+            brand="Brand",
+            nutrients=nutrients,
+            serving_size_g=1000.0,  # 1kg serving
+        )
+        assert product.serving_size_g == 1000.0
+
+    def test_barcode_with_alphanumeric_characters(self) -> None:
+        """Test barcodes with letters (valid for some formats)."""
+        nutrients = NutrientProfile(
+            calories=450,
+            protein=6.5,
+            carbs=68.0,
+            fat=16.0,
+        )
+
+        product = BarcodeProduct(
+            barcode="ABC123DEF456",  # Alphanumeric
+            name="Product",
+            brand="Brand",
+            nutrients=nutrients,
+        )
+        assert product.barcode == "ABC123DEF456"
+
+    def test_scale_nutrients_preserves_original(self) -> None:
+        """Test that scaling doesn't modify original product."""
+        nutrients = NutrientProfile(
+            calories=450,
+            protein=6.5,
+            carbs=68.0,
+            fat=16.0,
+            quantity_g=100.0,
+        )
+
+        product = BarcodeProduct(
+            barcode="8001505005707",
+            name="Product",
+            brand="Brand",
+            nutrients=nutrients,
+        )
+
+        # Scale nutrients
+        _ = product.scale_nutrients(50.0)
+
+        # Original should be unchanged
+        assert product.nutrients.calories == 450
+        assert product.nutrients.quantity_g == 100.0

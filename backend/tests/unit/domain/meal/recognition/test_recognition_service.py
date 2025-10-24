@@ -70,9 +70,7 @@ class TestRecognizeFromPhoto:
     @pytest.mark.asyncio
     async def test_passes_photo_url_to_provider(self) -> None:
         """Test that photo URL is passed to provider."""
-        mock_result = FoodRecognitionResult(
-            items=[RecognizedFood("pasta", "Pasta", 150.0, 0.9)]
-        )
+        mock_result = FoodRecognitionResult(items=[RecognizedFood("pasta", "Pasta", 150.0, 0.9)])
 
         provider = MockVisionProvider(photo_result=mock_result)
         service = FoodRecognitionService(provider)
@@ -85,9 +83,7 @@ class TestRecognizeFromPhoto:
     @pytest.mark.asyncio
     async def test_passes_hint_to_provider(self) -> None:
         """Test that hint is passed to provider."""
-        mock_result = FoodRecognitionResult(
-            items=[RecognizedFood("pasta", "Pasta", 150.0, 0.9)]
-        )
+        mock_result = FoodRecognitionResult(items=[RecognizedFood("pasta", "Pasta", 150.0, 0.9)])
 
         provider = MockVisionProvider(photo_result=mock_result)
         service = FoodRecognitionService(provider)
@@ -101,9 +97,7 @@ class TestRecognizeFromPhoto:
     @pytest.mark.asyncio
     async def test_passes_none_hint_when_not_provided(self) -> None:
         """Test that hint is None when not provided."""
-        mock_result = FoodRecognitionResult(
-            items=[RecognizedFood("pasta", "Pasta", 150.0, 0.9)]
-        )
+        mock_result = FoodRecognitionResult(items=[RecognizedFood("pasta", "Pasta", 150.0, 0.9)])
 
         provider = MockVisionProvider(photo_result=mock_result)
         service = FoodRecognitionService(provider)
@@ -147,9 +141,7 @@ class TestRecognizeFromText:
     @pytest.mark.asyncio
     async def test_passes_description_to_provider(self) -> None:
         """Test that description is passed to provider."""
-        mock_result = FoodRecognitionResult(
-            items=[RecognizedFood("pasta", "Pasta", 150.0, 0.9)]
-        )
+        mock_result = FoodRecognitionResult(items=[RecognizedFood("pasta", "Pasta", 150.0, 0.9)])
 
         provider = MockVisionProvider(text_result=mock_result)
         service = FoodRecognitionService(provider)
@@ -163,9 +155,7 @@ class TestRecognizeFromText:
     @pytest.mark.asyncio
     async def test_raises_if_description_empty(self) -> None:
         """Test that empty description raises ValueError."""
-        mock_result = FoodRecognitionResult(
-            items=[RecognizedFood("pasta", "Pasta", 150.0, 0.9)]
-        )
+        mock_result = FoodRecognitionResult(items=[RecognizedFood("pasta", "Pasta", 150.0, 0.9)])
 
         provider = MockVisionProvider(text_result=mock_result)
         service = FoodRecognitionService(provider)
@@ -176,9 +166,7 @@ class TestRecognizeFromText:
     @pytest.mark.asyncio
     async def test_raises_if_description_whitespace_only(self) -> None:
         """Test that whitespace-only description raises ValueError."""
-        mock_result = FoodRecognitionResult(
-            items=[RecognizedFood("pasta", "Pasta", 150.0, 0.9)]
-        )
+        mock_result = FoodRecognitionResult(items=[RecognizedFood("pasta", "Pasta", 150.0, 0.9)])
 
         provider = MockVisionProvider(text_result=mock_result)
         service = FoodRecognitionService(provider)
@@ -202,9 +190,7 @@ class TestValidateRecognition:
     @pytest.mark.asyncio
     async def test_validates_high_confidence_result(self) -> None:
         """Test validation passes for high confidence."""
-        result = FoodRecognitionResult(
-            items=[RecognizedFood("pasta", "Pasta", 150.0, 0.9)]
-        )
+        result = FoodRecognitionResult(items=[RecognizedFood("pasta", "Pasta", 150.0, 0.9)])
 
         provider = MockVisionProvider()
         service = FoodRecognitionService(provider)
@@ -216,9 +202,7 @@ class TestValidateRecognition:
     @pytest.mark.asyncio
     async def test_validates_low_confidence_result(self) -> None:
         """Test validation fails for low confidence."""
-        result = FoodRecognitionResult(
-            items=[RecognizedFood("mystery", "Unknown", 100.0, 0.5)]
-        )
+        result = FoodRecognitionResult(items=[RecognizedFood("mystery", "Unknown", 100.0, 0.5)])
 
         provider = MockVisionProvider()
         service = FoodRecognitionService(provider)
@@ -230,9 +214,7 @@ class TestValidateRecognition:
     @pytest.mark.asyncio
     async def test_validates_with_custom_threshold(self) -> None:
         """Test validation with custom min_confidence."""
-        result = FoodRecognitionResult(
-            items=[RecognizedFood("pasta", "Pasta", 150.0, 0.75)]
-        )
+        result = FoodRecognitionResult(items=[RecognizedFood("pasta", "Pasta", 150.0, 0.75)])
 
         provider = MockVisionProvider()
         service = FoodRecognitionService(provider)
@@ -245,12 +227,43 @@ class TestValidateRecognition:
         is_valid_high = await service.validate_recognition(result, min_confidence=0.8)
         assert is_valid_high is False
 
+
+class TestRecognitionServiceErrorHandling:
+    """Test error handling and edge cases."""
+
+    @pytest.mark.asyncio
+    async def test_handles_empty_photo_url(self) -> None:
+        """Test handling of empty photo URL."""
+        mock_result = FoodRecognitionResult(items=[RecognizedFood("pasta", "Pasta", 150.0, 0.9)])
+
+        provider = MockVisionProvider(photo_result=mock_result)
+        service = FoodRecognitionService(provider)
+
+        # Empty URL should still be passed to provider
+        # (provider may handle validation)
+        result = await service.recognize_from_photo("")
+
+        assert result.item_count() == 1
+
+    @pytest.mark.asyncio
+    async def test_handles_very_long_description(self) -> None:
+        """Test handling of very long text descriptions."""
+        mock_result = FoodRecognitionResult(items=[RecognizedFood("pasta", "Pasta", 150.0, 0.9)])
+
+        provider = MockVisionProvider(text_result=mock_result)
+        service = FoodRecognitionService(provider)
+
+        # Very long description (1000 words)
+        long_description = " ".join(["food"] * 1000)
+        result = await service.recognize_from_text(long_description)
+
+        assert result.item_count() == 1
+        assert len(provider.text_calls[0]) > 4000
+
     @pytest.mark.asyncio
     async def test_validates_boundary_at_threshold(self) -> None:
         """Test validation boundary at exact threshold."""
-        result = FoodRecognitionResult(
-            items=[RecognizedFood("pasta", "Pasta", 150.0, 0.7)]
-        )
+        result = FoodRecognitionResult(items=[RecognizedFood("pasta", "Pasta", 150.0, 0.7)])
 
         provider = MockVisionProvider()
         service = FoodRecognitionService(provider)

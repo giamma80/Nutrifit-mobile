@@ -341,6 +341,115 @@ class TestIsHighQuality:
         assert profile.is_high_quality() is False
 
 
+class TestNutrientProfileEdgeCases:
+    """Test edge cases and boundary conditions."""
+
+    def test_accepts_zero_calories(self) -> None:
+        """Test that zero calories is valid (e.g., water, tea)."""
+        profile = NutrientProfile(
+            calories=0,
+            protein=0.0,
+            carbs=0.0,
+            fat=0.0,
+        )
+        assert profile.calories == 0
+
+    def test_accepts_zero_macros_individually(self) -> None:
+        """Test zero values for individual macros."""
+        profile = NutrientProfile(
+            calories=100,
+            protein=0.0,  # Fat-free lean meat edge case
+            carbs=25.0,
+            fat=0.0,  # Fat-free product
+        )
+        assert profile.protein == 0.0
+        assert profile.fat == 0.0
+
+    def test_scale_to_same_quantity_returns_equal_profile(self) -> None:
+        """Test scaling to same quantity returns equivalent profile."""
+        profile = NutrientProfile(
+            calories=200,
+            protein=10.0,
+            carbs=30.0,
+            fat=5.0,
+            quantity_g=100.0,
+        )
+
+        scaled = profile.scale_to_quantity(100.0)
+
+        assert scaled.calories == 200
+        assert scaled.protein == 10.0
+        assert scaled.quantity_g == 100.0
+
+    def test_accepts_confidence_boundary_values(self) -> None:
+        """Test confidence boundaries at 0.0 and 1.0."""
+        profile_zero = NutrientProfile(
+            calories=200,
+            protein=10.0,
+            carbs=30.0,
+            fat=5.0,
+            confidence=0.0,
+        )
+        assert profile_zero.confidence == 0.0
+
+        profile_one = NutrientProfile(
+            calories=200,
+            protein=10.0,
+            carbs=30.0,
+            fat=5.0,
+            confidence=1.0,
+        )
+        assert profile_one.confidence == 1.0
+
+    def test_source_variants(self) -> None:
+        """Test all valid source values."""
+        sources = ["USDA", "BARCODE_DB", "CATEGORY", "AI_ESTIMATE"]
+
+        for source in sources:
+            profile = NutrientProfile(
+                calories=200,
+                protein=10.0,
+                carbs=30.0,
+                fat=5.0,
+                source=source,  # type: ignore
+            )
+            assert profile.source == source
+
+    def test_very_small_quantity_scaling(self) -> None:
+        """Test scaling to very small quantities (e.g., spices, salt)."""
+        profile = NutrientProfile(
+            calories=300,
+            protein=10.0,
+            carbs=50.0,
+            fat=5.0,
+            quantity_g=100.0,
+        )
+
+        # Scale to 1g (e.g., salt, pepper)
+        scaled = profile.scale_to_quantity(1.0)
+
+        assert scaled.calories == 3  # int(300 * 0.01)
+        assert pytest.approx(scaled.protein, abs=0.01) == 0.1
+        assert scaled.quantity_g == 1.0
+
+    def test_very_large_quantity_scaling(self) -> None:
+        """Test scaling to large quantities (e.g., meal prep)."""
+        profile = NutrientProfile(
+            calories=100,
+            protein=20.0,
+            carbs=5.0,
+            fat=2.0,
+            quantity_g=100.0,
+        )
+
+        # Scale to 1kg
+        scaled = profile.scale_to_quantity(1000.0)
+
+        assert scaled.calories == 1000  # 100 * 10
+        assert scaled.protein == 200.0  # 20 * 10
+        assert scaled.quantity_g == 1000.0
+
+
 class TestMacroDistribution:
     """Test suite for macro_distribution method."""
 

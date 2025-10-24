@@ -40,9 +40,7 @@ class NutrientProfile:
             raise ValueError(f"Quantity must be positive, got {self.quantity_g}")
 
         if not 0.0 <= self.confidence <= 1.0:
-            raise ValueError(
-                f"Confidence must be between 0.0 and 1.0, got {self.confidence}"
-            )
+            raise ValueError(f"Confidence must be between 0.0 and 1.0, got {self.confidence}")
 
         if self.calories < 0:
             raise ValueError(f"Calories cannot be negative, got {self.calories}")

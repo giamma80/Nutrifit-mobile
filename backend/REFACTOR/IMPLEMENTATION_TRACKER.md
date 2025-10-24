@@ -14,12 +14,12 @@
 | **Phase 0** | 4 | 4 | 0 | 0 | 0 |
 | **Phase 1** | 5 | 5 | 0 | 0 | 0 |
 | **Phase 2** | 3 | 3 | 0 | 0 | 0 |
-| **Phase 3** | 7 | 0 | 0 | 0 | 7 |
+| **Phase 3** | 7 | 2 | 0 | 0 | 5 |
 | **Phase 4** | 4 | 0 | 0 | 0 | 4 |
 | **Phase 5** | 4 | 0 | 0 | 0 | 4 |
 | **Phase 6** | 3 | 0 | 0 | 0 | 3 |
 | **Phase 7** | 2 | 0 | 0 | 0 | 2 |
-| **TOTAL** | **32** | **12** | **0** | **0** | **20** |
+| **TOTAL** | **32** | **14** | **0** | **0** | **18** |
 
 ---
 
@@ -130,14 +130,14 @@
 | P3.1.3 | Circuit breaker setup | Added `@circuit` decorator to analyze methods | `04_INFRASTRUCTURE_LAYER.md` §160-180 | Circuit breaker configured (5 failures → 60s) | 🟢 COMPLETED | Resilience against API failures |
 | P3.1.4 | Retry logic | Added `@retry` decorator with exponential backoff | `04_INFRASTRUCTURE_LAYER.md` §190-210 | Retry with exponential backoff (3 attempts) | 🟢 COMPLETED | Handles transient errors automatically |
 | P3.1.5 | Tests OpenAI client | `tests/unit/infrastructure/test_openai_client.py` | `04_INFRASTRUCTURE_LAYER.md` §350-380 | Unit tests with mocked OpenAI API | 🟢 COMPLETED | 13 tests: initialization, photo/text analysis, error handling, cache stats |
-| **P3.2** | **USDA Client Adapter** | Adattare client USDA esistente per implementare INutritionProvider | `04_INFRASTRUCTURE_LAYER.md` §387-660 | USDA client adattato | ⚪ NOT_STARTED | **ADATTARE**, non riscrivere |
-| P3.2.1 | Spostare USDA client | `ai_models/usda_client.py` → `infrastructure/external_apis/usda/client.py` | `01_IMPLEMENTATION_GUIDE.md` §778-795 | File spostato | ⚪ NOT_STARTED | - |
-| P3.2.2 | Implementare INutritionProvider | Aggiungere `class USDAClient(INutritionProvider)` | `01_IMPLEMENTATION_GUIDE.md` §796-820 | Port implementato | ⚪ NOT_STARTED | **PRESERVARE** logica matching esistente |
-| P3.2.3 | Add circuit breaker | Aggiungere `@circuit` decorator | `01_IMPLEMENTATION_GUIDE.md` §809-810 | Circuit breaker aggiunto | ⚪ NOT_STARTED | - |
-| P3.2.4 | Add retry logic | Aggiungere `@retry` decorator | `01_IMPLEMENTATION_GUIDE.md` §811 | Retry logic aggiunto | ⚪ NOT_STARTED | - |
-| P3.2.5 | USDA mapper | `infrastructure/external_apis/usda/mapper.py` (se necessario) | `04_INFRASTRUCTURE_LAYER.md` §550-600 | Mapper USDA response → NutrientProfile | ⚪ NOT_STARTED | Solo se serve mapping aggiuntivo |
-| P3.2.6 | USDA categories | `infrastructure/external_apis/usda/categories.py` (se necessario) | `04_INFRASTRUCTURE_LAYER.md` §610-640 | Categorizzazione alimenti | ⚪ NOT_STARTED | Solo se serve |
-| P3.2.7 | Tests USDA client | `tests/integration/infrastructure/test_usda_client.py` | `04_INFRASTRUCTURE_LAYER.md` §650-660 | Integration tests USDA | ⚪ NOT_STARTED | Test con mock API |
+| **P3.2** | **USDA Client Adapter** | Adattare client USDA esistente per implementare INutritionProvider | `04_INFRASTRUCTURE_LAYER.md` §387-660 | USDA client adattato | 🟢 COMPLETED | 15 tests passing, commit pending |
+| P3.2.1 | Spostare USDA client | `ai_models/usda_client.py` → `infrastructure/external_apis/usda/client.py` | `01_IMPLEMENTATION_GUIDE.md` §778-795 | File spostato | 🟢 COMPLETED | Adapted from existing client |
+| P3.2.2 | Implementare INutritionProvider | Aggiungere `class USDAClient(INutritionProvider)` | `01_IMPLEMENTATION_GUIDE.md` §796-820 | Port implementato | 🟢 COMPLETED | All existing logic preserved |
+| P3.2.3 | Add circuit breaker | Aggiungere `@circuit` decorator | `01_IMPLEMENTATION_GUIDE.md` §809-810 | Circuit breaker aggiunto | 🟢 COMPLETED | On search_food and get_nutrients_by_id |
+| P3.2.4 | Add retry logic | Aggiungere `@retry` decorator | `01_IMPLEMENTATION_GUIDE.md` §811 | Retry logic aggiunto | 🟢 COMPLETED | Exponential backoff, 3 attempts |
+| P3.2.5 | USDA mapper | `infrastructure/external_apis/usda/mapper.py` (se necessario) | `04_INFRASTRUCTURE_LAYER.md` §550-600 | Mapper USDA response → NutrientProfile | 🟢 COMPLETED | Integrated in client._extract_nutrients() |
+| P3.2.6 | USDA categories | `infrastructure/external_apis/usda/categories.py` (se necessario) | `04_INFRASTRUCTURE_LAYER.md` §610-640 | Categorizzazione alimenti | 🟢 COMPLETED | normalize_food_label() provides categorization |
+| P3.2.7 | Tests USDA client | `tests/integration/infrastructure/test_usda_client.py` | `04_INFRASTRUCTURE_LAYER.md` §650-660 | Integration tests USDA | 🟢 COMPLETED | 15 unit tests with mocked API |
 | **P3.3** | **OpenFoodFacts Adapter** | Adattare client OpenFoodFacts per implementare IBarcodeProvider | `04_INFRASTRUCTURE_LAYER.md` §740-900 | OpenFoodFacts client adattato | ⚪ NOT_STARTED | **ADATTARE**, non riscrivere |
 | P3.3.1 | Spostare OpenFoodFacts | `openfoodfacts/adapter.py` → `infrastructure/external_apis/openfoodfacts/client.py` | `01_IMPLEMENTATION_GUIDE.md` §844-860 | File spostato | ⚪ NOT_STARTED | - |
 | P3.3.2 | Implementare IBarcodeProvider | Aggiungere `class OpenFoodFactsClient(IBarcodeProvider)` | `01_IMPLEMENTATION_GUIDE.md` §861-877 | Port implementato | ⚪ NOT_STARTED | **PRESERVARE** logica barcode lookup |
@@ -371,6 +371,26 @@ make quality           # lint + typecheck + format
 
 ### 24 Ottobre 2025
 
+- ✅ **P3.2 COMPLETED** - USDA Client Adapter
+  - Commit: PENDING - feat(infrastructure): implement P3.2 - USDA Client Adapter
+  - 15 new tests for USDA client (293 total)
+  - Components:
+    * Adapted existing USDA client to implement INutritionProvider port
+    * Preserved all existing logic: search, nutrient extraction, mapping, normalization, caching
+    * Added circuit breaker (5 failures → 60s timeout) on search_food and get_nutrients_by_id
+    * Added retry logic with exponential backoff (3 attempts)
+    * Nutrient mapping: IDs 1003-1093 (protein, carbs, fat, fiber, sugar, sodium, calories)
+    * Label normalization with @lru_cache for performance
+  - Files: infrastructure/external_apis/usda/client.py, __init__.py, test_usda_client.py
+  - **PHASE 3 STATUS:** 28.6% COMPLETE (2/7 tasks)
+  - **NEXT:** Phase 3.3 - OpenFoodFacts Adapter
+
+- ✅ **P3.1 COMPLETED** - OpenAI Client Adapter
+  - Commit: PENDING - feat(infrastructure): implement P3.1 - OpenAI Client Adapter
+  - 13 new tests for OpenAI client (278 total)
+  - Components: IVisionProvider implementation with structured outputs, prompt caching
+  - **PHASE 3 STATUS:** 14.3% COMPLETE (1/7 tasks)
+
 - 🎉 **PHASE 2 COMPLETED (100%)** - All Domain Capabilities fully implemented!
   - All 3 capabilities completed: Nutrition, Recognition, Barcode
   - **TOTAL TESTS:** 265 domain/meal tests passing ✅
@@ -486,8 +506,8 @@ make quality           # lint + typecheck + format
 ---
 
 **Ultimo aggiornamento:** 24 Ottobre 2025
-**Prossimo task:** P3.1 - OpenAI Client Adapter
-**Current Progress:** 12/32 tasks completed (37.5%)
+**Prossimo task:** P3.3 - OpenFoodFacts Adapter
+**Current Progress:** 14/32 tasks completed (43.75%)
 **Phase 1 Status:** ✅ COMPLETED (5/5 tasks - 100%)
 **Phase 2 Status:** ✅ COMPLETED (3/3 tasks - 100%)
-**Phase 3 Status:** ⚪ NOT STARTED (0/7 tasks - 0%)
+**Phase 3 Status:** 🟡 IN PROGRESS (2/7 tasks - 28.6%)

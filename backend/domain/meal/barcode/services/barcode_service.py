@@ -111,9 +111,7 @@ class BarcodeService:
             )
             raise
 
-    async def validate_product(
-        self, product: BarcodeProduct, min_confidence: float = 0.7
-    ) -> bool:
+    async def validate_product(self, product: BarcodeProduct, min_confidence: float = 0.7) -> bool:
         """
         Validate if barcode product data meets quality threshold.
 

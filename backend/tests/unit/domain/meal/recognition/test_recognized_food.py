@@ -115,6 +115,57 @@ class TestRecognizedFood:
         assert food_above.is_reliable() is True
 
 
+class TestRecognizedFoodEdgeCases:
+    """Test edge cases for RecognizedFood."""
+
+    def test_very_small_quantity(self) -> None:
+        """Test very small quantities (e.g., spices, garnish)."""
+        food = RecognizedFood(
+            label="salt",
+            display_name="Table Salt",
+            quantity_g=0.5,  # Half gram
+            confidence=0.85,
+        )
+        assert food.quantity_g == 0.5
+
+    def test_confidence_exactly_0_7(self) -> None:
+        """Test is_reliable boundary at exactly 0.7."""
+        food = RecognizedFood(
+            label="food",
+            display_name="Food",
+            quantity_g=100.0,
+            confidence=0.7,
+        )
+        # Boundary: > 0.7, not >= 0.7
+        assert food.is_reliable() is False
+
+        food_above = RecognizedFood(
+            label="food",
+            display_name="Food",
+            quantity_g=100.0,
+            confidence=0.700001,
+        )
+        assert food_above.is_reliable() is True
+
+    def test_confidence_boundaries_at_extremes(self) -> None:
+        """Test confidence at 0.0 and 1.0."""
+        food_min = RecognizedFood(
+            label="uncertain",
+            display_name="Unknown",
+            quantity_g=100.0,
+            confidence=0.0,
+        )
+        assert food_min.is_reliable() is False
+
+        food_max = RecognizedFood(
+            label="certain",
+            display_name="Verified",
+            quantity_g=100.0,
+            confidence=1.0,
+        )
+        assert food_max.is_reliable() is True
+
+
 class TestFoodRecognitionResult:
     """Test suite for FoodRecognitionResult entity."""
 
@@ -265,3 +316,59 @@ class TestFoodRecognitionResult:
         reliable = result.reliable_items()
 
         assert len(reliable) == 2
+
+
+class TestFoodRecognitionResultEdgeCases:
+    """Test edge cases for FoodRecognitionResult."""
+
+    def test_single_item_with_very_low_confidence(self) -> None:
+        """Test result with single item at minimum confidence."""
+        item = RecognizedFood("mystery", "Unknown", 100.0, 0.1)
+        result = FoodRecognitionResult(items=[item])
+
+        assert result.confidence == 0.1
+        assert result.is_reliable() is False
+        assert len(result.reliable_items()) == 0
+
+    def test_all_items_exactly_at_boundary(self) -> None:
+        """Test when all items are exactly at 0.7 confidence."""
+        items = [
+            RecognizedFood("food1", "Food 1", 100.0, 0.7),
+            RecognizedFood("food2", "Food 2", 100.0, 0.7),
+        ]
+        result = FoodRecognitionResult(items=items)
+
+        # Average is 0.7, but is_reliable requires > 0.7
+        assert result.confidence == 0.7
+        assert result.is_reliable() is False
+        assert len(result.reliable_items()) == 0
+
+    def test_processing_time_zero(self) -> None:
+        """Test that zero processing time is valid."""
+        items = [RecognizedFood("pasta", "Pasta", 150.0, 0.9)]
+        result = FoodRecognitionResult(
+            items=items,
+            processing_time_ms=0,
+        )
+        assert result.processing_time_ms == 0
+
+    def test_very_long_processing_time(self) -> None:
+        """Test handling of long processing times."""
+        items = [RecognizedFood("pasta", "Pasta", 150.0, 0.9)]
+        result = FoodRecognitionResult(
+            items=items,
+            processing_time_ms=30000,  # 30 seconds
+        )
+        assert result.processing_time_ms == 30000
+
+    def test_mixed_confidence_average_calculation(self) -> None:
+        """Test average confidence with varied values."""
+        items = [
+            RecognizedFood("high", "High", 100.0, 0.95),
+            RecognizedFood("low", "Low", 100.0, 0.45),
+            RecognizedFood("medium", "Medium", 100.0, 0.7),
+        ]
+        result = FoodRecognitionResult(items=items)
+
+        # Average: (0.95 + 0.45 + 0.7) / 3 = 0.7
+        assert pytest.approx(result.confidence, abs=0.001) == 0.7

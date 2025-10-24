@@ -188,9 +188,7 @@ class TestCreateFromAnalysis:
             )
         ]
 
-        meal = MealFactory.create_from_analysis(
-            user_id="user123", items=items, source="BARCODE"
-        )
+        meal = MealFactory.create_from_analysis(user_id="user123", items=items, source="BARCODE")
 
         assert meal.entries[0].source == "BARCODE"
 
