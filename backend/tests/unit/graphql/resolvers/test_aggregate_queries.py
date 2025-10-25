@@ -123,9 +123,7 @@ async def test_meal_success(
 
 
 @pytest.mark.asyncio
-async def test_meal_not_found(
-    aggregate_queries: AggregateQueries, mock_info: Any
-) -> None:
+async def test_meal_not_found(aggregate_queries: AggregateQueries, mock_info: Any) -> None:
     """Test meal query when meal not found."""
     # Arrange
     repository = mock_info.context.get("meal_repository")
@@ -143,9 +141,7 @@ async def test_meal_not_found(
 
 
 @pytest.mark.asyncio
-async def test_meal_repository_not_available(
-    aggregate_queries: AggregateQueries
-) -> None:
+async def test_meal_repository_not_available(aggregate_queries: AggregateQueries) -> None:
     """Test meal query when repository not available."""
     # Arrange
     mock_info = MagicMock()
@@ -218,9 +214,7 @@ async def test_meal_history_with_date_range(
 
 
 @pytest.mark.asyncio
-async def test_meal_history_pagination(
-    aggregate_queries: AggregateQueries, mock_info: Any
-) -> None:
+async def test_meal_history_pagination(aggregate_queries: AggregateQueries, mock_info: Any) -> None:
     """Test mealHistory query with pagination (has_more flag)."""
     # Arrange
     meals = []
@@ -274,9 +268,7 @@ async def test_meal_history_pagination(
 
 
 @pytest.mark.asyncio
-async def test_meal_history_empty(
-    aggregate_queries: AggregateQueries, mock_info: Any
-) -> None:
+async def test_meal_history_empty(aggregate_queries: AggregateQueries, mock_info: Any) -> None:
     """Test mealHistory query with no results."""
     # Arrange
     repository = mock_info.context.get("meal_repository")
@@ -398,9 +390,7 @@ async def test_search_meals_no_match(
 
 
 @pytest.mark.asyncio
-async def test_daily_summary_success(
-    aggregate_queries: AggregateQueries, mock_info: Any
-) -> None:
+async def test_daily_summary_success(aggregate_queries: AggregateQueries, mock_info: Any) -> None:
     """Test dailySummary query with multiple meals."""
     # Arrange
     breakfast_id = MealId.generate()
@@ -485,6 +475,7 @@ async def test_daily_summary_success(
 
     # Check breakdown
     import json
+
     breakdown = json.loads(result.breakdown_by_type)
     assert "BREAKFAST" in breakdown
     assert "LUNCH" in breakdown
@@ -493,9 +484,7 @@ async def test_daily_summary_success(
 
 
 @pytest.mark.asyncio
-async def test_daily_summary_empty_day(
-    aggregate_queries: AggregateQueries, mock_info: Any
-) -> None:
+async def test_daily_summary_empty_day(aggregate_queries: AggregateQueries, mock_info: Any) -> None:
     """Test dailySummary query for day with no meals."""
     # Arrange
     repository = mock_info.context.get("meal_repository")
@@ -599,6 +588,7 @@ async def test_daily_summary_single_meal_type(
     assert result.meal_count == 2
 
     import json
+
     breakdown = json.loads(result.breakdown_by_type)
     assert breakdown["SNACK"] == 225.0
     # Other meal types should be 0

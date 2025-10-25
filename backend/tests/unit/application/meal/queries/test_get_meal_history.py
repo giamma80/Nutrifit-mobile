@@ -96,9 +96,7 @@ class TestGetMealHistoryQueryHandler:
 
         await handler.handle(query)
 
-        mock_repository.get_by_user.assert_called_once_with(
-            user_id="user123", limit=2, offset=1
-        )
+        mock_repository.get_by_user.assert_called_once_with(user_id="user123", limit=2, offset=1)
 
     @pytest.mark.asyncio
     async def test_get_meal_history_empty_result(self, handler, mock_repository):

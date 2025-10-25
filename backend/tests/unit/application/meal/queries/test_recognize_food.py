@@ -76,9 +76,7 @@ class TestRecognizeFoodQueryHandler:
         """Test photo recognition without dish hint."""
         query = RecognizeFoodQuery(photo_url="https://example.com/food.jpg")
 
-        mock_recognition_service.recognize_from_photo.return_value = (
-            sample_recognition_result
-        )
+        mock_recognition_service.recognize_from_photo.return_value = sample_recognition_result
 
         await handler.handle(query)
 

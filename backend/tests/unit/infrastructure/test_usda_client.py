@@ -190,12 +190,8 @@ class TestSearchFood:
         mock_response.status = 500
 
         usda_client._session.get = MagicMock(return_value=mock_response)
-        usda_client._session.get.return_value.__aenter__ = AsyncMock(
-            return_value=mock_response
-        )
-        usda_client._session.get.return_value.__aexit__ = AsyncMock(
-            return_value=None
-        )
+        usda_client._session.get.return_value.__aenter__ = AsyncMock(return_value=mock_response)
+        usda_client._session.get.return_value.__aexit__ = AsyncMock(return_value=None)
 
         # Execute
         foods = await usda_client.search_food("chicken")
@@ -209,9 +205,7 @@ class TestSearchFood:
         import asyncio
 
         # Mock timeout exception
-        usda_client._session.get = MagicMock(
-            side_effect=asyncio.TimeoutError("Timeout")
-        )
+        usda_client._session.get = MagicMock(side_effect=asyncio.TimeoutError("Timeout"))
 
         # Execute - should return empty list on timeout
         foods = await usda_client.search_food("chicken")
@@ -219,14 +213,10 @@ class TestSearchFood:
         assert len(foods) == 0
 
     @pytest.mark.asyncio
-    async def test_search_food_generic_exception(
-        self, usda_client: USDAClient
-    ) -> None:
+    async def test_search_food_generic_exception(self, usda_client: USDAClient) -> None:
         """Test search with generic exception."""
         # Mock generic exception
-        usda_client._session.get = MagicMock(
-            side_effect=Exception("Connection error")
-        )
+        usda_client._session.get = MagicMock(side_effect=Exception("Connection error"))
 
         # Execute - should return empty list on error
         foods = await usda_client.search_food("chicken")
@@ -286,9 +276,7 @@ class TestGetNutrients:
         assert profile.quantity_g == 100.0
 
     @pytest.mark.asyncio
-    async def test_get_nutrients_no_search_results(
-        self, usda_client: USDAClient
-    ) -> None:
+    async def test_get_nutrients_no_search_results(self, usda_client: USDAClient) -> None:
         """Test nutrient retrieval with no search results."""
         # Mock empty search response
         mock_response = MagicMock()
@@ -296,12 +284,8 @@ class TestGetNutrients:
         mock_response.json = AsyncMock(return_value={"foods": []})
 
         usda_client._session.get = MagicMock(return_value=mock_response)
-        usda_client._session.get.return_value.__aenter__ = AsyncMock(
-            return_value=mock_response
-        )
-        usda_client._session.get.return_value.__aexit__ = AsyncMock(
-            return_value=None
-        )
+        usda_client._session.get.return_value.__aenter__ = AsyncMock(return_value=mock_response)
+        usda_client._session.get.return_value.__aexit__ = AsyncMock(return_value=None)
 
         # Execute
         profile = await usda_client.get_nutrients("nonexistent", 100.0)
@@ -310,24 +294,16 @@ class TestGetNutrients:
         assert profile is None
 
     @pytest.mark.asyncio
-    async def test_get_nutrients_no_fdc_id(
-        self, usda_client: USDAClient
-    ) -> None:
+    async def test_get_nutrients_no_fdc_id(self, usda_client: USDAClient) -> None:
         """Test nutrient retrieval with missing FDC ID."""
         # Mock search response without fdcId
         mock_response = MagicMock()
         mock_response.status = 200
-        mock_response.json = AsyncMock(
-            return_value={"foods": [{"description": "Test"}]}
-        )
+        mock_response.json = AsyncMock(return_value={"foods": [{"description": "Test"}]})
 
         usda_client._session.get = MagicMock(return_value=mock_response)
-        usda_client._session.get.return_value.__aenter__ = AsyncMock(
-            return_value=mock_response
-        )
-        usda_client._session.get.return_value.__aexit__ = AsyncMock(
-            return_value=None
-        )
+        usda_client._session.get.return_value.__aenter__ = AsyncMock(return_value=mock_response)
+        usda_client._session.get.return_value.__aexit__ = AsyncMock(return_value=None)
 
         # Execute
         profile = await usda_client.get_nutrients("test", 100.0)
@@ -369,14 +345,10 @@ class TestGetNutrients:
         assert profile is None
 
     @pytest.mark.asyncio
-    async def test_get_nutrients_by_id_exception(
-        self, usda_client: USDAClient
-    ) -> None:
+    async def test_get_nutrients_by_id_exception(self, usda_client: USDAClient) -> None:
         """Test get_nutrients_by_id with exception."""
         # Mock exception
-        usda_client._session.get = MagicMock(
-            side_effect=Exception("Connection error")
-        )
+        usda_client._session.get = MagicMock(side_effect=Exception("Connection error"))
 
         # Execute
         result = await usda_client.get_nutrients_by_id(173096)

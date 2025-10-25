@@ -16,6 +16,34 @@ import strawberry
 from graphql.types_meal_aggregate import Meal, MealType
 
 
+__all__ = [
+    # Re-exported from types_meal_aggregate
+    "Meal",
+    "MealType",
+    # Input types
+    "AnalyzeMealPhotoInput",
+    "AnalyzeMealBarcodeInput",
+    "ConfirmAnalysisInput",
+    "UpdateMealInput",
+    "DeleteMealInput",
+    # Success types
+    "MealAnalysisSuccess",
+    "ConfirmAnalysisSuccess",
+    "UpdateMealSuccess",
+    "DeleteMealSuccess",
+    # Error types
+    "MealAnalysisError",
+    "ConfirmAnalysisError",
+    "UpdateMealError",
+    "DeleteMealError",
+    # Union types
+    "MealAnalysisResult",
+    "ConfirmAnalysisResult",
+    "UpdateMealResult",
+    "DeleteMealResult",
+]
+
+
 # ============================================
 # MUTATION INPUT TYPES
 # ============================================
@@ -155,10 +183,6 @@ ConfirmAnalysisResult = strawberry.union(
     "ConfirmAnalysisResult", (ConfirmAnalysisSuccess, ConfirmAnalysisError)
 )
 
-UpdateMealResult = strawberry.union(
-    "UpdateMealResult", (UpdateMealSuccess, UpdateMealError)
-)
+UpdateMealResult = strawberry.union("UpdateMealResult", (UpdateMealSuccess, UpdateMealError))
 
-DeleteMealResult = strawberry.union(
-    "DeleteMealResult", (DeleteMealSuccess, DeleteMealError)
-)
+DeleteMealResult = strawberry.union("DeleteMealResult", (DeleteMealSuccess, DeleteMealError))

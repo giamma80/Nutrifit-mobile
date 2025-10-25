@@ -15,6 +15,19 @@ from enum import Enum
 import strawberry
 
 
+__all__ = [
+    "MealType",
+    "MealEntry",
+    "Meal",
+    "MealHistoryResult",
+    "MealSearchResult",
+    "DailySummary",
+    "MealHistoryInput",
+    "SearchMealsInput",
+    "DailySummaryInput",
+]
+
+
 # ============================================
 # MEAL TYPES
 # ============================================

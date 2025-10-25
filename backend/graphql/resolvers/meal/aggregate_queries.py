@@ -93,9 +93,7 @@ class AggregateQueries:
     """Aggregate queries for meal data operations."""
 
     @strawberry.field
-    async def meal(
-        self, info: strawberry.types.Info, meal_id: str, user_id: str
-    ) -> Optional[Meal]:
+    async def meal(self, info: strawberry.types.Info, meal_id: str, user_id: str) -> Optional[Meal]:
         """Get single meal by ID.
 
         Args:
@@ -195,9 +193,7 @@ class AggregateQueries:
         total_count = len(graphql_meals)
         has_more = len(graphql_meals) == limit
 
-        return MealHistoryResult(
-            meals=graphql_meals, total_count=total_count, has_more=has_more
-        )
+        return MealHistoryResult(meals=graphql_meals, total_count=total_count, has_more=has_more)
 
     @strawberry.field
     async def search_meals(
@@ -235,9 +231,7 @@ class AggregateQueries:
             raise ValueError("MealRepository not available in context")
 
         # Create query
-        query = SearchMealsQuery(
-            user_id=user_id, query_text=query_text, limit=limit, offset=offset
-        )
+        query = SearchMealsQuery(user_id=user_id, query_text=query_text, limit=limit, offset=offset)
 
         # Execute via handler
         handler = SearchMealsQueryHandler(repository=repository)

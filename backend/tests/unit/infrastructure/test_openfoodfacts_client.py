@@ -224,9 +224,7 @@ class TestLookupBarcode:
             await off_client.lookup_barcode("1234567890123")
 
     @pytest.mark.asyncio
-    async def test_lookup_barcode_unexpected_status(
-        self, off_client: OpenFoodFactsClient
-    ) -> None:
+    async def test_lookup_barcode_unexpected_status(self, off_client: OpenFoodFactsClient) -> None:
         """Test barcode lookup with unexpected status code."""
         # Mock HTTP 400 response
         mock_response = MagicMock()
@@ -240,30 +238,22 @@ class TestLookupBarcode:
         assert product is None
 
     @pytest.mark.asyncio
-    async def test_lookup_barcode_timeout(
-        self, off_client: OpenFoodFactsClient
-    ) -> None:
+    async def test_lookup_barcode_timeout(self, off_client: OpenFoodFactsClient) -> None:
         """Test barcode lookup with timeout (retries then raises)."""
         from tenacity import RetryError
 
         # Mock timeout exception
-        off_client._session.get = AsyncMock(
-            side_effect=httpx.TimeoutException("Timeout")
-        )
+        off_client._session.get = AsyncMock(side_effect=httpx.TimeoutException("Timeout"))
 
         # Execute - retry decorator will try 3 times then raise RetryError
         with pytest.raises(RetryError):
             await off_client.lookup_barcode("1234567890123")
 
     @pytest.mark.asyncio
-    async def test_lookup_barcode_generic_exception(
-        self, off_client: OpenFoodFactsClient
-    ) -> None:
+    async def test_lookup_barcode_generic_exception(self, off_client: OpenFoodFactsClient) -> None:
         """Test barcode lookup with generic exception."""
         # Mock generic exception
-        off_client._session.get = AsyncMock(
-            side_effect=Exception("Network error")
-        )
+        off_client._session.get = AsyncMock(side_effect=Exception("Network error"))
 
         # Execute - should raise exception
         with pytest.raises(Exception, match="Network error"):
@@ -372,15 +362,11 @@ class TestNutrientExtraction:
 class TestProductMapping:
     """Test _map_to_barcode_product method."""
 
-    def test_map_to_barcode_product_complete(
-        self, sample_off_response: dict[str, Any]
-    ) -> None:
+    def test_map_to_barcode_product_complete(self, sample_off_response: dict[str, Any]) -> None:
         """Test mapping with complete product data."""
         client = OpenFoodFactsClient()
 
-        product = client._map_to_barcode_product(
-            "8001505005707", sample_off_response["product"]
-        )
+        product = client._map_to_barcode_product("8001505005707", sample_off_response["product"])
 
         assert product.barcode == "8001505005707"
         assert product.name == "Galletti Biscuits"

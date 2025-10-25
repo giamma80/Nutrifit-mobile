@@ -73,9 +73,7 @@ class AtomicQueries:
             raise ValueError("RecognitionService not available in context")
 
         # Create query
-        query = RecognizeFoodQuery(
-            photo_url=photo_url, text=text, dish_hint=dish_hint
-        )
+        query = RecognizeFoodQuery(photo_url=photo_url, text=text, dish_hint=dish_hint)
 
         # Execute via handler
         handler = RecognizeFoodQueryHandler(recognition_service=recognition_service)

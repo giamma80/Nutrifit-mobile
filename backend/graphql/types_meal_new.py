@@ -10,6 +10,19 @@ from typing import Optional, List
 import strawberry
 
 
+__all__ = [
+    # Output types
+    "RecognizedFood",
+    "FoodRecognitionResult",
+    "NutrientProfile",
+    "BarcodeProduct",
+    # Input types
+    "RecognizeFoodInput",
+    "EnrichNutrientsInput",
+    "SearchFoodByBarcodeInput",
+]
+
+
 # ============================================
 # ATOMIC QUERY TYPES (P5.2)
 # ============================================

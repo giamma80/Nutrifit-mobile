@@ -131,9 +131,7 @@ class MealMutations:
         except ValueError as e:
             return MealAnalysisError(message=str(e), code="VALIDATION_ERROR")
         except Exception as e:
-            return MealAnalysisError(
-                message=f"Analysis failed: {str(e)}", code="ANALYSIS_FAILED"
-            )
+            return MealAnalysisError(message=f"Analysis failed: {str(e)}", code="ANALYSIS_FAILED")
 
     @strawberry.mutation
     async def analyze_meal_barcode(
@@ -241,9 +239,7 @@ class MealMutations:
             )
 
             # Execute command via handler
-            handler = ConfirmAnalysisCommandHandler(
-                repository=repository, event_bus=event_bus
-            )
+            handler = ConfirmAnalysisCommandHandler(repository=repository, event_bus=event_bus)
 
             meal = await handler.handle(command)
 
@@ -318,9 +314,7 @@ class MealMutations:
         except ValueError as e:
             return UpdateMealError(message=str(e), code="MEAL_NOT_FOUND")
         except Exception as e:
-            return UpdateMealError(
-                message=f"Update failed: {str(e)}", code="UPDATE_FAILED"
-            )
+            return UpdateMealError(message=f"Update failed: {str(e)}", code="UPDATE_FAILED")
 
     @strawberry.mutation
     async def delete_meal(
@@ -347,22 +341,16 @@ class MealMutations:
 
         try:
             # Map GraphQL input → Command
-            command = DeleteMealCommand(
-                meal_id=UUID(input.meal_id), user_id=input.user_id
-            )
+            command = DeleteMealCommand(meal_id=UUID(input.meal_id), user_id=input.user_id)
 
             # Execute command via handler
             handler = DeleteMealCommandHandler(repository=repository, event_bus=event_bus)
 
             await handler.handle(command)
 
-            return DeleteMealSuccess(
-                meal_id=input.meal_id, message="Meal deleted successfully"
-            )
+            return DeleteMealSuccess(meal_id=input.meal_id, message="Meal deleted successfully")
 
         except ValueError as e:
             return DeleteMealError(message=str(e), code="MEAL_NOT_FOUND")
         except Exception as e:
-            return DeleteMealError(
-                message=f"Delete failed: {str(e)}", code="DELETE_FAILED"
-            )
+            return DeleteMealError(message=f"Delete failed: {str(e)}", code="DELETE_FAILED")

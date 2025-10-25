@@ -47,9 +47,7 @@ class MealConfirmedHandler:
             # Logs: "meal_confirmed" with structured extra fields
         """
         total_entries = event.confirmed_entry_count + event.rejected_entry_count
-        acceptance_rate = (
-            event.confirmed_entry_count / total_entries if total_entries > 0 else 0.0
-        )
+        acceptance_rate = event.confirmed_entry_count / total_entries if total_entries > 0 else 0.0
 
         logger.info(
             "meal_confirmed",
