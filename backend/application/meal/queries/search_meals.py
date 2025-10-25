@@ -24,6 +24,7 @@ class SearchMealsQuery:
         limit: Max number of results (default: 50)
         offset: Pagination offset (default: 0)
     """
+
     user_id: str
     query_text: str
     limit: int = 50
@@ -71,9 +72,7 @@ class SearchMealsQueryHandler:
         """
         # Get all user meals (in production, this would use a search index)
         all_meals = await self._repository.get_by_user(
-            user_id=query.user_id,
-            limit=1000,  # High limit to search across all meals
-            offset=0
+            user_id=query.user_id, limit=1000, offset=0  # High limit to search across all meals
         )
 
         # Filter by search query (case-insensitive)
@@ -83,21 +82,18 @@ class SearchMealsQueryHandler:
         for meal in all_meals:
             # Search in entry names/display names
             entry_match = any(
-                search_term in entry.name.lower() or
-                search_term in entry.display_name.lower()
+                search_term in entry.name.lower() or search_term in entry.display_name.lower()
                 for entry in meal.entries
             )
 
             # Search in meal notes
-            notes_match = (
-                meal.notes and search_term in meal.notes.lower()
-            )
+            notes_match = meal.notes and search_term in meal.notes.lower()
 
             if entry_match or notes_match:
                 matching_meals.append(meal)
 
         # Apply pagination
-        paginated_meals = matching_meals[query.offset:query.offset + query.limit]
+        paginated_meals = matching_meals[query.offset : query.offset + query.limit]
 
         logger.info(
             "Meal search executed",

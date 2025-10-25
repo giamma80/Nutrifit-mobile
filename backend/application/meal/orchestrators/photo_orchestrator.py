@@ -45,7 +45,7 @@ class PhotoOrchestrator:
         self,
         recognition_service: FoodRecognitionService,
         nutrition_service: NutritionEnrichmentService,
-        meal_factory: MealFactory
+        meal_factory: MealFactory,
     ):
         """
         Initialize orchestrator.
@@ -65,7 +65,7 @@ class PhotoOrchestrator:
         photo_url: str,
         dish_hint: Optional[str] = None,
         meal_type: str = "SNACK",
-        timestamp: Optional[datetime] = None
+        timestamp: Optional[datetime] = None,
     ) -> Meal:
         """
         Orchestrate complete photo analysis workflow.
@@ -106,8 +106,7 @@ class PhotoOrchestrator:
 
         # 1. Recognize foods from photo
         recognition_result = await self._recognition.recognize_from_photo(
-            photo_url=photo_url,
-            dish_hint=dish_hint
+            photo_url=photo_url, dish_hint=dish_hint
         )
 
         logger.info(
@@ -133,9 +132,7 @@ class PhotoOrchestrator:
 
             # Get nutrients for this food
             nutrients = await self._nutrition.enrich(
-                label=food.label,
-                quantity_g=food.quantity_g,
-                category=food.category
+                label=food.label, quantity_g=food.quantity_g, category=food.category
             )
 
             # Convert to dicts for factory
@@ -144,7 +141,7 @@ class PhotoOrchestrator:
                 "display_name": food.display_name,
                 "quantity_g": food.quantity_g,
                 "confidence": food.confidence,
-                "category": food.category
+                "category": food.category,
             }
 
             nutrients_dict = {
@@ -154,7 +151,7 @@ class PhotoOrchestrator:
                 "fat": nutrients.fat,
                 "fiber": nutrients.fiber,
                 "sugar": nutrients.sugar,
-                "sodium": nutrients.sodium
+                "sodium": nutrients.sodium,
             }
 
             enriched_items.append((food_dict, nutrients_dict))
@@ -172,7 +169,7 @@ class PhotoOrchestrator:
             timestamp=timestamp or datetime.now(timezone.utc),
             meal_type=meal_type,
             photo_url=photo_url,
-            analysis_id=f"photo_{uuid4().hex[:12]}"
+            analysis_id=f"photo_{uuid4().hex[:12]}",
         )
 
         logger.info(

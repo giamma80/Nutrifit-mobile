@@ -26,6 +26,7 @@ class GetMealHistoryQuery:
         limit: Max number of results (default: 100)
         offset: Pagination offset (default: 0)
     """
+
     user_id: str
     start_date: Optional[datetime] = None
     end_date: Optional[datetime] = None
@@ -70,17 +71,13 @@ class GetMealHistoryQueryHandler:
         # Get meals with date range filter
         if query.start_date and query.end_date:
             meals = await self._repository.get_by_user_and_date_range(
-                user_id=query.user_id,
-                start_date=query.start_date,
-                end_date=query.end_date
+                user_id=query.user_id, start_date=query.start_date, end_date=query.end_date
             )
             # Apply pagination manually since get_by_user_and_date_range doesn't support it
-            meals = meals[query.offset:query.offset + query.limit]
+            meals = meals[query.offset : query.offset + query.limit]
         else:
             meals = await self._repository.get_by_user(
-                user_id=query.user_id,
-                limit=query.limit,
-                offset=query.offset
+                user_id=query.user_id, limit=query.limit, offset=query.offset
             )
 
         # Apply meal_type filter if specified

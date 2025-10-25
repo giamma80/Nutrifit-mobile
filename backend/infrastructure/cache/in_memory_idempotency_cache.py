@@ -61,9 +61,7 @@ class InMemoryIdempotencyCache:
         """
         expiration = datetime.now(timezone.utc) + timedelta(seconds=ttl_seconds)
         self._cache[key] = (meal_id, expiration)
-        logger.debug(
-            f"Cached meal_id {meal_id} for key {key} with TTL {ttl_seconds}s"
-        )
+        logger.debug(f"Cached meal_id {meal_id} for key {key} with TTL {ttl_seconds}s")
 
     async def exists(self, key: str) -> bool:
         """Check if an idempotency key exists in cache.
@@ -99,9 +97,7 @@ class InMemoryIdempotencyCache:
             Number of expired entries removed
         """
         now = datetime.now(timezone.utc)
-        expired_keys = [
-            key for key, (_, expiration) in self._cache.items() if now > expiration
-        ]
+        expired_keys = [key for key, (_, expiration) in self._cache.items() if now > expiration]
 
         for key in expired_keys:
             del self._cache[key]

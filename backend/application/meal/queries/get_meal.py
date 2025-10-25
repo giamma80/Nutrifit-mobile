@@ -22,6 +22,7 @@ class GetMealQuery:
         meal_id: Meal ID to retrieve
         user_id: User ID for authorization
     """
+
     meal_id: UUID
     user_id: str
 

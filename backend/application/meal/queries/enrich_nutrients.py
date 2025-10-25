@@ -26,6 +26,7 @@ class EnrichNutrientsQuery:
         food_label: Food label to enrich (e.g., "roasted_chicken", "apple")
         quantity_g: Quantity in grams
     """
+
     food_label: str
     quantity_g: float
 
@@ -74,10 +75,7 @@ class EnrichNutrientsQueryHandler:
         )
 
         # Get nutrient profile (uses cascade: USDA → Category → Fallback)
-        profile = await self._enrichment.enrich(
-            label=query.food_label,
-            quantity_g=query.quantity_g
-        )
+        profile = await self._enrichment.enrich(label=query.food_label, quantity_g=query.quantity_g)
 
         logger.info(
             "Nutrition enrichment completed",

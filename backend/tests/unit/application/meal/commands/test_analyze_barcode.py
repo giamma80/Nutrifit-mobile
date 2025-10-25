@@ -38,7 +38,7 @@ def handler(mock_orchestrator, mock_repository, mock_event_bus, mock_idempotency
         orchestrator=mock_orchestrator,
         repository=mock_repository,
         event_bus=mock_event_bus,
-        idempotency_cache=mock_idempotency_cache
+        idempotency_cache=mock_idempotency_cache,
     )
 
 
@@ -60,19 +60,11 @@ class TestAnalyzeMealBarcodeCommandHandler:
 
     @pytest.mark.asyncio
     async def test_analyze_barcode_success(
-        self,
-        handler,
-        mock_orchestrator,
-        mock_repository,
-        mock_event_bus,
-        sample_barcode_meal
+        self, handler, mock_orchestrator, mock_repository, mock_event_bus, sample_barcode_meal
     ):
         """Test successful barcode analysis."""
         command = AnalyzeMealBarcodeCommand(
-            user_id="user123",
-            barcode="8001505005707",
-            quantity_g=150.0,
-            meal_type="SNACK"
+            user_id="user123", barcode="8001505005707", quantity_g=150.0, meal_type="SNACK"
         )
 
         mock_orchestrator.analyze.return_value = sample_barcode_meal
@@ -83,10 +75,7 @@ class TestAnalyzeMealBarcodeCommandHandler:
 
         # Verify orchestrator called correctly
         mock_orchestrator.analyze.assert_called_once_with(
-            user_id="user123",
-            barcode="8001505005707",
-            quantity_g=150.0,
-            meal_type="SNACK"
+            user_id="user123", barcode="8001505005707", quantity_g=150.0, meal_type="SNACK"
         )
 
         # Verify meal persisted
@@ -103,16 +92,11 @@ class TestAnalyzeMealBarcodeCommandHandler:
 
     @pytest.mark.asyncio
     async def test_analyze_barcode_with_defaults(
-        self,
-        handler,
-        mock_orchestrator,
-        sample_barcode_meal
+        self, handler, mock_orchestrator, sample_barcode_meal
     ):
         """Test barcode analysis with default meal_type."""
         command = AnalyzeMealBarcodeCommand(
-            user_id="user123",
-            barcode="8001505005707",
-            quantity_g=150.0
+            user_id="user123", barcode="8001505005707", quantity_g=150.0
         )
 
         mock_orchestrator.analyze.return_value = sample_barcode_meal
@@ -131,7 +115,7 @@ class TestAnalyzeMealBarcodeCommandHandler:
         mock_repository,
         mock_event_bus,
         mock_idempotency_cache,
-        sample_barcode_meal
+        sample_barcode_meal,
     ):
         """Test barcode analysis with idempotency key - cache miss."""
         command = AnalyzeMealBarcodeCommand(
@@ -139,7 +123,7 @@ class TestAnalyzeMealBarcodeCommandHandler:
             barcode="8001505005707",
             quantity_g=150.0,
             meal_type="SNACK",
-            idempotency_key="barcode-idem-key-123"
+            idempotency_key="barcode-idem-key-123",
         )
 
         # Cache miss
@@ -159,9 +143,7 @@ class TestAnalyzeMealBarcodeCommandHandler:
 
         # Verify result was cached
         mock_idempotency_cache.set.assert_called_once_with(
-            "barcode-idem-key-123",
-            sample_barcode_meal.id,
-            ttl_seconds=3600
+            "barcode-idem-key-123", sample_barcode_meal.id, ttl_seconds=3600
         )
 
     @pytest.mark.asyncio
@@ -171,7 +153,7 @@ class TestAnalyzeMealBarcodeCommandHandler:
         mock_orchestrator,
         mock_repository,
         mock_idempotency_cache,
-        sample_barcode_meal
+        sample_barcode_meal,
     ):
         """Test barcode analysis with idempotency key - cache hit."""
         command = AnalyzeMealBarcodeCommand(
@@ -179,7 +161,7 @@ class TestAnalyzeMealBarcodeCommandHandler:
             barcode="8001505005707",
             quantity_g=150.0,
             meal_type="SNACK",
-            idempotency_key="barcode-idem-key-456"
+            idempotency_key="barcode-idem-key-456",
         )
 
         # Cache hit - return existing meal ID
@@ -195,9 +177,7 @@ class TestAnalyzeMealBarcodeCommandHandler:
         mock_idempotency_cache.get.assert_called_once_with("barcode-idem-key-456")
 
         # Verify meal retrieved from repository
-        mock_repository.get_by_id.assert_called_once_with(
-            cached_meal_id, "user123"
-        )
+        mock_repository.get_by_id.assert_called_once_with(cached_meal_id, "user123")
 
         # Verify analysis NOT executed (idempotency)
         mock_orchestrator.analyze.assert_not_called()
@@ -208,17 +188,13 @@ class TestAnalyzeMealBarcodeCommandHandler:
 
     @pytest.mark.asyncio
     async def test_analyze_barcode_no_idempotency_key(
-        self,
-        handler,
-        mock_orchestrator,
-        mock_idempotency_cache,
-        sample_barcode_meal
+        self, handler, mock_orchestrator, mock_idempotency_cache, sample_barcode_meal
     ):
         """Test barcode analysis without idempotency key."""
         command = AnalyzeMealBarcodeCommand(
             user_id="user123",
             barcode="8001505005707",
-            quantity_g=150.0
+            quantity_g=150.0,
             # No idempotency_key
         )
 

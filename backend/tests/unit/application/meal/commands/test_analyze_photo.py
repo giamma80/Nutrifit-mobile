@@ -38,7 +38,7 @@ def handler(mock_orchestrator, mock_repository, mock_event_bus, mock_idempotency
         orchestrator=mock_orchestrator,
         repository=mock_repository,
         event_bus=mock_event_bus,
-        idempotency_cache=mock_idempotency_cache
+        idempotency_cache=mock_idempotency_cache,
     )
 
 
@@ -58,19 +58,14 @@ class TestAnalyzeMealPhotoCommandHandler:
 
     @pytest.mark.asyncio
     async def test_analyze_photo_success(
-        self,
-        handler,
-        mock_orchestrator,
-        mock_repository,
-        mock_event_bus,
-        sample_analyzed_meal
+        self, handler, mock_orchestrator, mock_repository, mock_event_bus, sample_analyzed_meal
     ):
         """Test successful photo analysis."""
         command = AnalyzeMealPhotoCommand(
             user_id="user123",
             photo_url="https://example.com/pasta.jpg",
             dish_hint="pasta",
-            meal_type="LUNCH"
+            meal_type="LUNCH",
         )
 
         mock_orchestrator.analyze.return_value = sample_analyzed_meal
@@ -84,7 +79,7 @@ class TestAnalyzeMealPhotoCommandHandler:
             user_id="user123",
             photo_url="https://example.com/pasta.jpg",
             dish_hint="pasta",
-            meal_type="LUNCH"
+            meal_type="LUNCH",
         )
 
         # Verify meal persisted
@@ -101,15 +96,11 @@ class TestAnalyzeMealPhotoCommandHandler:
 
     @pytest.mark.asyncio
     async def test_analyze_photo_with_defaults(
-        self,
-        handler,
-        mock_orchestrator,
-        sample_analyzed_meal
+        self, handler, mock_orchestrator, sample_analyzed_meal
     ):
         """Test photo analysis with default parameters."""
         command = AnalyzeMealPhotoCommand(
-            user_id="user123",
-            photo_url="https://example.com/food.jpg"
+            user_id="user123", photo_url="https://example.com/food.jpg"
         )
 
         mock_orchestrator.analyze.return_value = sample_analyzed_meal
@@ -121,7 +112,7 @@ class TestAnalyzeMealPhotoCommandHandler:
             user_id="user123",
             photo_url="https://example.com/food.jpg",
             dish_hint=None,
-            meal_type="SNACK"
+            meal_type="SNACK",
         )
 
     @pytest.mark.asyncio
@@ -132,14 +123,14 @@ class TestAnalyzeMealPhotoCommandHandler:
         mock_repository,
         mock_event_bus,
         mock_idempotency_cache,
-        sample_analyzed_meal
+        sample_analyzed_meal,
     ):
         """Test photo analysis with idempotency key - cache miss."""
         command = AnalyzeMealPhotoCommand(
             user_id="user123",
             photo_url="https://example.com/pasta.jpg",
             meal_type="LUNCH",
-            idempotency_key="idem-key-123"
+            idempotency_key="idem-key-123",
         )
 
         # Cache miss
@@ -159,9 +150,7 @@ class TestAnalyzeMealPhotoCommandHandler:
 
         # Verify result was cached
         mock_idempotency_cache.set.assert_called_once_with(
-            "idem-key-123",
-            sample_analyzed_meal.id,
-            ttl_seconds=3600
+            "idem-key-123", sample_analyzed_meal.id, ttl_seconds=3600
         )
 
     @pytest.mark.asyncio
@@ -171,14 +160,14 @@ class TestAnalyzeMealPhotoCommandHandler:
         mock_orchestrator,
         mock_repository,
         mock_idempotency_cache,
-        sample_analyzed_meal
+        sample_analyzed_meal,
     ):
         """Test photo analysis with idempotency key - cache hit."""
         command = AnalyzeMealPhotoCommand(
             user_id="user123",
             photo_url="https://example.com/pasta.jpg",
             meal_type="LUNCH",
-            idempotency_key="idem-key-456"
+            idempotency_key="idem-key-456",
         )
 
         # Cache hit - return existing meal ID
@@ -194,9 +183,7 @@ class TestAnalyzeMealPhotoCommandHandler:
         mock_idempotency_cache.get.assert_called_once_with("idem-key-456")
 
         # Verify meal retrieved from repository
-        mock_repository.get_by_id.assert_called_once_with(
-            cached_meal_id, "user123"
-        )
+        mock_repository.get_by_id.assert_called_once_with(cached_meal_id, "user123")
 
         # Verify analysis NOT executed (idempotency)
         mock_orchestrator.analyze.assert_not_called()
@@ -207,17 +194,13 @@ class TestAnalyzeMealPhotoCommandHandler:
 
     @pytest.mark.asyncio
     async def test_analyze_photo_no_idempotency_key(
-        self,
-        handler,
-        mock_orchestrator,
-        mock_idempotency_cache,
-        sample_analyzed_meal
+        self, handler, mock_orchestrator, mock_idempotency_cache, sample_analyzed_meal
     ):
         """Test photo analysis without idempotency key."""
         command = AnalyzeMealPhotoCommand(
             user_id="user123",
             photo_url="https://example.com/pasta.jpg",
-            meal_type="LUNCH"
+            meal_type="LUNCH",
             # No idempotency_key
         )
 

@@ -337,6 +337,31 @@ class TestMealEntry:
         with pytest.raises(ValueError, match="Quantity must be positive"):
             entry.update_quantity(-50.0)
 
+    def test_update_quantity_scales_optional_nutrients(self) -> None:
+        """Test that update_quantity scales optional micronutrients."""
+        entry = MealEntry(
+            id=uuid4(),
+            meal_id=uuid4(),
+            name="banana",
+            display_name="Banana",
+            quantity_g=100.0,
+            calories=89,
+            protein=1.1,
+            carbs=22.8,
+            fat=0.3,
+            fiber=2.6,
+            sugar=12.2,
+            sodium=1.0,
+        )
+
+        # Scale to 150g
+        entry.update_quantity(150.0)
+
+        assert entry.quantity_g == 150.0
+        assert entry.fiber == 2.6 * 1.5  # 3.9
+        assert entry.sugar == 12.2 * 1.5  # 18.3
+        assert entry.sodium == 1.0 * 1.5  # 1.5
+
     def test_is_reliable(self) -> None:
         """Test is_reliable method."""
         reliable = MealEntry(
@@ -420,6 +445,28 @@ class TestMeal:
                 user_id="user-123",
                 timestamp=datetime.now(),  # Naive - invalid
                 meal_type="LUNCH",
+            )
+
+    def test_validates_timezone_aware_created_at(self) -> None:
+        """Test that created_at must be timezone-aware."""
+        with pytest.raises(ValueError, match="created_at must be timezone-aware"):
+            Meal(
+                id=uuid4(),
+                user_id="user-123",
+                timestamp=datetime.now(timezone.utc),
+                meal_type="LUNCH",
+                created_at=datetime.now(),  # Naive - invalid
+            )
+
+    def test_validates_timezone_aware_updated_at(self) -> None:
+        """Test that updated_at must be timezone-aware."""
+        with pytest.raises(ValueError, match="updated_at must be timezone-aware"):
+            Meal(
+                id=uuid4(),
+                user_id="user-123",
+                timestamp=datetime.now(timezone.utc),
+                meal_type="LUNCH",
+                updated_at=datetime.now(),  # Naive - invalid
             )
 
     def test_add_entry(self) -> None:

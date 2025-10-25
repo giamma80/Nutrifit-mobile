@@ -27,6 +27,7 @@ class DailySummary:
         meal_count: Number of meals logged
         breakdown_by_type: Calories by meal type
     """
+
     date: datetime
     total_calories: float
     total_protein: float
@@ -48,6 +49,7 @@ class GetDailySummaryQuery:
         user_id: User ID to filter meals
         date: Date to summarize (if None, defaults to today in handler)
     """
+
     user_id: str
     date: Optional[datetime] = None
 
@@ -90,9 +92,7 @@ class GetDailySummaryQueryHandler:
 
         # Fetch all meals for the day
         meals = await self._repository.get_by_user_and_date_range(
-            user_id=query.user_id,
-            start_date=start,
-            end_date=end
+            user_id=query.user_id, start_date=start, end_date=end
         )
 
         # Aggregate totals
@@ -122,7 +122,7 @@ class GetDailySummaryQueryHandler:
             total_fat=total_fat,
             total_fiber=total_fiber,
             meal_count=len(meals),
-            breakdown_by_type=breakdown
+            breakdown_by_type=breakdown,
         )
 
         logger.info(

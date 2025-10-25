@@ -60,6 +60,12 @@ class TestMealId:
         with pytest.raises(AttributeError):
             meal_id.value = uuid4()  # type: ignore
 
+    def test_repr_representation(self) -> None:
+        """Test repr representation."""
+        uuid_val = uuid4()
+        meal_id = MealId(uuid_val)
+        assert repr(meal_id) == f"MealId({uuid_val})"
+
 
 class TestQuantity:
     """Test suite for Quantity value object."""
@@ -111,6 +117,11 @@ class TestQuantity:
         q = Quantity(100.0, "g")
         with pytest.raises(AttributeError):
             q.value = 200.0  # type: ignore
+
+    def test_repr_representation(self) -> None:
+        """Test repr representation."""
+        q = Quantity(125.5, "g")
+        assert repr(q) == "Quantity(value=125.5, unit='g')"
 
 
 class TestTimestamp:
@@ -187,6 +198,19 @@ class TestTimestamp:
         with pytest.raises(AttributeError):
             ts.value = datetime.now(timezone.utc)  # type: ignore
 
+    def test_str_representation(self) -> None:
+        """Test string representation."""
+        dt = datetime(2025, 1, 15, 10, 30, 0, tzinfo=timezone.utc)
+        ts = Timestamp(dt)
+        assert str(ts) == "2025-01-15 10:30:00 UTC"
+
+    def test_repr_representation(self) -> None:
+        """Test repr representation."""
+        dt = datetime(2025, 1, 15, 10, 30, 0, tzinfo=timezone.utc)
+        ts = Timestamp(dt)
+        assert "Timestamp" in repr(ts)
+        assert "2025-01-15" in repr(ts)
+
 
 class TestConfidence:
     """Test suite for Confidence value object."""
@@ -257,3 +281,8 @@ class TestConfidence:
         c = Confidence(0.8)
         with pytest.raises(AttributeError):
             c.value = 0.9  # type: ignore
+
+    def test_repr_representation(self) -> None:
+        """Test repr representation."""
+        c = Confidence(0.85)
+        assert repr(c) == "Confidence(0.85)"

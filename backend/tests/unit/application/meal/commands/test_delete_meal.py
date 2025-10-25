@@ -34,10 +34,7 @@ def mock_event_bus():
 @pytest.fixture
 def handler(mock_repository, mock_event_bus):
     """Create handler with mocked dependencies."""
-    return DeleteMealCommandHandler(
-        repository=mock_repository,
-        event_bus=mock_event_bus
-    )
+    return DeleteMealCommandHandler(repository=mock_repository, event_bus=mock_event_bus)
 
 
 @pytest.fixture
@@ -60,20 +57,14 @@ class TestDeleteMealCommand:
     def test_command_creation(self):
         """Test command can be created with required fields."""
         meal_id = uuid4()
-        command = DeleteMealCommand(
-            meal_id=meal_id,
-            user_id="user123"
-        )
+        command = DeleteMealCommand(meal_id=meal_id, user_id="user123")
 
         assert command.meal_id == meal_id
         assert command.user_id == "user123"
 
     def test_command_is_frozen(self):
         """Test command is immutable."""
-        command = DeleteMealCommand(
-            meal_id=uuid4(),
-            user_id="user123"
-        )
+        command = DeleteMealCommand(meal_id=uuid4(), user_id="user123")
 
         with pytest.raises(AttributeError):
             command.user_id = "user456"  # type: ignore[misc]
@@ -83,19 +74,10 @@ class TestDeleteMealCommandHandler:
     """Test DeleteMealCommandHandler."""
 
     @pytest.mark.asyncio
-    async def test_delete_meal_success(
-        self,
-        handler,
-        mock_repository,
-        mock_event_bus,
-        sample_meal
-    ):
+    async def test_delete_meal_success(self, handler, mock_repository, mock_event_bus, sample_meal):
         """Test successful meal deletion."""
         # Setup
-        command = DeleteMealCommand(
-            meal_id=sample_meal.id,
-            user_id=sample_meal.user_id
-        )
+        command = DeleteMealCommand(meal_id=sample_meal.id, user_id=sample_meal.user_id)
 
         mock_repository.get_by_id.return_value = sample_meal
         mock_repository.delete.return_value = True
@@ -105,14 +87,8 @@ class TestDeleteMealCommandHandler:
 
         # Assert
         assert result is True
-        mock_repository.get_by_id.assert_called_once_with(
-            sample_meal.id,
-            sample_meal.user_id
-        )
-        mock_repository.delete.assert_called_once_with(
-            sample_meal.id,
-            sample_meal.user_id
-        )
+        mock_repository.get_by_id.assert_called_once_with(sample_meal.id, sample_meal.user_id)
+        mock_repository.delete.assert_called_once_with(sample_meal.id, sample_meal.user_id)
 
         # Verify event published
         mock_event_bus.publish.assert_called_once()
@@ -122,18 +98,10 @@ class TestDeleteMealCommandHandler:
         assert event.user_id == sample_meal.user_id
 
     @pytest.mark.asyncio
-    async def test_delete_meal_not_found(
-        self,
-        handler,
-        mock_repository,
-        mock_event_bus
-    ):
+    async def test_delete_meal_not_found(self, handler, mock_repository, mock_event_bus):
         """Test deletion when meal doesn't exist."""
         # Setup
-        command = DeleteMealCommand(
-            meal_id=uuid4(),
-            user_id="user123"
-        )
+        command = DeleteMealCommand(meal_id=uuid4(), user_id="user123")
 
         mock_repository.get_by_id.return_value = None
 
@@ -146,18 +114,10 @@ class TestDeleteMealCommandHandler:
         mock_event_bus.publish.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_delete_meal_wrong_owner(
-        self,
-        handler,
-        mock_repository,
-        sample_meal
-    ):
+    async def test_delete_meal_wrong_owner(self, handler, mock_repository, sample_meal):
         """Test deletion fails when user doesn't own meal."""
         # Setup
-        command = DeleteMealCommand(
-            meal_id=sample_meal.id,
-            user_id="different_user"
-        )
+        command = DeleteMealCommand(meal_id=sample_meal.id, user_id="different_user")
 
         # Repository should return None for unauthorized access
         mock_repository.get_by_id.return_value = None
@@ -170,18 +130,10 @@ class TestDeleteMealCommandHandler:
         mock_repository.delete.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_delete_meal_permission_error(
-        self,
-        handler,
-        mock_repository,
-        sample_meal
-    ):
+    async def test_delete_meal_permission_error(self, handler, mock_repository, sample_meal):
         """Test permission error when meal exists but user doesn't own it."""
         # Setup
-        command = DeleteMealCommand(
-            meal_id=sample_meal.id,
-            user_id="different_user"
-        )
+        command = DeleteMealCommand(meal_id=sample_meal.id, user_id="different_user")
 
         # Repository returns meal (shouldn't happen in real scenario)
         mock_repository.get_by_id.return_value = sample_meal
@@ -192,18 +144,11 @@ class TestDeleteMealCommandHandler:
 
     @pytest.mark.asyncio
     async def test_delete_fails_no_event(
-        self,
-        handler,
-        mock_repository,
-        mock_event_bus,
-        sample_meal
+        self, handler, mock_repository, mock_event_bus, sample_meal
     ):
         """Test no event published when deletion fails."""
         # Setup
-        command = DeleteMealCommand(
-            meal_id=sample_meal.id,
-            user_id=sample_meal.user_id
-        )
+        command = DeleteMealCommand(meal_id=sample_meal.id, user_id=sample_meal.user_id)
 
         mock_repository.get_by_id.return_value = sample_meal
         mock_repository.delete.return_value = False  # Deletion failed

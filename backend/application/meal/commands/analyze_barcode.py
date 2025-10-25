@@ -32,6 +32,7 @@ class AnalyzeMealBarcodeCommand:
         meal_type: BREAKFAST | LUNCH | DINNER | SNACK
         idempotency_key: Optional key for idempotent processing
     """
+
     user_id: str
     barcode: str
     quantity_g: float
@@ -47,7 +48,7 @@ class AnalyzeMealBarcodeCommandHandler:
         orchestrator: BarcodeOrchestrator,
         repository: IMealRepository,
         event_bus: IEventBus,
-        idempotency_cache: IIdempotencyCache
+        idempotency_cache: IIdempotencyCache,
     ):
         """
         Initialize handler.
@@ -109,9 +110,7 @@ class AnalyzeMealBarcodeCommandHandler:
 
         # Check idempotency cache if key provided
         if command.idempotency_key:
-            cached_meal_id = await self._idempotency_cache.get(
-                command.idempotency_key
-            )
+            cached_meal_id = await self._idempotency_cache.get(command.idempotency_key)
             if cached_meal_id:
                 logger.info(
                     "Idempotency cache hit - returning existing meal",
@@ -120,9 +119,7 @@ class AnalyzeMealBarcodeCommandHandler:
                         "cached_meal_id": str(cached_meal_id),
                     },
                 )
-                meal = await self._repository.get_by_id(
-                    cached_meal_id, command.user_id
-                )
+                meal = await self._repository.get_by_id(cached_meal_id, command.user_id)
                 if meal:
                     return meal
                 # If meal not found in repository, proceed with analysis
@@ -136,7 +133,7 @@ class AnalyzeMealBarcodeCommandHandler:
             user_id=command.user_id,
             barcode=command.barcode,
             quantity_g=command.quantity_g,
-            meal_type=command.meal_type
+            meal_type=command.meal_type,
         )
 
         # 2. Persist meal
@@ -162,18 +159,14 @@ class AnalyzeMealBarcodeCommandHandler:
             user_id=command.user_id,
             source="BARCODE",
             item_count=1,  # Barcode = single product
-            average_confidence=1.0  # Barcode = 100% confidence
+            average_confidence=1.0,  # Barcode = 100% confidence
         )
 
         await self._event_bus.publish(event)
 
         # 4. Cache meal ID for idempotency (1 hour TTL)
         if command.idempotency_key:
-            await self._idempotency_cache.set(
-                command.idempotency_key,
-                meal.id,
-                ttl_seconds=3600
-            )
+            await self._idempotency_cache.set(command.idempotency_key, meal.id, ttl_seconds=3600)
             logger.debug(
                 "Cached meal ID for idempotency",
                 extra={

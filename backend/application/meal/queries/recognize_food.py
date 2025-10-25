@@ -28,6 +28,7 @@ class RecognizeFoodQuery:
         text: Text description to analyze (mutually exclusive with photo_url)
         dish_hint: Optional hint about the dish type
     """
+
     photo_url: Optional[str] = None
     text: Optional[str] = None
     dish_hint: Optional[str] = None
@@ -82,8 +83,7 @@ class RecognizeFoodQueryHandler:
             )
 
             result = await self._recognition.recognize_from_photo(
-                photo_url=query.photo_url,
-                dish_hint=query.dish_hint
+                photo_url=query.photo_url, dish_hint=query.dish_hint
             )
 
         else:  # query.text
@@ -98,9 +98,7 @@ class RecognizeFoodQueryHandler:
                 },
             )
 
-            result = await self._recognition.recognize_from_text(
-                description=text
-            )
+            result = await self._recognition.recognize_from_text(description=text)
 
         logger.info(
             "Food recognition completed",

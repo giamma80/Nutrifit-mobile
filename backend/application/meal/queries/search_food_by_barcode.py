@@ -23,6 +23,7 @@ class SearchFoodByBarcodeQuery:
     Attributes:
         barcode: Product barcode (EAN/UPC)
     """
+
     barcode: str
 
 
@@ -81,7 +82,7 @@ class SearchFoodByBarcodeQueryHandler:
                 "brand": product.brand,
                 "has_nutrients": product.nutrients is not None,
                 "has_image": product.has_image(),
-                "is_high_quality": product.is_high_quality(),
+                "is_high_quality": product.is_high_quality() if product.nutrients else False,
             },
         )
 

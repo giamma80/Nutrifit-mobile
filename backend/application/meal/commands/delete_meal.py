@@ -27,6 +27,7 @@ class DeleteMealCommand:
         meal_id: Meal to delete
         user_id: User ID (for authorization)
     """
+
     meal_id: UUID
     user_id: str
 
@@ -34,11 +35,7 @@ class DeleteMealCommand:
 class DeleteMealCommandHandler:
     """Handler for DeleteMealCommand."""
 
-    def __init__(
-        self,
-        repository: IMealRepository,
-        event_bus: IEventBus
-    ):
+    def __init__(self, repository: IMealRepository, event_bus: IEventBus):
         """
         Initialize handler.
 
@@ -76,10 +73,7 @@ class DeleteMealCommandHandler:
         )
 
         # 1. Verify ownership before deletion
-        meal = await self._repository.get_by_id(
-            command.meal_id,
-            command.user_id
-        )
+        meal = await self._repository.get_by_id(command.meal_id, command.user_id)
 
         if not meal:
             logger.info(
@@ -93,15 +87,10 @@ class DeleteMealCommandHandler:
 
         # 2. Verify ownership (redundant check, already done by repo)
         if meal.user_id != command.user_id:
-            raise PermissionError(
-                f"User {command.user_id} doesn't own meal {command.meal_id}"
-            )
+            raise PermissionError(f"User {command.user_id} doesn't own meal {command.meal_id}")
 
         # 3. Delete from repository
-        deleted = await self._repository.delete(
-            command.meal_id,
-            command.user_id
-        )
+        deleted = await self._repository.delete(command.meal_id, command.user_id)
 
         if deleted:
             logger.info(

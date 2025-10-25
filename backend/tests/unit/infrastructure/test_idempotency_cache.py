@@ -32,9 +32,7 @@ class TestInMemoryIdempotencyCache:
         assert result == meal_id
 
     @pytest.mark.asyncio
-    async def test_get_nonexistent_key(
-        self, cache: InMemoryIdempotencyCache
-    ) -> None:
+    async def test_get_nonexistent_key(self, cache: InMemoryIdempotencyCache) -> None:
         """Test getting a key that doesn't exist."""
         result = await cache.get("nonexistent")
         assert result is None
@@ -92,9 +90,7 @@ class TestInMemoryIdempotencyCache:
         assert await cache.exists(key) is False
 
     @pytest.mark.asyncio
-    async def test_overwrite_existing_key(
-        self, cache: InMemoryIdempotencyCache
-    ) -> None:
+    async def test_overwrite_existing_key(self, cache: InMemoryIdempotencyCache) -> None:
         """Test overwriting an existing key."""
         key = "test-key-overwrite"
         meal_id_1 = uuid4()

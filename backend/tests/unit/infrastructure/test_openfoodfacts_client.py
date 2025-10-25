@@ -12,6 +12,7 @@ For integration tests with real API, see:
 tests/integration/infrastructure/test_openfoodfacts_integration.py
 """
 
+import httpx
 import pytest
 from unittest.mock import AsyncMock, MagicMock
 from typing import Any
@@ -82,6 +83,20 @@ class TestOpenFoodFactsClientInit:
         """Test initialization."""
         client = OpenFoodFactsClient()
         assert client._session is None
+
+    @pytest.mark.asyncio
+    async def test_context_manager(self) -> None:
+        """Test async context manager."""
+        async with OpenFoodFactsClient() as client:
+            assert client._session is not None
+
+    @pytest.mark.asyncio
+    async def test_lookup_without_context_manager(self) -> None:
+        """Test lookup raises error without context manager."""
+        client = OpenFoodFactsClient()
+
+        with pytest.raises(RuntimeError, match="Client not initialized"):
+            await client.lookup_barcode("1234567890123")
 
 
 class TestLookupBarcode:
@@ -208,6 +223,52 @@ class TestLookupBarcode:
         with pytest.raises(Exception):
             await off_client.lookup_barcode("1234567890123")
 
+    @pytest.mark.asyncio
+    async def test_lookup_barcode_unexpected_status(
+        self, off_client: OpenFoodFactsClient
+    ) -> None:
+        """Test barcode lookup with unexpected status code."""
+        # Mock HTTP 400 response
+        mock_response = MagicMock()
+        mock_response.status_code = 400
+
+        off_client._session.get = AsyncMock(return_value=mock_response)
+
+        # Execute - should return None for unexpected status
+        product = await off_client.lookup_barcode("1234567890123")
+
+        assert product is None
+
+    @pytest.mark.asyncio
+    async def test_lookup_barcode_timeout(
+        self, off_client: OpenFoodFactsClient
+    ) -> None:
+        """Test barcode lookup with timeout (retries then raises)."""
+        from tenacity import RetryError
+
+        # Mock timeout exception
+        off_client._session.get = AsyncMock(
+            side_effect=httpx.TimeoutException("Timeout")
+        )
+
+        # Execute - retry decorator will try 3 times then raise RetryError
+        with pytest.raises(RetryError):
+            await off_client.lookup_barcode("1234567890123")
+
+    @pytest.mark.asyncio
+    async def test_lookup_barcode_generic_exception(
+        self, off_client: OpenFoodFactsClient
+    ) -> None:
+        """Test barcode lookup with generic exception."""
+        # Mock generic exception
+        off_client._session.get = AsyncMock(
+            side_effect=Exception("Network error")
+        )
+
+        # Execute - should raise exception
+        with pytest.raises(Exception, match="Network error"):
+            await off_client.lookup_barcode("1234567890123")
+
 
 class TestNutrientExtraction:
     """Test _extract_nutrients method."""
@@ -288,15 +349,38 @@ class TestNutrientExtraction:
         assert nutrients.sugar == 0.0
         assert nutrients.sodium == 0.0
 
+    def test_extract_nutrients_invalid_types(self) -> None:
+        """Test extraction with invalid nutrient value types."""
+        client = OpenFoodFactsClient()
+
+        product_data = {
+            "nutriments": {
+                "energy-kcal_100g": "invalid",  # String that can't convert
+                "proteins_100g": [1, 2, 3],  # List (invalid type)
+                "carbohydrates_100g": None,  # Explicit None
+            }
+        }
+
+        nutrients = client._extract_nutrients(product_data)
+
+        # Invalid values should default to 0
+        assert nutrients.calories == 0
+        assert nutrients.protein == 0.0
+        assert nutrients.carbs == 0.0
+
 
 class TestProductMapping:
     """Test _map_to_barcode_product method."""
 
-    def test_map_to_barcode_product_complete(self, sample_off_response: dict[str, Any]) -> None:
+    def test_map_to_barcode_product_complete(
+        self, sample_off_response: dict[str, Any]
+    ) -> None:
         """Test mapping with complete product data."""
         client = OpenFoodFactsClient()
 
-        product = client._map_to_barcode_product("8001505005707", sample_off_response["product"])
+        product = client._map_to_barcode_product(
+            "8001505005707", sample_off_response["product"]
+        )
 
         assert product.barcode == "8001505005707"
         assert product.name == "Galletti Biscuits"

@@ -35,20 +35,14 @@ def orchestrator(mock_barcode_service, mock_nutrition_service, mock_meal_factory
     return BarcodeOrchestrator(
         barcode_service=mock_barcode_service,
         nutrition_service=mock_nutrition_service,
-        meal_factory=mock_meal_factory
+        meal_factory=mock_meal_factory,
     )
 
 
 @pytest.fixture
 def sample_barcode_product_with_nutrients():
     nutrients = NutrientProfile(
-        calories=220,
-        protein=3.0,
-        carbs=22.0,
-        fat=15.0,
-        fiber=2.0,
-        sugar=20.0,
-        sodium=40.0
+        calories=220, protein=3.0, carbs=22.0, fat=15.0, fiber=2.0, sugar=20.0, sodium=40.0
     )
     return BarcodeProduct(
         barcode="8001505005707",
@@ -56,7 +50,7 @@ def sample_barcode_product_with_nutrients():
         brand="Ferrero",
         nutrients=nutrients,
         image_url="https://example.com/nutella.jpg",
-        serving_size_g=100.0
+        serving_size_g=100.0,
     )
 
 
@@ -68,20 +62,14 @@ def sample_barcode_product_without_nutrients():
         brand=None,
         nutrients=None,
         image_url=None,
-        serving_size_g=None
+        serving_size_g=None,
     )
 
 
 @pytest.fixture
 def sample_nutrient_profile():
     return NutrientProfile(
-        calories=100,
-        protein=5.0,
-        carbs=15.0,
-        fat=2.0,
-        fiber=1.0,
-        sugar=5.0,
-        sodium=50.0
+        calories=100, protein=5.0, carbs=15.0, fat=2.0, fiber=1.0, sugar=5.0, sodium=50.0
     )
 
 
@@ -105,7 +93,7 @@ class TestBarcodeOrchestrator:
         mock_nutrition_service,
         mock_meal_factory,
         sample_barcode_product_with_nutrients,
-        sample_meal
+        sample_meal,
     ):
         """Test analysis when product has nutrients."""
         # Setup
@@ -114,10 +102,7 @@ class TestBarcodeOrchestrator:
 
         # Execute
         result = await orchestrator.analyze(
-            user_id="user123",
-            barcode="8001505005707",
-            quantity_g=150.0,
-            meal_type="SNACK"
+            user_id="user123", barcode="8001505005707", quantity_g=150.0, meal_type="SNACK"
         )
 
         # Assert
@@ -149,7 +134,7 @@ class TestBarcodeOrchestrator:
         mock_meal_factory,
         sample_barcode_product_without_nutrients,
         sample_nutrient_profile,
-        sample_meal
+        sample_meal,
     ):
         """Test analysis when product lacks nutrients (USDA fallback)."""
         # Setup
@@ -159,10 +144,7 @@ class TestBarcodeOrchestrator:
 
         # Execute
         result = await orchestrator.analyze(
-            user_id="user123",
-            barcode="1234567890123",
-            quantity_g=200.0,
-            meal_type="SNACK"
+            user_id="user123", barcode="1234567890123", quantity_g=200.0, meal_type="SNACK"
         )
 
         # Assert
@@ -170,23 +152,13 @@ class TestBarcodeOrchestrator:
 
         # Verify enrichment called (fallback to USDA)
         mock_nutrition_service.enrich.assert_called_once_with(
-            label="Generic Product",
-            quantity_g=100.0,
-            category=None
+            label="Generic Product", quantity_g=100.0, category=None
         )
 
     @pytest.mark.asyncio
-    async def test_analyze_product_not_found(
-        self,
-        orchestrator,
-        mock_barcode_service
-    ):
+    async def test_analyze_product_not_found(self, orchestrator, mock_barcode_service):
         """Test analysis fails when product not found."""
         mock_barcode_service.lookup.return_value = None
 
         with pytest.raises(ValueError, match="Product not found"):
-            await orchestrator.analyze(
-                user_id="user123",
-                barcode="9999999999999",
-                quantity_g=100.0
-            )
+            await orchestrator.analyze(user_id="user123", barcode="9999999999999", quantity_g=100.0)

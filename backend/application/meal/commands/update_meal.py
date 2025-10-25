@@ -32,6 +32,7 @@ class UpdateMealCommand:
         user_id: User ID (for authorization)
         updates: Dictionary of field name → new value
     """
+
     meal_id: UUID
     user_id: str
     updates: Dict[str, Any]
@@ -40,11 +41,7 @@ class UpdateMealCommand:
 class UpdateMealCommandHandler:
     """Handler for UpdateMealCommand."""
 
-    def __init__(
-        self,
-        repository: IMealRepository,
-        event_bus: IEventBus
-    ):
+    def __init__(self, repository: IMealRepository, event_bus: IEventBus):
         """
         Initialize handler.
 
@@ -93,21 +90,14 @@ class UpdateMealCommandHandler:
         )
 
         # 1. Load meal
-        meal = await self._repository.get_by_id(
-            command.meal_id,
-            command.user_id
-        )
+        meal = await self._repository.get_by_id(command.meal_id, command.user_id)
 
         if not meal:
-            raise MealNotFoundError(
-                f"Meal {command.meal_id} not found for user {command.user_id}"
-            )
+            raise MealNotFoundError(f"Meal {command.meal_id} not found for user {command.user_id}")
 
         # 2. Verify ownership (redundant check, already done by repo)
         if meal.user_id != command.user_id:
-            raise PermissionError(
-                f"User {command.user_id} doesn't own meal {command.meal_id}"
-            )
+            raise PermissionError(f"User {command.user_id} doesn't own meal {command.meal_id}")
 
         # 3. Apply updates to allowed fields
         updated_fields: List[str] = []

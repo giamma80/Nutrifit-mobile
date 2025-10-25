@@ -47,7 +47,7 @@ class BarcodeOrchestrator:
         self,
         barcode_service: BarcodeService,
         nutrition_service: NutritionEnrichmentService,
-        meal_factory: MealFactory
+        meal_factory: MealFactory,
     ):
         """
         Initialize orchestrator.
@@ -67,7 +67,7 @@ class BarcodeOrchestrator:
         barcode: str,
         quantity_g: float,
         meal_type: str = "SNACK",
-        timestamp: Optional[datetime] = None
+        timestamp: Optional[datetime] = None,
     ) -> Meal:
         """
         Orchestrate complete barcode analysis workflow.
@@ -137,7 +137,7 @@ class BarcodeOrchestrator:
             base_nutrients = await self._nutrition.enrich(
                 label=product.name,
                 quantity_g=100.0,  # Reference quantity
-                category=None  # Product category not available
+                category=None,  # Product category not available
             )
 
         # 3. Scale nutrients to actual quantity
@@ -171,7 +171,7 @@ class BarcodeOrchestrator:
             "display_name": product.display_name(),
             "quantity_g": quantity_g,
             "confidence": 1.0,  # Barcode = 100% confidence
-            "category": None  # Not available for barcode products
+            "category": None,  # Not available for barcode products
         }
 
         meal = self._factory.create_from_analysis(
@@ -180,7 +180,7 @@ class BarcodeOrchestrator:
             source="BARCODE",
             timestamp=timestamp or datetime.now(timezone.utc),
             meal_type=meal_type,
-            analysis_id=f"barcode_{uuid4().hex[:12]}"
+            analysis_id=f"barcode_{uuid4().hex[:12]}",
         )
 
         # 5. Add barcode metadata to entry

@@ -25,10 +25,7 @@ def mock_event_bus():
 
 @pytest.fixture
 def handler(mock_repository, mock_event_bus):
-    return UpdateMealCommandHandler(
-        repository=mock_repository,
-        event_bus=mock_event_bus
-    )
+    return UpdateMealCommandHandler(repository=mock_repository, event_bus=mock_event_bus)
 
 
 @pytest.fixture
@@ -46,18 +43,12 @@ class TestUpdateMealCommandHandler:
     """Test UpdateMealCommandHandler."""
 
     @pytest.mark.asyncio
-    async def test_update_meal_success(
-        self,
-        handler,
-        mock_repository,
-        mock_event_bus,
-        sample_meal
-    ):
+    async def test_update_meal_success(self, handler, mock_repository, mock_event_bus, sample_meal):
         """Test successful meal update."""
         command = UpdateMealCommand(
             meal_id=sample_meal.id,
             user_id=sample_meal.user_id,
-            updates={"meal_type": "LUNCH", "notes": "Updated notes"}
+            updates={"meal_type": "LUNCH", "notes": "Updated notes"},
         )
 
         mock_repository.get_by_id.return_value = sample_meal
@@ -77,16 +68,10 @@ class TestUpdateMealCommandHandler:
         assert "notes" in event.updated_fields
 
     @pytest.mark.asyncio
-    async def test_update_meal_not_found(
-        self,
-        handler,
-        mock_repository
-    ):
+    async def test_update_meal_not_found(self, handler, mock_repository):
         """Test update fails when meal not found."""
         command = UpdateMealCommand(
-            meal_id=uuid4(),
-            user_id="user123",
-            updates={"meal_type": "LUNCH"}
+            meal_id=uuid4(), user_id="user123", updates={"meal_type": "LUNCH"}
         )
 
         mock_repository.get_by_id.return_value = None
@@ -96,17 +81,11 @@ class TestUpdateMealCommandHandler:
 
     @pytest.mark.asyncio
     async def test_update_no_changes_no_event(
-        self,
-        handler,
-        mock_repository,
-        mock_event_bus,
-        sample_meal
+        self, handler, mock_repository, mock_event_bus, sample_meal
     ):
         """Test no event published when no valid updates."""
         command = UpdateMealCommand(
-            meal_id=sample_meal.id,
-            user_id=sample_meal.user_id,
-            updates={"invalid_field": "value"}
+            meal_id=sample_meal.id, user_id=sample_meal.user_id, updates={"invalid_field": "value"}
         )
 
         mock_repository.get_by_id.return_value = sample_meal
@@ -114,5 +93,48 @@ class TestUpdateMealCommandHandler:
         await handler.handle(command)
 
         # Save still called but no event
+        mock_repository.save.assert_called_once()
+        mock_event_bus.publish.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_update_disallowed_field_filtered(
+        self, handler, mock_repository, mock_event_bus, sample_meal
+    ):
+        """Test that disallowed fields are filtered and logged."""
+        command = UpdateMealCommand(
+            meal_id=sample_meal.id,
+            user_id=sample_meal.user_id,
+            updates={
+                "meal_type": "BREAKFAST",  # allowed
+                "user_id": "hacker123",  # NOT allowed
+                "total_calories": 9999,  # NOT allowed
+            },
+        )
+
+        mock_repository.get_by_id.return_value = sample_meal
+
+        await handler.handle(command)
+
+        # Only meal_type should be updated
+        assert sample_meal.meal_type == "BREAKFAST"
+        assert sample_meal.user_id == "user123"  # unchanged
+
+        # Event published only for meal_type
+        mock_event_bus.publish.assert_called_once()
+        event = mock_event_bus.publish.call_args[0][0]
+        assert isinstance(event, MealUpdated)
+        assert event.updated_fields == ["meal_type"]
+
+    @pytest.mark.asyncio
+    async def test_update_empty_updates_no_event(
+        self, handler, mock_repository, mock_event_bus, sample_meal
+    ):
+        """Test empty updates dict results in no event."""
+        command = UpdateMealCommand(meal_id=sample_meal.id, user_id=sample_meal.user_id, updates={})
+
+        mock_repository.get_by_id.return_value = sample_meal
+
+        await handler.handle(command)
+
         mock_repository.save.assert_called_once()
         mock_event_bus.publish.assert_not_called()

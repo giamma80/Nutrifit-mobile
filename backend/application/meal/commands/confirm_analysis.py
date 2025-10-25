@@ -32,6 +32,7 @@ class ConfirmAnalysisCommand:
         user_id: User ID (for authorization)
         confirmed_entry_ids: List of entry IDs to keep
     """
+
     meal_id: UUID
     user_id: str
     confirmed_entry_ids: List[UUID]
@@ -40,11 +41,7 @@ class ConfirmAnalysisCommand:
 class ConfirmAnalysisCommandHandler:
     """Handler for ConfirmAnalysisCommand."""
 
-    def __init__(
-        self,
-        repository: IMealRepository,
-        event_bus: IEventBus
-    ):
+    def __init__(self, repository: IMealRepository, event_bus: IEventBus):
         """
         Initialize handler.
 
@@ -88,29 +85,21 @@ class ConfirmAnalysisCommandHandler:
         )
 
         # 1. Load meal
-        meal = await self._repository.get_by_id(
-            command.meal_id,
-            command.user_id
-        )
+        meal = await self._repository.get_by_id(command.meal_id, command.user_id)
 
         if not meal:
-            raise MealNotFoundError(
-                f"Meal {command.meal_id} not found for user {command.user_id}"
-            )
+            raise MealNotFoundError(f"Meal {command.meal_id} not found for user {command.user_id}")
 
         # 2. Verify ownership (redundant check, already done by repo)
         if meal.user_id != command.user_id:
-            raise PermissionError(
-                f"User {command.user_id} doesn't own meal {command.meal_id}"
-            )
+            raise PermissionError(f"User {command.user_id} doesn't own meal {command.meal_id}")
 
         # 3. Track counts for event
         total_entries = len(meal.entries)
 
         # 4. Remove unconfirmed entries
         entry_ids_to_remove = [
-            e.id for e in meal.entries
-            if e.id not in command.confirmed_entry_ids
+            e.id for e in meal.entries if e.id not in command.confirmed_entry_ids
         ]
 
         for entry_id in entry_ids_to_remove:
