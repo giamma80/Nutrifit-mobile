@@ -9,7 +9,7 @@ Provides all required dependencies for GraphQL resolvers:
 """
 
 from typing import Any
-from dataclasses import dataclass
+from strawberry.fastapi import BaseContext
 
 from domain.shared.ports.meal_repository import IMealRepository
 from domain.shared.ports.event_bus import IEventBus
@@ -21,8 +21,7 @@ from domain.meal.nutrition.ports.nutrition_provider import INutritionProvider
 from domain.meal.barcode.ports.barcode_provider import IBarcodeProvider
 
 
-@dataclass
-class GraphQLContext:
+class GraphQLContext(BaseContext):
     """GraphQL context with all dependencies.
 
     This context is injected into all GraphQL resolvers via the `info` parameter.
@@ -39,14 +38,27 @@ class GraphQLContext:
         barcode_service: Barcode provider (OpenFoodFacts)
     """
 
-    meal_repository: IMealRepository
-    event_bus: IEventBus
-    idempotency_cache: IIdempotencyCache
-    photo_orchestrator: PhotoOrchestrator
-    barcode_orchestrator: BarcodeOrchestrator
-    recognition_service: IVisionProvider
-    enrichment_service: INutritionProvider
-    barcode_service: IBarcodeProvider
+    def __init__(
+        self,
+        meal_repository: IMealRepository,
+        event_bus: IEventBus,
+        idempotency_cache: IIdempotencyCache,
+        photo_orchestrator: PhotoOrchestrator,
+        barcode_orchestrator: BarcodeOrchestrator,
+        recognition_service: IVisionProvider,
+        enrichment_service: INutritionProvider,
+        barcode_service: IBarcodeProvider,
+    ):
+        """Initialize GraphQL context with all dependencies."""
+        super().__init__()
+        self.meal_repository = meal_repository
+        self.event_bus = event_bus
+        self.idempotency_cache = idempotency_cache
+        self.photo_orchestrator = photo_orchestrator
+        self.barcode_orchestrator = barcode_orchestrator
+        self.recognition_service = recognition_service
+        self.enrichment_service = enrichment_service
+        self.barcode_service = barcode_service
 
     def get(self, key: str) -> Any:
         """Get dependency by name (for resolver compatibility).
@@ -97,7 +109,7 @@ def create_context(
         ...     # ... other dependencies
         ... )
     """
-    return GraphQLContext(
+    ctx = GraphQLContext(
         meal_repository=meal_repository,
         event_bus=event_bus,
         idempotency_cache=idempotency_cache,
@@ -107,3 +119,4 @@ def create_context(
         enrichment_service=enrichment_service,
         barcode_service=barcode_service,
     )
+    return ctx

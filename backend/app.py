@@ -732,55 +732,72 @@ async def version() -> dict[str, str]:
 # Phase 5: GraphQL Context Setup
 # ============================================
 
+# Import dependencies at module level
+from graphql.context import create_context
+from infrastructure.persistence.in_memory.meal_repository import InMemoryMealRepository
+from infrastructure.events.in_memory_bus import InMemoryEventBus
+from infrastructure.cache.in_memory_idempotency_cache import InMemoryIdempotencyCache
+from application.meal.orchestrators.photo_orchestrator import PhotoOrchestrator
+from application.meal.orchestrators.barcode_orchestrator import BarcodeOrchestrator
+from domain.meal.core.factories.meal_factory import MealFactory
+from infrastructure.meal.providers.stub_vision_provider import StubVisionProvider
+from infrastructure.meal.providers.stub_nutrition_provider import StubNutritionProvider
+from infrastructure.meal.providers.stub_barcode_provider import StubBarcodeProvider
+from domain.meal.recognition.services.recognition_service import FoodRecognitionService
+from domain.meal.barcode.services.barcode_service import BarcodeService
+from domain.meal.nutrition.services.enrichment_service import NutritionEnrichmentService
+
+# Create singleton instances (persistent across requests for testing)
+# IMPORTANT: In production, these should be request-scoped or use proper connection pooling
+_meal_repository = InMemoryMealRepository()
+_event_bus = InMemoryEventBus()
+_idempotency_cache = InMemoryIdempotencyCache()
+_meal_factory = MealFactory()
+
+# Create stub providers
+_vision_provider = StubVisionProvider()
+_nutrition_provider = StubNutritionProvider()
+_barcode_provider = StubBarcodeProvider()
+
+# Wrap providers in domain services
+_recognition_service = FoodRecognitionService(_vision_provider)
+_nutrition_service = NutritionEnrichmentService(
+    usda_provider=_nutrition_provider,
+    category_provider=_nutrition_provider,
+    fallback_provider=_nutrition_provider,
+)
+_barcode_service = BarcodeService(_barcode_provider)
+
+# Create orchestrators
+_photo_orchestrator = PhotoOrchestrator(
+    recognition_service=_recognition_service,
+    nutrition_service=_nutrition_service,
+    meal_factory=_meal_factory,
+)
+_barcode_orchestrator = BarcodeOrchestrator(
+    barcode_service=_barcode_service,
+    nutrition_service=_nutrition_service,
+    meal_factory=_meal_factory,
+)
+
 
 def get_graphql_context() -> Any:
     """Create GraphQL context with all dependencies.
 
     Returns dict-like context for resolver dependency injection.
 
-    Note: Using placeholder implementations for Phase 5.
-    Real implementations will be configured in Phase 7 (Deployment).
+    Note: Uses singleton instances for testing (persistent across requests).
+    In production, these should be request-scoped or use proper connection pooling.
     """
-    from graphql.context import create_context
-    from infrastructure.persistence.in_memory.meal_repository import InMemoryMealRepository
-    from infrastructure.events.in_memory_bus import InMemoryEventBus
-    from infrastructure.cache.in_memory_idempotency_cache import InMemoryIdempotencyCache
-    from application.meal.orchestrators.photo_orchestrator import PhotoOrchestrator
-    from application.meal.orchestrators.barcode_orchestrator import BarcodeOrchestrator
-    from unittest.mock import AsyncMock
-
-    # Placeholder implementations for Phase 5
-    # TODO P7: Replace with real implementations (OpenAI, USDA, OFF clients)
-    meal_repository = InMemoryMealRepository()
-    event_bus = InMemoryEventBus()
-    idempotency_cache = InMemoryIdempotencyCache()
-
-    # Mock services (will be real in P7)
-    recognition_service = AsyncMock()  # type: ignore
-    enrichment_service = AsyncMock()  # type: ignore
-    barcode_service = AsyncMock()  # type: ignore
-
-    # Orchestrators (require services)
-    photo_orchestrator = PhotoOrchestrator(
-        recognition=recognition_service,
-        enrichment=enrichment_service,
-        meal_factory=AsyncMock(),  # type: ignore
-    )
-    barcode_orchestrator = BarcodeOrchestrator(
-        barcode=barcode_service,
-        enrichment=enrichment_service,
-        meal_factory=AsyncMock(),  # type: ignore
-    )
-
     return create_context(
-        meal_repository=meal_repository,
-        event_bus=event_bus,
-        idempotency_cache=idempotency_cache,
-        photo_orchestrator=photo_orchestrator,
-        barcode_orchestrator=barcode_orchestrator,
-        recognition_service=recognition_service,
-        enrichment_service=enrichment_service,
-        barcode_service=barcode_service,
+        meal_repository=_meal_repository,
+        event_bus=_event_bus,
+        idempotency_cache=_idempotency_cache,
+        photo_orchestrator=_photo_orchestrator,
+        barcode_orchestrator=_barcode_orchestrator,
+        recognition_service=_vision_provider,
+        enrichment_service=_nutrition_provider,
+        barcode_service=_barcode_provider,
     )
 
 
