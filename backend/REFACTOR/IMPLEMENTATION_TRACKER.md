@@ -1,9 +1,9 @@
 # 🎯 Nutrifit Meal Domain Refactor - Implementation Tracker
 
-**Version:** 2.8
-**Date:** 25 Ottobre 2025
+**Version:** 2.9
+**Date:** 26 Ottobre 2025
 **Branch:** `refactor`
-**Status:** ✅ Phase 6 Progress: P6.2 Coverage & Quality Complete (67%) - Next: P6.3 Documentation
+**Status:** ✅ Phase 6 Progress: P6.1 E2E Expanded (11 tests) + P6.2 Complete (67%) - Next: P6.3 Documentation
 
 ---
 
@@ -238,11 +238,12 @@
 
 | ID | Task | Description | Reference Doc | Expected Result | Status | Notes |
 |----|------|-------------|---------------|-----------------|--------|-------|
-| **P6.1** | **E2E Tests** | Implementare test end-to-end completi | `05_TESTING_STRATEGY.md` §600-800 | E2E test suite completa | 🟢 COMPLETED | 3/4 tests (text deferred) |
+| **P6.1** | **E2E Tests** | Implementare test end-to-end completi | `05_TESTING_STRATEGY.md` §600-800 | E2E test suite completa | 🟢 COMPLETED | 11 tests covering all GraphQL ops |
 | P6.1.1 | Photo analysis E2E | Test flusso completo photo → meal confermato | `05_TESTING_STRATEGY.md` §620-680 | Test E2E photo passano | 🟢 COMPLETED | GraphQL mutation → query |
 | P6.1.2 | Barcode analysis E2E | Test flusso completo barcode → meal confermato | `05_TESTING_STRATEGY.md` §690-740 | Test E2E barcode passano | 🟢 COMPLETED | Uses real orchestrators + stub providers |
 | P6.1.3 | Text analysis E2E | Test flusso completo text → meal confermato | `05_TESTING_STRATEGY.md` §750-790 | Test E2E text passano | ⚪ NOT_STARTED | DEFERRED (no text workflow) |
 | P6.1.4 | Meal lifecycle E2E | Test CRUD completo meal | `05_TESTING_STRATEGY.md` §800-850 | Test lifecycle passano | 🟢 COMPLETED | Create → Read → Update → Delete |
+| P6.1.5 | E2E Coverage Expansion | Expand from 3 to 11 E2E tests for full API coverage | - | All GraphQL operations tested | 🟢 COMPLETED | Added 8 tests: searchMeals, dailySummary, enrichNutrients, pagination, error paths, validation, idempotency |
 | **P6.2** | **Coverage & Quality** | Verificare coverage e quality metrics | `05_TESTING_STRATEGY.md` §900-1000 | Coverage >90%, quality checks OK | 🟢 COMPLETED | Coverage 99.5%, lint+mypy clean |
 | P6.2.1 | Run coverage report | `make test-coverage` | `05_TESTING_STRATEGY.md` §920-940 | Report coverage generato | 🟢 COMPLETED | Domain+App: 99.5% (1085 stmts, 5 missing) |
 | P6.2.2 | Check coverage threshold | Verificare coverage domain/application | `05_TESTING_STRATEGY.md` §950-970 | Domain >95%, Application >90% | 🟢 COMPLETED | Exceeds target by 9.5% |

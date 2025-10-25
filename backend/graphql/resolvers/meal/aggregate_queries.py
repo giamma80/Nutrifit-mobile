@@ -189,9 +189,19 @@ class AggregateQueries:
         # Map domain entities → GraphQL types
         graphql_meals = [map_meal_to_graphql(meal) for meal in meals]
 
-        # Calculate total count (would need additional query in real implementation)
-        total_count = len(graphql_meals)
-        has_more = len(graphql_meals) == limit
+        # Get total count of filtered meals (without pagination)
+        # Need to query again without limit/offset to get accurate count
+        count_query = GetMealHistoryQuery(
+            user_id=user_id,
+            start_date=start_date,
+            end_date=end_date,
+            meal_type=meal_type,
+            limit=10000,  # High limit to get all results for counting
+            offset=0,
+        )
+        all_meals = await handler.handle(count_query)
+        total_count = len(all_meals)
+        has_more = offset + len(graphql_meals) < total_count
 
         return MealHistoryResult(meals=graphql_meals, total_count=total_count, has_more=has_more)
 

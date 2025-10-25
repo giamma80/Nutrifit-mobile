@@ -18,7 +18,7 @@ from application.meal.orchestrators.photo_orchestrator import PhotoOrchestrator
 from application.meal.orchestrators.barcode_orchestrator import BarcodeOrchestrator
 from domain.meal.recognition.ports.vision_provider import IVisionProvider
 from domain.meal.nutrition.ports.nutrition_provider import INutritionProvider
-from domain.meal.barcode.ports.barcode_provider import IBarcodeProvider
+from domain.meal.barcode.services.barcode_service import BarcodeService
 
 
 class GraphQLContext(BaseContext):
@@ -35,7 +35,7 @@ class GraphQLContext(BaseContext):
         barcode_orchestrator: Orchestrator for barcode analysis workflow
         recognition_service: Vision provider (OpenAI GPT-4V)
         enrichment_service: Nutrition provider (USDA)
-        barcode_service: Barcode provider (OpenFoodFacts)
+        barcode_service: Barcode lookup service
     """
 
     def __init__(
@@ -47,7 +47,7 @@ class GraphQLContext(BaseContext):
         barcode_orchestrator: BarcodeOrchestrator,
         recognition_service: IVisionProvider,
         enrichment_service: INutritionProvider,
-        barcode_service: IBarcodeProvider,
+        barcode_service: BarcodeService,
     ):
         """Initialize GraphQL context with all dependencies."""
         super().__init__()
@@ -84,7 +84,7 @@ def create_context(
     barcode_orchestrator: BarcodeOrchestrator,
     recognition_service: IVisionProvider,
     enrichment_service: INutritionProvider,
-    barcode_service: IBarcodeProvider,
+    barcode_service: BarcodeService,
 ) -> GraphQLContext:
     """Create GraphQL context with all dependencies.
 
@@ -96,7 +96,7 @@ def create_context(
         barcode_orchestrator: Barcode orchestrator instance
         recognition_service: Vision provider implementation
         enrichment_service: Nutrition provider implementation
-        barcode_service: Barcode provider implementation
+        barcode_service: Barcode service implementation
 
     Returns:
         GraphQLContext with all dependencies

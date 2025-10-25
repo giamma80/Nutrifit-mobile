@@ -794,7 +794,7 @@ def get_graphql_context() -> Any:
         barcode_orchestrator=_barcode_orchestrator,
         recognition_service=_vision_provider,
         enrichment_service=_nutrition_provider,
-        barcode_service=_barcode_provider,
+        barcode_service=_barcode_service,  # Use service not provider
     )
 
 

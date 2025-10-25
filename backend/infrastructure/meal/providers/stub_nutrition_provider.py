@@ -16,6 +16,23 @@ class StubNutritionProvider:
     Returns hardcoded nutrient profiles based on food label.
     """
 
+    async def enrich(self, label: str, quantity_g: float, category: Optional[str] = None) -> Optional[NutrientProfile]:
+        """
+        Enrich food label with nutrient data (stub implementation).
+
+        This method provides compatibility with NutritionEnrichmentService interface.
+        Simply delegates to get_nutrients().
+
+        Args:
+            label: Food label/name
+            quantity_g: Quantity in grams
+            category: Optional category (ignored in stub)
+
+        Returns:
+            NutrientProfile with stub data (scaled to quantity_g)
+        """
+        return await self.get_nutrients(label, quantity_g)
+
     async def get_nutrients(self, identifier: str, quantity_g: float) -> Optional[NutrientProfile]:
         """
         Get stub nutrient profile for a food identifier.
@@ -30,6 +47,15 @@ class StubNutritionProvider:
         # Map common foods to nutrient profiles (per 100g)
         nutrient_map = {
             "chicken_breast": {
+                "calories": 165.0,
+                "protein": 31.0,
+                "carbs": 0.0,
+                "fat": 3.6,
+                "fiber": 0.0,
+                "sugar": 0.0,
+                "sodium": 74.0,
+            },
+            "roasted_chicken": {
                 "calories": 165.0,
                 "protein": 31.0,
                 "carbs": 0.0,
