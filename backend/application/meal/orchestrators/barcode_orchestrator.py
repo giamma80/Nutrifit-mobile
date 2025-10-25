@@ -116,7 +116,7 @@ class BarcodeOrchestrator:
             "Product found",
             extra={
                 "barcode": barcode,
-                "name": product.name,
+                "product_name": product.name,
                 "brand": product.brand,
                 "has_nutrients": product.nutrients is not None,
             },
