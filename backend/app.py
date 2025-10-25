@@ -792,7 +792,7 @@ def get_graphql_context() -> Any:
         idempotency_cache=_idempotency_cache,
         photo_orchestrator=_photo_orchestrator,
         barcode_orchestrator=_barcode_orchestrator,
-        recognition_service=_vision_provider,
+        recognition_service=_recognition_service,  # ✅ Fixed: was passing provider
         enrichment_service=_nutrition_provider,
         barcode_service=_barcode_service,  # Use service not provider
     )

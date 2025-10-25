@@ -313,7 +313,13 @@ class MealMutations:
             return UpdateMealSuccess(meal=map_meal_to_graphql(meal))
 
         except ValueError as e:
-            return UpdateMealError(message=str(e), code="MEAL_NOT_FOUND")
+            # Distinguish between validation errors and not found errors
+            error_msg = str(e)
+            if "at least one entry" in error_msg or "invariant" in error_msg.lower():
+                code = "VALIDATION_ERROR"
+            else:
+                code = "MEAL_NOT_FOUND"
+            return UpdateMealError(message=error_msg, code=code)
         except Exception as e:
             return UpdateMealError(message=f"Update failed: {str(e)}", code="UPDATE_FAILED")
 

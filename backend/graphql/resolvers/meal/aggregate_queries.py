@@ -281,6 +281,11 @@ class AggregateQueries:
         if not repository:
             raise ValueError("MealRepository not available in context")
 
+        # Ensure date has timezone (Strawberry may parse without it)
+        if date and date.tzinfo is None:
+            from datetime import timezone as tz
+            date = date.replace(tzinfo=tz.utc)
+
         # Create query
         query = GetDailySummaryQuery(user_id=user_id, date=date)
 
