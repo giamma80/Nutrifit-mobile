@@ -77,15 +77,24 @@ class EnrichNutrientsQueryHandler:
         # Get nutrient profile (uses cascade: USDA → Category → Fallback)
         profile = await self._enrichment.enrich(label=query.food_label, quantity_g=query.quantity_g)
 
-        logger.info(
-            "Nutrition enrichment completed",
-            extra={
-                "food_label": query.food_label,
-                "quantity_g": query.quantity_g,
-                "calories": profile.calories,
-                "protein_g": profile.protein,
-                "is_high_quality": profile.is_high_quality(),
-            },
-        )
+        if profile:
+            logger.info(
+                "Nutrition enrichment completed",
+                extra={
+                    "food_label": query.food_label,
+                    "quantity_g": query.quantity_g,
+                    "calories": profile.calories,
+                    "protein_g": profile.protein,
+                    "is_high_quality": profile.is_high_quality(),
+                },
+            )
+        else:
+            logger.warning(
+                "Nutrition enrichment failed - no profile found",
+                extra={
+                    "food_label": query.food_label,
+                    "quantity_g": query.quantity_g,
+                },
+            )
 
         return profile

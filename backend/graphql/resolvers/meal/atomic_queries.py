@@ -94,7 +94,7 @@ class AtomicQueries:
 
         return FoodRecognitionResult(
             items=items,
-            average_confidence=result.average_confidence,  # type: ignore[attr-defined]
+            average_confidence=result.confidence,
         )
 
     @strawberry.field
