@@ -16,9 +16,9 @@ from domain.shared.ports.event_bus import IEventBus
 from domain.shared.ports.idempotency_cache import IIdempotencyCache
 from application.meal.orchestrators.photo_orchestrator import PhotoOrchestrator
 from application.meal.orchestrators.barcode_orchestrator import BarcodeOrchestrator
-from domain.meal.ports.recognition_service import IVisionProvider
-from domain.meal.ports.enrichment_service import INutritionProvider
-from domain.meal.ports.barcode_service import IBarcodeProvider
+from domain.meal.recognition.ports.vision_provider import IVisionProvider
+from domain.meal.nutrition.ports.nutrition_provider import INutritionProvider
+from domain.meal.barcode.ports.barcode_provider import IBarcodeProvider
 
 
 @dataclass
