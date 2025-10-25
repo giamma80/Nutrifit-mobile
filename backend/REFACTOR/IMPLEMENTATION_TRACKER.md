@@ -3,7 +3,7 @@
 **Version:** 2.6
 **Date:** 24 Ottobre 2025
 **Branch:** `refactor`
-**Status:** ✅ Phase 2 Complete (100%) - 🟡 Phase 3 Ready to Start
+**Status:** ✅ Phase 2 Complete (100%) - 🟡 Phase 4 In Progress (75%)
 
 ---
 
@@ -15,11 +15,11 @@
 | **Phase 1** | 5 | 5 | 0 | 0 | 0 |
 | **Phase 2** | 3 | 3 | 0 | 0 | 0 |
 | **Phase 3** | 7 | 5 | 0 | 0 | 2 |
-| **Phase 4** | 4 | 2 | 0 | 0 | 2 |
+| **Phase 4** | 4 | 3 | 0 | 0 | 1 |
 | **Phase 5** | 4 | 0 | 0 | 0 | 4 |
 | **Phase 6** | 3 | 0 | 0 | 0 | 3 |
 | **Phase 7** | 2 | 0 | 0 | 0 | 2 |
-| **TOTAL** | **32** | **19** | **0** | **0** | **13** |
+| **TOTAL** | **32** | **20** | **0** | **0** | **12** |
 
 ---
 
@@ -180,15 +180,15 @@
 | P4.1.5 | UpdateMealCommand | `application/meal/commands/update_meal.py` | `03_APPLICATION_LAYER.md` §350-370 | Command + handler update | 🟢 COMPLETED | Allowed fields: meal_type, timestamp, notes |
 | P4.1.6 | DeleteMealCommand | `application/meal/commands/delete_meal.py` | `03_APPLICATION_LAYER.md` §380-400 | Command + handler delete (soft) | 🟢 COMPLETED | Authorization checks included |
 | P4.1.7 | Tests commands | `tests/unit/application/meal/commands/test_*.py` | `03_APPLICATION_LAYER.md` §410-440 | Test suite commands | 🟢 COMPLETED | 17 tests for all 5 commands |
-| **P4.2** | **Queries** | Implementare tutte le queries CQRS | `03_APPLICATION_LAYER.md` §500-850 | 7 queries implementate | ⚪ NOT_STARTED | - |
-| P4.2.1 | GetMealQuery | `application/meal/queries/get_meal.py` | `03_APPLICATION_LAYER.md` §520-560 | Query single meal by ID | ⚪ NOT_STARTED | - |
-| P4.2.2 | GetMealHistoryQuery | `application/meal/queries/get_meal_history.py` | `03_APPLICATION_LAYER.md` §570-610 | Query meal list con filtri | ⚪ NOT_STARTED | - |
-| P4.2.3 | SearchMealsQuery | `application/meal/queries/search_meals.py` | `03_APPLICATION_LAYER.md` §620-660 | Query full-text search | ⚪ NOT_STARTED | - |
-| P4.2.4 | GetDailySummaryQuery | `application/meal/queries/get_daily_summary.py` | `03_APPLICATION_LAYER.md` §670-710 | Query aggregato giornaliero | ⚪ NOT_STARTED | - |
-| P4.2.5 | RecognizeFoodQuery (atomic) | `application/meal/queries/recognize_food.py` | `03_APPLICATION_LAYER.md` §720-760 | Utility query riconoscimento | ⚪ NOT_STARTED | - |
-| P4.2.6 | EnrichNutrientsQuery (atomic) | `application/meal/queries/enrich_nutrients.py` | `03_APPLICATION_LAYER.md` §770-810 | Utility query enrichment | ⚪ NOT_STARTED | - |
-| P4.2.7 | SearchFoodByBarcodeQuery (atomic) | `application/meal/queries/search_food_by_barcode.py` | `03_APPLICATION_LAYER.md` §820-850 | Utility query barcode | ⚪ NOT_STARTED | - |
-| P4.2.8 | Tests queries | `tests/unit/application/meal/queries/test_*.py` | `03_APPLICATION_LAYER.md` §860-880 | Test suite queries | ⚪ NOT_STARTED | - |
+| **P4.2** | **Queries** | Implementare tutte le queries CQRS | `03_APPLICATION_LAYER.md` §500-850 | 7 queries implementate | 🟢 COMPLETED | 32 tests passing, commit 4380741 |
+| P4.2.1 | GetMealQuery | `application/meal/queries/get_meal.py` | `03_APPLICATION_LAYER.md` §520-560 | Query single meal by ID | 🟢 COMPLETED | 3 tests (success, not found, authorization) |
+| P4.2.2 | GetMealHistoryQuery | `application/meal/queries/get_meal_history.py` | `03_APPLICATION_LAYER.md` §570-610 | Query meal list con filtri | 🟢 COMPLETED | 6 tests (filters, pagination, date range) |
+| P4.2.3 | SearchMealsQuery | `application/meal/queries/search_meals.py` | `03_APPLICATION_LAYER.md` §620-660 | Query full-text search | 🟢 COMPLETED | 6 tests (entry/notes search, case-insensitive) |
+| P4.2.4 | GetDailySummaryQuery | `application/meal/queries/get_daily_summary.py` | `03_APPLICATION_LAYER.md` §670-710 | Query aggregato giornaliero | 🟢 COMPLETED | 5 tests (aggregation, breakdown by type) |
+| P4.2.5 | RecognizeFoodQuery (atomic) | `application/meal/queries/recognize_food.py` | `03_APPLICATION_LAYER.md` §720-760 | Utility query riconoscimento | 🟢 COMPLETED | 5 tests (photo/text recognition, validation) |
+| P4.2.6 | EnrichNutrientsQuery (atomic) | `application/meal/queries/enrich_nutrients.py` | `03_APPLICATION_LAYER.md` §770-810 | Utility query enrichment | 🟢 COMPLETED | 3 tests (USDA cascade strategy) |
+| P4.2.7 | SearchFoodByBarcodeQuery (atomic) | `application/meal/queries/search_food_by_barcode.py` | `03_APPLICATION_LAYER.md` §820-850 | Utility query barcode | 🟢 COMPLETED | 4 tests (barcode lookup, error handling) |
+| P4.2.8 | Tests queries | `tests/unit/application/meal/queries/test_*.py` | `03_APPLICATION_LAYER.md` §860-880 | Test suite queries | 🟢 COMPLETED | 32 tests total, all passing |
 | **P4.3** | **Orchestrators** | Implementare orchestratori per flussi complessi | `03_APPLICATION_LAYER.md` §950-1150 | 3 orchestrators implementati | 🟢 COMPLETED | 2 orchestrators (text deferred) |
 | P4.3.1 | PhotoOrchestrator | `application/meal/orchestrators/photo_orchestrator.py` | `03_APPLICATION_LAYER.md` §970-1030 | Orchestrator photo → recognition → enrichment | 🟢 COMPLETED | Coordinates 3 services |
 | P4.3.2 | BarcodeOrchestrator | `application/meal/orchestrators/barcode_orchestrator.py` | `03_APPLICATION_LAYER.md` §1040-1090 | Orchestrator barcode → lookup → enrichment | 🟢 COMPLETED | Includes nutrient scaling |
@@ -368,6 +368,29 @@ make quality           # lint + typecheck + format
 ---
 
 ## 📅 Changelog
+
+### 25 Ottobre 2025
+
+- ✅ **P4.2 COMPLETED** - Queries (Application Layer - CQRS)
+  - Commit: `4380741` test(application): add unit tests for P4.2 - CQRS Queries
+  - Commit: `d2ae7ca` feat(application): implement P4.2 - CQRS Queries (7 queries)
+  - Implemented 7 CQRS queries (4 aggregate + 3 atomic utility):
+    * Aggregate Queries (4):
+      - GetMealQuery: 3 tests (success, not found, authorization)
+      - GetMealHistoryQuery: 6 tests (filters, pagination, date range)
+      - SearchMealsQuery: 6 tests (entry/notes search, case-insensitive)
+      - GetDailySummaryQuery: 5 tests (aggregation, breakdown by type)
+    * Atomic Utility Queries (3):
+      - RecognizeFoodQuery: 5 tests (photo/text recognition, validation)
+      - EnrichNutrientsQuery: 3 tests (USDA cascade strategy)
+      - SearchFoodByBarcodeQuery: 4 tests (barcode lookup, error handling)
+  - Total: 32 tests, all passing (447 total backend tests)
+  - All queries use frozen dataclasses for immutability
+  - Handler pattern with dependency injection via ports
+  - Authorization checks, pagination support, full-text search
+  - **PHASE 4 STATUS:** 75% COMPLETE (3/4 tasks - Commands, Queries, Orchestrators done; Event Handlers pending)
+  - **OVERALL PROGRESS:** 62.5% (20/32 tasks)
+  - **NEXT:** P4.4 - Event Handlers (final Phase 4 task)
 
 ### 24 Ottobre 2025
 
@@ -603,10 +626,10 @@ make quality           # lint + typecheck + format
 
 ---
 
-**Ultimo aggiornamento:** 24 Ottobre 2025
-**Prossimo task:** P4.2 - Queries (Application Layer - CQRS) OR write tests
-**Current Progress:** 19/32 tasks completed (59.4%)
+**Ultimo aggiornamento:** 25 Ottobre 2025
+**Prossimo task:** P4.4 - Event Handlers (final Phase 4 task)
+**Current Progress:** 20/32 tasks completed (62.5%)
 **Phase 1 Status:** ✅ COMPLETED (5/5 tasks - 100%)
 **Phase 2 Status:** ✅ COMPLETED (3/3 tasks - 100%)
 **Phase 3 Status:** 🟡 IN PROGRESS (5/7 tasks - 71.4%)
-**Phase 4 Status:** 🟡 IN PROGRESS (2/4 tasks - 50.0%)
+**Phase 4 Status:** 🟡 IN PROGRESS (3/4 tasks - 75.0%)
