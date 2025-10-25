@@ -16,7 +16,9 @@ class StubVisionProvider:
     Returns hardcoded food recognition results based on hints in the photo URL or description.
     """
 
-    async def analyze_photo(self, photo_url: str, hint: Optional[str] = None) -> FoodRecognitionResult:
+    async def analyze_photo(
+        self, photo_url: str, hint: Optional[str] = None
+    ) -> FoodRecognitionResult:
         """
         Analyze photo and return stub food items.
 
