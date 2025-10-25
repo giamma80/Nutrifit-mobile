@@ -430,8 +430,12 @@ def mock_nutrition_service(
         get_mock_integration_service,
     )
 
-    # Mock anche nell'app.py
-    monkeypatch.setattr("app.get_nutrition_integration_service", get_mock_integration_service)
+    # Mock anche nell'app.py (skip if not available during refactor)
+    try:
+        monkeypatch.setattr("app.get_nutrition_integration_service", get_mock_integration_service)
+    except AttributeError:
+        # Attribute removed during refactor - skip
+        pass
 
     yield mock_service
 
@@ -571,8 +575,12 @@ def mock_meal_enrichment(monkeypatch: pytest.MonkeyPatch) -> Generator[bool, Non
         self._query_service = MealQueryService(meal_repository=repository_adapter)
 
     # Applica il mock all'initialization del MealIntegrationService
-    from domain.meal.integration import MealIntegrationService
+    try:
+        from domain.meal.integration import MealIntegrationService
 
-    monkeypatch.setattr(MealIntegrationService, "_initialize_services", mock_meal_service_init)
+        monkeypatch.setattr(MealIntegrationService, "_initialize_services", mock_meal_service_init)
+    except (ImportError, ModuleNotFoundError):
+        # Module removed during refactor - skip this mock for new tests
+        pass
 
     yield True

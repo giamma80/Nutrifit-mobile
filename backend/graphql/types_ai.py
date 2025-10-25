@@ -4,7 +4,7 @@ from typing import Optional, List
 import strawberry
 from enum import Enum
 
-from .types_meal import MealEntry  # import runtime per risoluzione Strawberry
+from .types_meal_aggregate import MealEntry  # import runtime per risoluzione Strawberry
 
 
 @strawberry.enum

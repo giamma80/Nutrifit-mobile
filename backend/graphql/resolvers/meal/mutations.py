@@ -245,7 +245,8 @@ class MealMutations:
 
             # Calculate counts
             confirmed_count = len(input.confirmed_entry_ids)
-            # Assume original meal had more entries (would need original meal to calculate)
+            # Assume original meal had more entries
+            # (would need original meal to calculate)
             rejected_count = 0
 
             return ConfirmAnalysisSuccess(

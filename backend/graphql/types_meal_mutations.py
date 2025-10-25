@@ -9,7 +9,7 @@ These types support CQRS commands:
 
 from __future__ import annotations
 
-from typing import Optional, List
+from typing import Optional, List, Annotated, Union
 from datetime import datetime
 import strawberry
 
@@ -175,14 +175,22 @@ class DeleteMealError:
 # UNION RESULT TYPES
 # ============================================
 
-MealAnalysisResult = strawberry.union(
-    "MealAnalysisResult", (MealAnalysisSuccess, MealAnalysisError)
-)
+MealAnalysisResult = Annotated[
+    Union[MealAnalysisSuccess, MealAnalysisError],
+    strawberry.union("MealAnalysisResult"),
+]
 
-ConfirmAnalysisResult = strawberry.union(
-    "ConfirmAnalysisResult", (ConfirmAnalysisSuccess, ConfirmAnalysisError)
-)
+ConfirmAnalysisResult = Annotated[
+    Union[ConfirmAnalysisSuccess, ConfirmAnalysisError],
+    strawberry.union("ConfirmAnalysisResult"),
+]
 
-UpdateMealResult = strawberry.union("UpdateMealResult", (UpdateMealSuccess, UpdateMealError))
+UpdateMealResult = Annotated[
+    Union[UpdateMealSuccess, UpdateMealError],
+    strawberry.union("UpdateMealResult"),
+]
 
-DeleteMealResult = strawberry.union("DeleteMealResult", (DeleteMealSuccess, DeleteMealError))
+DeleteMealResult = Annotated[
+    Union[DeleteMealSuccess, DeleteMealError],
+    strawberry.union("DeleteMealResult"),
+]
