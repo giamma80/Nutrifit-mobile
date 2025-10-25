@@ -33,7 +33,7 @@ class StubBarcodeProvider:
                 "name": "Nutella",
                 "brand": "Ferrero",
                 "nutrients": NutrientProfile(
-                    calories=539.0,
+                    calories=539,
                     protein=6.3,
                     carbs=57.5,
                     fat=30.9,
@@ -43,13 +43,16 @@ class StubBarcodeProvider:
                     quantity_g=100.0,  # Per 100g
                 ),
                 "serving_size_g": 100.0,
-                "image_url": "https://images.openfoodfacts.org/images/products/800/150/500/5707/front_en.jpg",
+                "image_url": (
+                    "https://images.openfoodfacts.org/images/products/"
+                    "800/150/500/5707/front_en.jpg"
+                ),
             },
             "123456789": {  # Generic test barcode
                 "name": "Test Product",
                 "brand": "Test Brand",
                 "nutrients": NutrientProfile(
-                    calories=200.0,
+                    calories=200,
                     protein=10.0,
                     carbs=25.0,
                     fat=5.0,
@@ -70,9 +73,13 @@ class StubBarcodeProvider:
 
         return BarcodeProduct(
             barcode=barcode,
-            name=product_data["name"],
-            brand=product_data["brand"],
-            nutrients=product_data["nutrients"],
-            serving_size_g=product_data["serving_size_g"],
-            image_url=product_data["image_url"],
+            name=str(product_data["name"]),
+            brand=str(product_data["brand"]) if product_data["brand"] else None,
+            nutrients=product_data["nutrients"],  # type: ignore[arg-type]
+            serving_size_g=(
+                float(product_data["serving_size_g"])  # type: ignore[arg-type]
+                if product_data["serving_size_g"]
+                else None
+            ),
+            image_url=str(product_data["image_url"]) if product_data["image_url"] else None,
         )

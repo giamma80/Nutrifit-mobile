@@ -42,7 +42,7 @@ class BarcodeProduct:
     barcode: str
     name: str
     brand: Optional[str]
-    nutrients: NutrientProfile
+    nutrients: Optional[NutrientProfile]
     image_url: Optional[str] = None
     serving_size_g: Optional[float] = None
 
@@ -109,14 +109,14 @@ class BarcodeProduct:
             return f"{self.brand} - {self.name}"
         return self.name
 
-    def scale_nutrients(self, quantity_g: float) -> NutrientProfile:
+    def scale_nutrients(self, quantity_g: float) -> Optional[NutrientProfile]:
         """Scale nutrients to specific quantity.
 
         Args:
             quantity_g: Target quantity in grams
 
         Returns:
-            Scaled nutrient profile
+            Scaled nutrient profile, or None if nutrients not available
 
         Raises:
             ValueError: If quantity is not positive
@@ -127,6 +127,9 @@ class BarcodeProduct:
         """
         if quantity_g <= 0:
             raise ValueError("Quantity must be positive")
+
+        if self.nutrients is None:
+            return None
 
         return self.nutrients.scale_to_quantity(quantity_g)
 
@@ -141,4 +144,6 @@ class BarcodeProduct:
             >>> if product.is_high_quality():
             ...     print("Accurate nutritional data available")
         """
+        if self.nutrients is None:
+            return False
         return self.nutrients.is_high_quality()

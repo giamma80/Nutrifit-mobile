@@ -129,17 +129,29 @@ class BarcodeService:
             ... else:
             ...     print("Low confidence data, manual review recommended")
         """
-        is_valid = product.nutrients.confidence >= min_confidence
-
-        logger.info(
-            "Product validation",
-            extra={
-                "barcode": product.barcode,
-                "confidence": product.nutrients.confidence,
-                "min_confidence": min_confidence,
-                "is_valid": is_valid,
-                "source": product.nutrients.source,
-            },
-        )
+        if product.nutrients is None:
+            is_valid = False
+            logger.info(
+                "Product validation",
+                extra={
+                    "barcode": product.barcode,
+                    "confidence": None,
+                    "min_confidence": min_confidence,
+                    "is_valid": is_valid,
+                    "source": None,
+                },
+            )
+        else:
+            is_valid = product.nutrients.confidence >= min_confidence
+            logger.info(
+                "Product validation",
+                extra={
+                    "barcode": product.barcode,
+                    "confidence": product.nutrients.confidence,
+                    "min_confidence": min_confidence,
+                    "is_valid": is_valid,
+                    "source": product.nutrients.source,
+                },
+            )
 
         return is_valid

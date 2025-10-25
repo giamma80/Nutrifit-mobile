@@ -42,9 +42,19 @@ from inference.adapter import get_active_adapter
 from graphql.resolvers.meal.atomic_queries import AtomicQueries
 from graphql.resolvers.meal.aggregate_queries import AggregateQueries
 from graphql.resolvers.meal.mutations import MealMutations
-
-# Legacy AI types (keeping MealPhotoAnalysis for compatibility)
-from graphql.types_ai import MealPhotoAnalysis
+from graphql.context import create_context
+from infrastructure.persistence.in_memory.meal_repository import InMemoryMealRepository
+from infrastructure.events.in_memory_bus import InMemoryEventBus
+from infrastructure.cache.in_memory_idempotency_cache import InMemoryIdempotencyCache
+from application.meal.orchestrators.photo_orchestrator import PhotoOrchestrator
+from application.meal.orchestrators.barcode_orchestrator import BarcodeOrchestrator
+from domain.meal.core.factories.meal_factory import MealFactory
+from infrastructure.meal.providers.stub_vision_provider import StubVisionProvider
+from infrastructure.meal.providers.stub_nutrition_provider import StubNutritionProvider
+from infrastructure.meal.providers.stub_barcode_provider import StubBarcodeProvider
+from domain.meal.recognition.services.recognition_service import FoodRecognitionService
+from domain.meal.barcode.services.barcode_service import BarcodeService
+from domain.meal.nutrition.services.enrichment_service import NutritionEnrichmentService
 
 # from graphql.types_ai import AnalyzeMealPhotoInput  # Replaced by types_meal_mutations
 from graphql.types_activity_health import (
@@ -263,7 +273,9 @@ class Query:
     # Phase 5: New CQRS Meal Resolvers
     # ============================================
 
-    @strawberry.field(description="Atomic utility queries for testing capabilities")
+    @strawberry.field(  # type: ignore[misc]
+        description="Atomic utility queries for testing capabilities"
+    )
     def atomic(self) -> AtomicQueries:
         """Atomic queries for testing individual capabilities in isolation.
 
@@ -276,7 +288,7 @@ class Query:
         """
         return AtomicQueries()
 
-    @strawberry.field(description="Aggregate meal data queries")
+    @strawberry.field(description="Aggregate meal data queries")  # type: ignore[misc]
     def meals(self) -> AggregateQueries:
         """Aggregate queries for meal data operations (CQRS).
 
@@ -489,7 +501,7 @@ class Mutation:
     # Phase 5: New CQRS Meal Mutations
     # ============================================
 
-    @strawberry.field(description="Meal domain mutations (CQRS commands)")
+    @strawberry.field(description="Meal domain mutations (CQRS commands)")  # type: ignore[misc]
     def meal(self) -> MealMutations:
         """Meal domain mutations following CQRS pattern.
 
@@ -731,21 +743,6 @@ async def version() -> dict[str, str]:
 # ============================================
 # Phase 5: GraphQL Context Setup
 # ============================================
-
-# Import dependencies at module level
-from graphql.context import create_context
-from infrastructure.persistence.in_memory.meal_repository import InMemoryMealRepository
-from infrastructure.events.in_memory_bus import InMemoryEventBus
-from infrastructure.cache.in_memory_idempotency_cache import InMemoryIdempotencyCache
-from application.meal.orchestrators.photo_orchestrator import PhotoOrchestrator
-from application.meal.orchestrators.barcode_orchestrator import BarcodeOrchestrator
-from domain.meal.core.factories.meal_factory import MealFactory
-from infrastructure.meal.providers.stub_vision_provider import StubVisionProvider
-from infrastructure.meal.providers.stub_nutrition_provider import StubNutritionProvider
-from infrastructure.meal.providers.stub_barcode_provider import StubBarcodeProvider
-from domain.meal.recognition.services.recognition_service import FoodRecognitionService
-from domain.meal.barcode.services.barcode_service import BarcodeService
-from domain.meal.nutrition.services.enrichment_service import NutritionEnrichmentService
 
 # Create singleton instances (persistent across requests for testing)
 # IMPORTANT: In production, these should be request-scoped or use proper connection pooling

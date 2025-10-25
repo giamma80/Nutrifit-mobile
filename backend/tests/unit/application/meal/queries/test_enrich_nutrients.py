@@ -23,7 +23,7 @@ def handler(mock_enrichment_service):
 @pytest.fixture
 def sample_nutrient_profile():
     return NutrientProfile(
-        calories=165.0, protein=31.0, carbs=0.0, fat=3.6, fiber=0.0, sugar=0.0, sodium=74.0
+        calories=165, protein=31.0, carbs=0.0, fat=3.6, fiber=0.0, sugar=0.0, sodium=74.0
     )
 
 
@@ -52,7 +52,7 @@ class TestEnrichNutrientsQueryHandler:
         query = EnrichNutrientsQuery(food_label="apple", quantity_g=200.0)
 
         profile = NutrientProfile(
-            calories=104.0, protein=0.5, carbs=28.0, fat=0.3, fiber=4.8, sugar=21.0, sodium=2.0
+            calories=104, protein=0.5, carbs=28.0, fat=0.3, fiber=4.8, sugar=21.0, sodium=2.0
         )
 
         mock_enrichment_service.enrich.return_value = profile

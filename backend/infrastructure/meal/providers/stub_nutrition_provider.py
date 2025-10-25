@@ -85,7 +85,7 @@ class StubNutritionProvider:
         scale_factor = quantity_g / 100.0
 
         return NutrientProfile(
-            calories=base_nutrients["calories"] * scale_factor,
+            calories=int(base_nutrients["calories"] * scale_factor),
             protein=base_nutrients["protein"] * scale_factor,
             carbs=base_nutrients["carbs"] * scale_factor,
             fat=base_nutrients["fat"] * scale_factor,

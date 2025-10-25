@@ -24,7 +24,7 @@ def handler(mock_barcode_service):
 @pytest.fixture
 def sample_barcode_product():
     nutrients = NutrientProfile(
-        calories=220.0, protein=3.5, carbs=30.0, fat=10.0, fiber=2.0, sugar=25.0, sodium=100.0
+        calories=220, protein=3.5, carbs=30.0, fat=10.0, fiber=2.0, sugar=25.0, sodium=100.0
     )
 
     return BarcodeProduct(

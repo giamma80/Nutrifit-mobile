@@ -336,7 +336,7 @@ async def test_search_food_by_barcode_without_nutrients(
         barcode="8001505005707",
         name="Generic Product",
         brand="Generic",
-        nutrients=None,  # type: ignore[arg-type]
+        nutrients=None,
         serving_size_g=None,
         image_url=None,
     )

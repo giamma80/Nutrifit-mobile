@@ -44,6 +44,11 @@ explicit_package_bases = true
 plugins = ["strawberry.ext.mypy_plugin"]
 # Nota: plugin Strawberry abilita validazioni base su resolver e schema.
 
+[[tool.mypy.overrides]]
+module = "tests.*"
+disallow_untyped_defs = false
+disallow_untyped_calls = false
+
 [tool.black]
 line-length = 100
 exclude = "(\\.venv/|dist/|build/)"

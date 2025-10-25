@@ -1,9 +1,9 @@
 # 🎯 Nutrifit Meal Domain Refactor - Implementation Tracker
 
-**Version:** 2.7
+**Version:** 2.8
 **Date:** 25 Ottobre 2025
 **Branch:** `refactor`
-**Status:** ✅ Phase 5 Complete (100%) - Ready for Phase 6 (Testing & Quality)
+**Status:** ✅ Phase 6 Progress: P6.2 Coverage & Quality Complete (67%) - Next: P6.3 Documentation
 
 ---
 
@@ -17,9 +17,9 @@
 | **Phase 3** | 7 | 5 | 0 | 0 | 2 |
 | **Phase 4** | 4 | 4 | 0 | 0 | 0 |
 | **Phase 5** | 4 | 4 | 0 | 0 | 0 |
-| **Phase 6** | 3 | 1 | 0 | 0 | 2 |
-| **Phase 7** | 2 | 0 | 0 | 0 | 2 |
-| **TOTAL** | **32** | **26** | **0** | **0** | **6** |
+| **Phase 6** | 3 | 2 | 0 | 0 | 1 |
+| **Phase 7** | 3 | 0 | 0 | 0 | 3 |
+| **TOTAL** | **34** | **27** | **0** | **0** | **7** |
 
 ---
 
@@ -243,11 +243,11 @@
 | P6.1.2 | Barcode analysis E2E | Test flusso completo barcode → meal confermato | `05_TESTING_STRATEGY.md` §690-740 | Test E2E barcode passano | 🟢 COMPLETED | Uses real orchestrators + stub providers |
 | P6.1.3 | Text analysis E2E | Test flusso completo text → meal confermato | `05_TESTING_STRATEGY.md` §750-790 | Test E2E text passano | ⚪ NOT_STARTED | DEFERRED (no text workflow) |
 | P6.1.4 | Meal lifecycle E2E | Test CRUD completo meal | `05_TESTING_STRATEGY.md` §800-850 | Test lifecycle passano | 🟢 COMPLETED | Create → Read → Update → Delete |
-| **P6.2** | **Coverage & Quality** | Verificare coverage e quality metrics | `05_TESTING_STRATEGY.md` §900-1000 | Coverage >90%, quality checks OK | ⚪ NOT_STARTED | - |
-| P6.2.1 | Run coverage report | `make test-coverage` | `05_TESTING_STRATEGY.md` §920-940 | Report coverage generato | ⚪ NOT_STARTED | Target: >90% |
-| P6.2.2 | Check coverage threshold | Verificare coverage domain/application | `05_TESTING_STRATEGY.md` §950-970 | Domain >95%, Application >90% | ⚪ NOT_STARTED | - |
-| P6.2.3 | Run linter | `make lint` | `05_TESTING_STRATEGY.md` §980-990 | Nessun errore linting | ⚪ NOT_STARTED | Ruff |
-| P6.2.4 | Run type checker | `make typecheck` | `05_TESTING_STRATEGY.md` §995-1000 | Nessun errore type checking | ⚪ NOT_STARTED | mypy strict |
+| **P6.2** | **Coverage & Quality** | Verificare coverage e quality metrics | `05_TESTING_STRATEGY.md` §900-1000 | Coverage >90%, quality checks OK | 🟢 COMPLETED | Coverage 99.5%, lint+mypy clean |
+| P6.2.1 | Run coverage report | `make test-coverage` | `05_TESTING_STRATEGY.md` §920-940 | Report coverage generato | 🟢 COMPLETED | Domain+App: 99.5% (1085 stmts, 5 missing) |
+| P6.2.2 | Check coverage threshold | Verificare coverage domain/application | `05_TESTING_STRATEGY.md` §950-970 | Domain >95%, Application >90% | 🟢 COMPLETED | Exceeds target by 9.5% |
+| P6.2.3 | Run linter | `make lint` | `05_TESTING_STRATEGY.md` §980-990 | Nessun errore linting | 🟢 COMPLETED | Flake8 + mypy clean (256 files) |
+| P6.2.4 | Run type checker | `make typecheck` | `05_TESTING_STRATEGY.md` §995-1000 | Nessun errore type checking | 🟢 COMPLETED | mypy strict mode - no issues found |
 | **P6.3** | **Documentation** | Generare documentazione API con SpectaQL | `06_GRAPHQL_API.md` §1226-1600 | Docs API generate | ⚪ NOT_STARTED | - |
 | P6.3.1 | Setup SpectaQL | Installare SpectaQL e creare config | `06_GRAPHQL_API.md` §1240-1310 | spectaql.yaml configurato | ⚪ NOT_STARTED | - |
 | P6.3.2 | Export schema | Script per export schema GraphQL | `06_GRAPHQL_API.md` §1320-1390 | Schema esportato in schema.graphql | ⚪ NOT_STARTED | - |
@@ -258,25 +258,38 @@
 
 ---
 
-## 📋 Phase 7: Deployment & Monitoring (4-6 ore)
+## 📋 Phase 7: Deployment & Persistence (8-10 ore)
 
-**Goal:** Deploy in production e setup monitoring.
+**Goal:** Deploy in production, persistence strategy, e setup monitoring.
 
 | ID | Task | Description | Reference Doc | Expected Result | Status | Notes |
 |----|------|-------------|---------------|-----------------|--------|-------|
-| **P7.1** | **Production Deployment** | Deploy su Render in production | README.md §260-350 | Backend deployed su Render | ⚪ NOT_STARTED | - |
+| **P7.0** | **Repository Factory Pattern** | Implementare factory pattern per persistence | `09_PERSISTENCE_STRATEGY.md` | Factory con graceful fallback | ⚪ NOT_STARTED | Environment-based selection |
+| P7.0.1 | Create factory module | Implementare `infrastructure/persistence/factory.py` | `09_PERSISTENCE_STRATEGY.md` §Implementation | Factory function con env-based logic | ⚪ NOT_STARTED | 1h - Supports MEAL_REPOSITORY env var |
+| P7.0.2 | Update app.py | Usare factory in startup con singleton pattern | `09_PERSISTENCE_STRATEGY.md` §Implementation | app.py usa `create_meal_repository()` | ⚪ NOT_STARTED | 30min - Lazy initialization |
+| P7.0.3 | Add factory tests | Unit tests per factory logic | `09_PERSISTENCE_STRATEGY.md` §Testing | 4+ tests passano (default, fallback, mongo) | ⚪ NOT_STARTED | 30min - Mock environment vars |
+| **P7.1** | **MongoDB Implementation** | Implementare MongoMealRepository | `08_DEPLOYMENT.md` §MongoDB | MongoDB adapter completo | ⚪ NOT_STARTED | 4h - Requires motor dependency |
+| P7.1.1 | Implement MongoMealRepository | `infrastructure/persistence/mongodb/meal_repository.py` | `08_DEPLOYMENT.md` §305-330 | Repository implementa IMealRepository | ⚪ NOT_STARTED | CRUD + query methods |
+| P7.1.2 | Create indexes script | `scripts/init_mongodb.py` per indexes | `08_DEPLOYMENT.md` §340-365 | Script crea indexes (user_id, timestamp) | ⚪ NOT_STARTED | Run once on deploy |
+| P7.1.3 | MongoDB integration tests | Test opt-in con MongoDB reale | `09_PERSISTENCE_STRATEGY.md` §Testing | Integration tests passano (skip se no URI) | ⚪ NOT_STARTED | Requires MONGODB_URI env |
+| **P7.2** | **Production Deployment** | Deploy su Render in production | README.md §260-350 | Backend deployed su Render | ⚪ NOT_STARTED | - |
 | P7.1.1 | Update Dockerfile | Verificare Dockerfile con nuova struttura | README.md §185-215 | Dockerfile aggiornato | ⚪ NOT_STARTED | COPY nuove cartelle |
 | P7.1.2 | Update render.yaml | Verificare config Render | README.md §220-280 | render.yaml verificato | ⚪ NOT_STARTED | buildCommand, startCommand |
 | P7.1.3 | Set env vars Render | Configurare OPENAI_API_KEY, USDA_API_KEY, etc. | README.md §240-260 | Env vars configurate | ⚪ NOT_STARTED | Dashboard Render |
 | P7.1.4 | Deploy to staging | Deploy su branch staging first | README.md §290-310 | Staging deployment OK | ⚪ NOT_STARTED | Test in staging |
 | P7.1.5 | Deploy to production | Merge main e deploy production | README.md §320-340 | Production deployment OK | ⚪ NOT_STARTED | - |
-| P7.1.6 | Smoke tests production | Test health endpoint + sample query | README.md §345-350 | Smoke tests passano | ⚪ NOT_STARTED | /health, sample GraphQL query |
-| **P7.2** | **Monitoring & Observability** | Setup monitoring e alerting | `04_INFRASTRUCTURE_LAYER.md` §1400-1500 | Monitoring attivo | ⚪ NOT_STARTED | - |
-| P7.2.1 | Setup structured logging | Implementare structured logs (JSON) | `04_INFRASTRUCTURE_LAYER.md` §1410-1440 | Logs strutturati | ⚪ NOT_STARTED | Include: request_id, user_id, latency |
-| P7.2.2 | Setup metrics | Implementare metrics OpenAI/USDA/OFF calls | `04_INFRASTRUCTURE_LAYER.md` §1450-1480 | Metrics tracked | ⚪ NOT_STARTED | Cache hit rate, latency, errors |
-| P7.2.3 | Setup alerting | Configurare alert su Render/Sentry | `04_INFRASTRUCTURE_LAYER.md` §1490-1500 | Alerting configurato | ⚪ NOT_STARTED | Error rate >5%, latency >2s |
+| P7.2.1 | Update Dockerfile | Verificare Dockerfile con nuova struttura | README.md §185-215 | Dockerfile aggiornato | ⚪ NOT_STARTED | COPY nuove cartelle |
+| P7.2.2 | Update render.yaml | Verificare config Render | README.md §220-280 | render.yaml verificato | ⚪ NOT_STARTED | buildCommand, startCommand |
+| P7.2.3 | Set env vars Render | Configurare OPENAI_API_KEY, USDA_API_KEY, MEAL_REPOSITORY, MONGODB_URI | `09_PERSISTENCE_STRATEGY.md` §Deployment | Env vars configurate | ⚪ NOT_STARTED | Dashboard Render + MongoDB vars |
+| P7.2.4 | Deploy to staging | Deploy su branch staging first | README.md §290-310 | Staging deployment OK | ⚪ NOT_STARTED | Test in staging |
+| P7.2.5 | Deploy to production | Merge main e deploy production | README.md §320-340 | Production deployment OK | ⚪ NOT_STARTED | - |
+| P7.2.6 | Smoke tests production | Test health endpoint + sample query | README.md §345-350 | Smoke tests passano | ⚪ NOT_STARTED | /health, sample GraphQL query |
+| **P7.3** | **Monitoring & Observability** | Setup monitoring e alerting | `04_INFRASTRUCTURE_LAYER.md` §1400-1500 | Monitoring attivo | ⚪ NOT_STARTED | - |
+| P7.3.1 | Setup structured logging | Implementare structured logs (JSON) | `04_INFRASTRUCTURE_LAYER.md` §1410-1440 | Logs strutturati | ⚪ NOT_STARTED | Include: request_id, user_id, latency |
+| P7.3.2 | Setup metrics | Implementare metrics OpenAI/USDA/OFF calls | `04_INFRASTRUCTURE_LAYER.md` §1450-1480 | Metrics tracked | ⚪ NOT_STARTED | Cache hit rate, latency, errors |
+| P7.3.3 | Setup alerting | Configurare alert su Render/Sentry | `04_INFRASTRUCTURE_LAYER.md` §1490-1500 | Alerting configurato | ⚪ NOT_STARTED | Error rate >5%, latency >2s |
 
-**Milestone P7:** ✅ Production deployment completo, monitoring attivo, sistema in produzione
+**Milestone P7:** ✅ Production deployment completo, persistence strategy con graceful fallback, monitoring attivo, sistema in produzione
 
 ---
 

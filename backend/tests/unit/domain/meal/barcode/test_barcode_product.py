@@ -33,6 +33,7 @@ class TestBarcodeProduct:
         assert product.barcode == "8001505005707"
         assert product.name == "Galletti Biscuits"
         assert product.brand == "Mulino Bianco"
+        assert product.nutrients is not None
         assert product.nutrients.calories == 450
         assert product.image_url is None
         assert product.serving_size_g is None
@@ -301,6 +302,7 @@ class TestBarcodeProduct:
 
         # Scale to 50g
         scaled = product.scale_nutrients(50.0)
+        assert scaled is not None
 
         assert scaled.calories == 225  # 450 * 0.5
         assert scaled.protein == 3.25  # 6.5 * 0.5
@@ -467,5 +469,6 @@ class TestBarcodeProductEdgeCases:
         _ = product.scale_nutrients(50.0)
 
         # Original should be unchanged
+        assert product.nutrients is not None
         assert product.nutrients.calories == 450
         assert product.nutrients.quantity_g == 100.0
