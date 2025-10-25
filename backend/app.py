@@ -37,10 +37,16 @@ from inference.adapter import get_active_adapter
 #     enrich_from_product,
 # )
 # from domain.nutrition.integration import get_nutrition_integration_service
-from graphql.types_ai import (
-    MealPhotoAnalysis,
-    AnalyzeMealPhotoInput,
-)
+
+# Phase 5: New GraphQL resolvers (CQRS)
+from graphql.resolvers.meal.atomic_queries import AtomicQueries
+from graphql.resolvers.meal.aggregate_queries import AggregateQueries
+from graphql.resolvers.meal.mutations import MealMutations
+
+# Legacy AI types (keeping MealPhotoAnalysis for compatibility)
+from graphql.types_ai import MealPhotoAnalysis
+
+# from graphql.types_ai import AnalyzeMealPhotoInput  # Replaced by types_meal_mutations
 from graphql.types_activity_health import (
     ActivitySource,
     ActivityEvent,
@@ -253,6 +259,40 @@ class Query:
         cache.set(key, prod, PRODUCT_CACHE_TTL_S)
         return prod
 
+    # ============================================
+    # Phase 5: New CQRS Meal Resolvers
+    # ============================================
+
+    @strawberry.field(description="Atomic utility queries for testing capabilities")
+    def atomic(self) -> AtomicQueries:
+        """Atomic queries for testing individual capabilities in isolation.
+
+        Example:
+            query {
+              atomic {
+                recognizeFood(photoUrl: "https://...") { items { label } }
+              }
+            }
+        """
+        return AtomicQueries()
+
+    @strawberry.field(description="Aggregate meal data queries")
+    def meals(self) -> AggregateQueries:
+        """Aggregate queries for meal data operations (CQRS).
+
+        Example:
+            query {
+              meals {
+                meal(mealId: "...", userId: "user123") { totalCalories }
+              }
+            }
+        """
+        return AggregateQueries()
+
+    # ============================================
+    # Legacy Resolvers (TEMPORARILY DISABLED)
+    # ============================================
+
     # TEMPORARILY DISABLED DURING REFACTOR - Phase 0: MealEntry type removed
     # Will be reimplemented in Phase 5 with new GraphQL schema
     # @strawberry.field(description="Lista pasti più recenti (desc)")  # type: ignore[misc]
@@ -445,6 +485,29 @@ class Mutation:
     #
     #     return await get_meal_resolver().delete_meal(info, id)
 
+    # ============================================
+    # Phase 5: New CQRS Meal Mutations
+    # ============================================
+
+    @strawberry.field(description="Meal domain mutations (CQRS commands)")
+    def meal(self) -> MealMutations:
+        """Meal domain mutations following CQRS pattern.
+
+        Example:
+            mutation {
+              meal {
+                analyzeMealPhoto(input: {...}) {
+                  ... on MealAnalysisSuccess { meal { id } }
+                }
+              }
+            }
+        """
+        return MealMutations()
+
+    # ============================================
+    # Activity & Health Mutations
+    # ============================================
+
     @strawberry.mutation(  # type: ignore[misc]
         description="Ingest batch minute activity events (idempotent)"
     )
@@ -557,30 +620,32 @@ class Mutation:
             delta=delta_obj,
         )
 
+    # TEMPORARILY DISABLED DURING REFACTOR - Phase 0
+    # Replaced by Phase 5 MealMutations.analyzeMealPhoto
     # --- AI Photo Stub Mutations ---
-    @strawberry.mutation(  # type: ignore[misc]
-        description="Analizza una foto (stub deterministico)"
-    )
-    async def analyze_meal_photo(
-        self,
-        info: Info[Any, Any],  # noqa: ARG002
-        input: AnalyzeMealPhotoInput,
-    ) -> MealPhotoAnalysis:
-        """Async mutation per analisi foto.
-
-        Evita uso di asyncio.run dentro event loop (pytest/strawberry) e
-        utilizza il nuovo percorso create_or_get_async.
-        """
-        # TEMPORARILY DISABLED DURING REFACTOR - Phase 0
-        # uid = input.user_id or DEFAULT_USER_ID
-        # now_iso = datetime.datetime.utcnow().isoformat() + "Z"
-
-        # Domain service V2 (only path)
-        # from domain.meal.application.meal_analysis_service import (
-        #     MealAnalysisService,
-        # )
-        # from domain.meal.model import MealAnalysisRequest
-        raise NotImplementedError("Meal analysis service temporarily disabled during refactor")
+    # @strawberry.mutation(  # type: ignore[misc]
+    #     description="Analizza una foto (stub deterministico)"
+    # )
+    # async def analyze_meal_photo(
+    #     self,
+    #     info: Info[Any, Any],  # noqa: ARG002
+    #     input: AnalyzeMealPhotoInput,
+    # ) -> MealPhotoAnalysis:
+    #     """Async mutation per analisi foto.
+    #
+    #     Evita uso di asyncio.run dentro event loop (pytest/strawberry) e
+    #     utilizza il nuovo percorso create_or_get_async.
+    #     """
+    #     # TEMPORARILY DISABLED DURING REFACTOR - Phase 0
+    #     # uid = input.user_id or DEFAULT_USER_ID
+    #     # now_iso = datetime.datetime.utcnow().isoformat() + "Z"
+    #
+    #     # Domain service V2 (only path)
+    #     # from domain.meal.application.meal_analysis_service import (
+    #     #     MealAnalysisService,
+    #     # )
+    #     # from domain.meal.model import MealAnalysisRequest
+    #     raise NotImplementedError("Meal analysis service temporarily disabled during refactor")
 
 
 schema = strawberry.Schema(
@@ -663,5 +728,63 @@ async def version() -> dict[str, str]:
     return {"version": APP_VERSION}
 
 
-graphql_app: Final[GraphQLRouter[Any, Any]] = GraphQLRouter(schema)
+# ============================================
+# Phase 5: GraphQL Context Setup
+# ============================================
+
+
+def get_graphql_context() -> Any:
+    """Create GraphQL context with all dependencies.
+
+    Returns dict-like context for resolver dependency injection.
+
+    Note: Using placeholder implementations for Phase 5.
+    Real implementations will be configured in Phase 7 (Deployment).
+    """
+    from graphql.context import create_context
+    from infrastructure.persistence.in_memory.meal_repository import InMemoryMealRepository
+    from infrastructure.events.in_memory_bus import InMemoryEventBus
+    from infrastructure.cache.in_memory_idempotency_cache import InMemoryIdempotencyCache
+    from application.meal.orchestrators.photo_orchestrator import PhotoOrchestrator
+    from application.meal.orchestrators.barcode_orchestrator import BarcodeOrchestrator
+    from unittest.mock import AsyncMock
+
+    # Placeholder implementations for Phase 5
+    # TODO P7: Replace with real implementations (OpenAI, USDA, OFF clients)
+    meal_repository = InMemoryMealRepository()
+    event_bus = InMemoryEventBus()
+    idempotency_cache = InMemoryIdempotencyCache()
+
+    # Mock services (will be real in P7)
+    recognition_service = AsyncMock()  # type: ignore
+    enrichment_service = AsyncMock()  # type: ignore
+    barcode_service = AsyncMock()  # type: ignore
+
+    # Orchestrators (require services)
+    photo_orchestrator = PhotoOrchestrator(
+        recognition=recognition_service,
+        enrichment=enrichment_service,
+        meal_factory=AsyncMock(),  # type: ignore
+    )
+    barcode_orchestrator = BarcodeOrchestrator(
+        barcode=barcode_service,
+        enrichment=enrichment_service,
+        meal_factory=AsyncMock(),  # type: ignore
+    )
+
+    return create_context(
+        meal_repository=meal_repository,
+        event_bus=event_bus,
+        idempotency_cache=idempotency_cache,
+        photo_orchestrator=photo_orchestrator,
+        barcode_orchestrator=barcode_orchestrator,
+        recognition_service=recognition_service,
+        enrichment_service=enrichment_service,
+        barcode_service=barcode_service,
+    )
+
+
+graphql_app: Final[GraphQLRouter[Any, Any]] = GraphQLRouter(
+    schema, context_getter=get_graphql_context
+)
 app.include_router(graphql_app, prefix="/graphql")
