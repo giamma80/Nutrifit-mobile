@@ -24,6 +24,7 @@ class MealFactory:
         meal_type: str = "SNACK",
         photo_url: Optional[str] = None,
         analysis_id: Optional[str] = None,
+        dish_name: Optional[str] = None,
     ) -> Meal:
         """
         Create Meal from AI analysis results.
@@ -43,6 +44,8 @@ class MealFactory:
             meal_type: Type of meal (BREAKFAST | LUNCH | DINNER | SNACK)
             photo_url: Optional URL of the meal photo
             analysis_id: Optional ID linking to the analysis record
+            dish_name: Optional recognized dish name from AI
+                       (e.g., "Spaghetti alla Carbonara")
 
         Returns:
             New Meal aggregate with all entries and calculated totals
@@ -106,16 +109,25 @@ class MealFactory:
             entries.append(entry)
 
         # Calculate average confidence from entries
-        avg_confidence = sum(e.confidence or 0.0 for e in entries) / len(entries)
+        avg_confidence = (
+            sum(e.confidence or 0.0 for e in entries) / len(entries)
+        )
 
-        # Generate dish name from first entry or all entries
-        if len(entries) == 1:
-            dish_name = entries[0].display_name
+        # Generate dish name from AI recognition or fallback to entries
+        if dish_name:
+            # Use AI-recognized dish name (e.g., "Spaghetti Carbonara")
+            final_dish_name = dish_name
+        elif len(entries) == 1:
+            # Single item: use its display name
+            final_dish_name = entries[0].display_name
         else:
-            # Use first entry as primary, add count if multiple
-            dish_name = f"{entries[0].display_name} (+{len(entries)-1} altri)"
+            # Multiple items: use first + count
+            final_dish_name = (
+                f"{entries[0].display_name} (+{len(entries)-1} altri)"
+            )
 
-        # Image URL: prioritize photo_url, fallback to entry image_url (barcode case)
+        # Image URL: prioritize photo_url,
+        # fallback to entry image_url (barcode case)
         image_url = photo_url
         if not image_url and entries:
             # Check first entry for barcode image (OpenFoodFacts)
@@ -127,7 +139,7 @@ class MealFactory:
             user_id=user_id,
             timestamp=timestamp,
             meal_type=meal_type,
-            dish_name=dish_name,
+            dish_name=final_dish_name,
             image_url=image_url,
             source=source,
             confidence=avg_confidence,
@@ -250,10 +262,13 @@ class MealFactory:
             timestamp: Meal timestamp (default: now UTC)
 
         Returns:
-            Tuple of (Meal with placeholder entry, meal_id for creating entries)
+            Tuple of (Meal with placeholder entry,
+                      meal_id for creating entries)
 
         Example:
-            >>> meal, meal_id = MealFactory.create_empty("user123", "BREAKFAST")
+            >>> meal, meal_id = MealFactory.create_empty(
+            ...     "user123", "BREAKFAST"
+            ... )
             >>> # Later, replace placeholder with real entries
         """
         meal_id = uuid4()

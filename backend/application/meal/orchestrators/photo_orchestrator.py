@@ -170,6 +170,7 @@ class PhotoOrchestrator:
             meal_type=meal_type,
             photo_url=photo_url,
             analysis_id=f"photo_{uuid4().hex[:12]}",
+            dish_name=recognition_result.dish_name,
         )
 
         logger.info(
