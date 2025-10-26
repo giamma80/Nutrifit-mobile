@@ -62,7 +62,6 @@ async def test_openai_analyze_photo_real_api():
     print(f"\n✅ OpenAI Photo Analysis:")
     print(f"   - Recognized {len(result.items)} items")
     print(f"   - Items: {[item.label for item in result.items]}")
-    print(f"   - Average confidence: {result.average_confidence:.2f}")
 
 
 @pytest.mark.skipif(not OPENAI_API_KEY, reason=SKIP_REASON)
