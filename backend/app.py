@@ -43,7 +43,7 @@ from graphql.resolvers.meal.atomic_queries import AtomicQueries
 from graphql.resolvers.meal.aggregate_queries import AggregateQueries
 from graphql.resolvers.meal.mutations import MealMutations
 from graphql.context import create_context
-from infrastructure.persistence.in_memory.meal_repository import InMemoryMealRepository
+from infrastructure.persistence.factory import get_meal_repository
 from infrastructure.events.in_memory_bus import InMemoryEventBus
 from infrastructure.cache.in_memory_idempotency_cache import InMemoryIdempotencyCache
 from application.meal.orchestrators.photo_orchestrator import PhotoOrchestrator
@@ -748,7 +748,12 @@ async def version() -> dict[str, str]:
 
 # Create singleton instances (persistent across requests for testing)
 # IMPORTANT: In production, these should be request-scoped or use proper connection pooling
-_meal_repository = InMemoryMealRepository()
+
+# Repository (environment-based selection via factory)
+# Environment variable controls repository selection:
+# - MEAL_REPOSITORY: "inmemory" (default) | "mongodb" (P7.1)
+_meal_repository = get_meal_repository()
+
 _event_bus = InMemoryEventBus()
 _idempotency_cache = InMemoryIdempotencyCache()
 _meal_factory = MealFactory()
