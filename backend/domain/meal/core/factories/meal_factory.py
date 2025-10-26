@@ -105,12 +105,32 @@ class MealFactory:
             )
             entries.append(entry)
 
+        # Calculate average confidence from entries
+        avg_confidence = sum(e.confidence or 0.0 for e in entries) / len(entries)
+
+        # Generate dish name from first entry or all entries
+        if len(entries) == 1:
+            dish_name = entries[0].display_name
+        else:
+            # Use first entry as primary, add count if multiple
+            dish_name = f"{entries[0].display_name} (+{len(entries)-1} altri)"
+
+        # Image URL: prioritize photo_url, fallback to entry image_url (barcode case)
+        image_url = photo_url
+        if not image_url and entries:
+            # Check first entry for barcode image (OpenFoodFacts)
+            image_url = entries[0].image_url
+
         # Create meal with entries
         meal = Meal(
             id=meal_id,
             user_id=user_id,
             timestamp=timestamp,
             meal_type=meal_type,
+            dish_name=dish_name,
+            image_url=image_url,
+            source=source,
+            confidence=avg_confidence,
             entries=entries,
             analysis_id=analysis_id,
         )

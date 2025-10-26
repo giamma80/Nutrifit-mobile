@@ -176,25 +176,25 @@ class StubVisionProvider:
                 ),
             ]
         else:
-            # Default: Generic mixed dish (3 ingredients)
+            # Default: Generic mixed dish (3 real ingredients)
             items = [
                 RecognizedFood(
-                    label="protein",
-                    display_name="proteine",
+                    label="chicken_breast",
+                    display_name="petto di pollo",
                     quantity_g=120.0,
                     confidence=1.0,
                     category="protein",
                 ),
                 RecognizedFood(
-                    label="carbs",
-                    display_name="carboidrati",
+                    label="rice",
+                    display_name="riso",
                     quantity_g=150.0,
                     confidence=1.0,
                     category="grains",
                 ),
                 RecognizedFood(
                     label="vegetables",
-                    display_name="verdure",
+                    display_name="verdure miste",
                     quantity_g=80.0,
                     confidence=1.0,
                     category="vegetables",

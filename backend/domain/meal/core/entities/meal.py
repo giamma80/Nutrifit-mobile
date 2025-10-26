@@ -36,6 +36,12 @@ class Meal:
     timestamp: datetime
     meal_type: str  # BREAKFAST | LUNCH | DINNER | SNACK
 
+    # Recognition metadata (from analysis)
+    dish_name: str = "Meal"  # Recognized dish name (e.g., "Spaghetti Carbonara")
+    image_url: Optional[str] = None  # Photo/barcode image URL
+    source: str = "manual"  # Analysis source: "gpt4v_v2", "barcode", "manual", "text"
+    confidence: float = 1.0  # Average confidence (0.0-1.0)
+
     # Aggregate content
     entries: List[MealEntry] = field(default_factory=list)
 

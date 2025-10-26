@@ -7,6 +7,7 @@ This implements step 1 of the 2-step meal creation flow:
 
 from dataclasses import dataclass
 from typing import Optional
+from datetime import datetime
 import logging
 
 from domain.meal.core.entities.meal import Meal
@@ -32,6 +33,7 @@ class AnalyzeMealPhotoCommand:
         photo_url: URL of the meal photo
         dish_hint: Optional hint about the dish
         meal_type: BREAKFAST | LUNCH | DINNER | SNACK
+        timestamp: Meal timestamp (defaults to current time if not provided)
         idempotency_key: Optional key for idempotent processing
     """
 
@@ -39,6 +41,7 @@ class AnalyzeMealPhotoCommand:
     photo_url: str
     dish_hint: Optional[str] = None
     meal_type: str = "SNACK"
+    timestamp: Optional[datetime] = None
     idempotency_key: Optional[str] = None
 
 
@@ -135,6 +138,7 @@ class AnalyzeMealPhotoCommandHandler:
             photo_url=command.photo_url,
             dish_hint=command.dish_hint,
             meal_type=command.meal_type,
+            timestamp=command.timestamp,
         )
 
         # 2. Persist meal

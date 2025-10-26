@@ -70,9 +70,16 @@ class Meal:
     user_id: str
     timestamp: datetime
     meal_type: MealType
+
+    # Recognition metadata (from AI analysis)
+    dish_name: str  # Recognized dish name (e.g., "Spaghetti Carbonara")
+    image_url: Optional[str] = None  # Photo/barcode image URL
+    source: str = "MANUAL"  # Analysis source: "gpt4v_v2", "barcode", "manual", "text"
+    confidence: float = 1.0  # Average confidence (0.0-1.0)
+
+    # Meal content
     entries: List[MealEntry]
     notes: Optional[str] = None
-    source: str = "MANUAL"
     analysis_id: Optional[str] = None
 
     # Calculated totals

@@ -72,10 +72,16 @@ def map_meal_to_graphql(meal: Any) -> Meal:
         user_id=meal.user_id,
         timestamp=meal.timestamp,
         meal_type=meal_type,
+        # Recognition metadata
+        dish_name=meal.dish_name if hasattr(meal, "dish_name") else "Meal",
+        image_url=meal.image_url if hasattr(meal, "image_url") else None,
+        source=meal.source if hasattr(meal, "source") else "MANUAL",
+        confidence=meal.confidence if hasattr(meal, "confidence") else 1.0,
+        # Content
         entries=entries,
         notes=meal.notes,
-        source=meal.source if hasattr(meal, "source") else "MANUAL",
         analysis_id=meal.analysis_id if hasattr(meal, "analysis_id") else None,
+        # Totals
         total_calories=meal.total_calories,
         total_protein=meal.total_protein,
         total_carbs=meal.total_carbs,
@@ -83,6 +89,7 @@ def map_meal_to_graphql(meal: Any) -> Meal:
         total_fiber=meal.total_fiber,
         total_sugar=meal.total_sugar,
         total_sodium=meal.total_sodium,
+        # Timestamps
         created_at=meal.created_at,
         updated_at=meal.updated_at if hasattr(meal, "updated_at") else None,
     )

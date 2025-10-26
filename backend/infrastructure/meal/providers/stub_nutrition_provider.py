@@ -158,6 +158,15 @@ class StubNutritionProvider:
                 "sugar": 0.82,
                 "sodium": 6.0,
             },
+            "rice": {  # Riso
+                "calories": 130.0,
+                "protein": 2.7,
+                "carbs": 28.2,
+                "fat": 0.3,
+                "fiber": 0.4,
+                "sugar": 0.1,
+                "sodium": 1.0,
+            },
             # Condiments/Oils
             "sauce": {  # Salsa
                 "calories": 438.0,

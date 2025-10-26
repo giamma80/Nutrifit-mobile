@@ -109,6 +109,7 @@ class MealMutations:
                 photo_url=input.photo_url,
                 dish_hint=input.dish_hint,
                 meal_type=input.meal_type.value,
+                timestamp=input.timestamp,
                 idempotency_key=input.idempotency_key,
             )
 
@@ -172,6 +173,7 @@ class MealMutations:
                 barcode=input.barcode,
                 quantity_g=input.quantity_g,
                 meal_type=input.meal_type.value,
+                timestamp=input.timestamp,
                 idempotency_key=input.idempotency_key,
             )
 

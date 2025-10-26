@@ -5,6 +5,7 @@ Handles barcode-based meal creation for packaged foods.
 
 from dataclasses import dataclass
 from typing import Optional
+from datetime import datetime
 import logging
 
 from domain.meal.core.entities.meal import Meal
@@ -30,6 +31,7 @@ class AnalyzeMealBarcodeCommand:
         barcode: Product barcode (EAN/UPC)
         quantity_g: Actual quantity consumed in grams
         meal_type: BREAKFAST | LUNCH | DINNER | SNACK
+        timestamp: Meal timestamp (defaults to current time if not provided)
         idempotency_key: Optional key for idempotent processing
     """
 
@@ -37,6 +39,7 @@ class AnalyzeMealBarcodeCommand:
     barcode: str
     quantity_g: float
     meal_type: str = "SNACK"
+    timestamp: Optional[datetime] = None
     idempotency_key: Optional[str] = None
 
 
@@ -134,6 +137,7 @@ class AnalyzeMealBarcodeCommandHandler:
             barcode=command.barcode,
             quantity_g=command.quantity_g,
             meal_type=command.meal_type,
+            timestamp=command.timestamp,
         )
 
         # 2. Persist meal

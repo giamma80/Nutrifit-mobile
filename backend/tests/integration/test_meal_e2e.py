@@ -48,6 +48,10 @@ async def test_photo_analysis_workflow_success(client: AsyncClient) -> None:
               ... on MealAnalysisSuccess {
                 meal {
                   id
+                  dishName
+                  imageUrl
+                  source
+                  confidence
                   entries {
                     id
                     name
@@ -75,6 +79,13 @@ async def test_photo_analysis_workflow_success(client: AsyncClient) -> None:
     analysis_result = data["data"]["meal"]["analyzeMealPhoto"]
     assert "meal" in analysis_result, f"Expected MealAnalysisSuccess, got: {analysis_result}"
     meal_data = analysis_result["meal"]
+
+    # ✅ Verify ALL required fields (as per production schema)
+    assert meal_data["dishName"] is not None, "dishName must be present"
+    assert meal_data["imageUrl"] == "https://example.com/chicken.jpg", "imageUrl must match input photoUrl"
+    assert meal_data["source"] == "PHOTO", "source must be PHOTO for photo analysis"
+    assert 0.0 <= meal_data["confidence"] <= 1.0, "confidence must be between 0.0 and 1.0"
+
     assert len(meal_data["entries"]) >= 1, "Expected at least one entry"
     assert meal_data["entries"][0]["name"] == "chicken_breast"
 
@@ -516,7 +527,15 @@ async def test_aggregate_daily_summary(client: AsyncClient) -> None:
               mealType: BREAKFAST
               timestamp: "2025-10-25T08:00:00Z"
             }}) {{
-              ... on MealAnalysisSuccess {{ meal {{ id totalCalories totalProtein }} }}
+              ... on MealAnalysisSuccess {{
+                meal {{
+                  id
+                  totalCalories
+                  totalProtein
+                  entries {{ id name }}
+                }}
+                analysisId
+              }}
             }}
           }}
         }}
@@ -524,7 +543,30 @@ async def test_aggregate_daily_summary(client: AsyncClient) -> None:
     )
     resp1 = await client.post("/graphql", json={"query": breakfast_mutation})
     data1 = resp1.json()
-    breakfast_data = data1["data"]["meal"]["analyzeMealPhoto"]["meal"]
+    breakfast_result = data1["data"]["meal"]["analyzeMealPhoto"]
+    breakfast_analysis_id = breakfast_result["analysisId"]
+    breakfast_data = breakfast_result["meal"]
+
+    # Confirm breakfast (all entries)
+    breakfast_entry_ids = [entry["id"] for entry in breakfast_data["entries"]]
+    breakfast_ids_list = '", "'.join(breakfast_entry_ids)
+    confirm_breakfast = _q(
+        f"""
+        mutation {{
+          meal {{
+            confirmMealAnalysis(input: {{
+              mealId: "{breakfast_data['id']}"
+              userId: "{user_id}"
+              confirmedEntryIds: ["{breakfast_ids_list}"]
+            }}) {{
+              ... on ConfirmAnalysisSuccess {{ meal {{ id }} }}
+              ... on ConfirmAnalysisError {{ message code }}
+            }}
+          }}
+        }}
+        """
+    )
+    await client.post("/graphql", json={"query": confirm_breakfast})
 
     # Lunch
     lunch_mutation = _q(
@@ -538,7 +580,15 @@ async def test_aggregate_daily_summary(client: AsyncClient) -> None:
               mealType: LUNCH
               timestamp: "2025-10-25T12:00:00Z"
             }}) {{
-              ... on MealAnalysisSuccess {{ meal {{ id totalCalories totalProtein }} }}
+              ... on MealAnalysisSuccess {{
+                meal {{
+                  id
+                  totalCalories
+                  totalProtein
+                  entries {{ id name }}
+                }}
+                analysisId
+              }}
             }}
           }}
         }}
@@ -546,7 +596,29 @@ async def test_aggregate_daily_summary(client: AsyncClient) -> None:
     )
     resp2 = await client.post("/graphql", json={"query": lunch_mutation})
     data2 = resp2.json()
-    lunch_data = data2["data"]["meal"]["analyzeMealBarcode"]["meal"]
+    lunch_result = data2["data"]["meal"]["analyzeMealBarcode"]
+    lunch_analysis_id = lunch_result["analysisId"]
+    lunch_data = lunch_result["meal"]
+
+    # Confirm lunch (all entries)
+    lunch_entry_ids = [entry["id"] for entry in lunch_data["entries"]]
+    lunch_ids_list = '", "'.join(lunch_entry_ids)
+    confirm_lunch = _q(
+        f"""
+        mutation {{
+          meal {{
+            confirmMealAnalysis(input: {{
+              mealId: "{lunch_data['id']}"
+              userId: "{user_id}"
+              confirmedEntryIds: ["{lunch_ids_list}"]
+            }}) {{
+              ... on ConfirmAnalysisSuccess {{ meal {{ id }} }}
+            }}
+          }}
+        }}
+        """
+    )
+    await client.post("/graphql", json={"query": confirm_lunch})
 
     # Dinner
     dinner_mutation = _q(
@@ -559,7 +631,15 @@ async def test_aggregate_daily_summary(client: AsyncClient) -> None:
               mealType: DINNER
               timestamp: "2025-10-25T19:00:00Z"
             }}) {{
-              ... on MealAnalysisSuccess {{ meal {{ id totalCalories totalProtein }} }}
+              ... on MealAnalysisSuccess {{
+                meal {{
+                  id
+                  totalCalories
+                  totalProtein
+                  entries {{ id name }}
+                }}
+                analysisId
+              }}
             }}
           }}
         }}
@@ -567,7 +647,29 @@ async def test_aggregate_daily_summary(client: AsyncClient) -> None:
     )
     resp3 = await client.post("/graphql", json={"query": dinner_mutation})
     data3 = resp3.json()
-    dinner_data = data3["data"]["meal"]["analyzeMealPhoto"]["meal"]
+    dinner_result = data3["data"]["meal"]["analyzeMealPhoto"]
+    dinner_analysis_id = dinner_result["analysisId"]
+    dinner_data = dinner_result["meal"]
+
+    # Confirm dinner (all entries)
+    dinner_entry_ids = [entry["id"] for entry in dinner_data["entries"]]
+    dinner_ids_list = '", "'.join(dinner_entry_ids)
+    confirm_dinner = _q(
+        f"""
+        mutation {{
+          meal {{
+            confirmMealAnalysis(input: {{
+              mealId: "{dinner_data['id']}"
+              userId: "{user_id}"
+              confirmedEntryIds: ["{dinner_ids_list}"]
+            }}) {{
+              ... on ConfirmAnalysisSuccess {{ meal {{ id }} }}
+            }}
+          }}
+        }}
+        """
+    )
+    await client.post("/graphql", json={"query": confirm_dinner})
 
     # Query daily summary
     summary_query = _q(
