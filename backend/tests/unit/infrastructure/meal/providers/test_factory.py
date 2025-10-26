@@ -84,22 +84,22 @@ class TestNutritionProviderFactory:
     def test_usda_provider_with_api_key(self, monkeypatch):
         """Should return USDA provider when NUTRITION_PROVIDER=usda and API key set."""
         monkeypatch.setenv("NUTRITION_PROVIDER", "usda")
-        monkeypatch.setenv("USDA_API_KEY", "test-usda-key")
+        monkeypatch.setenv("AI_USDA_API_KEY", "test-usda-key")
         provider = create_nutrition_provider()
         assert isinstance(provider, USDAClient)
 
     def test_usda_provider_without_api_key_raises_error(self, monkeypatch):
         """Should raise ValueError when NUTRITION_PROVIDER=usda but no API key."""
         monkeypatch.setenv("NUTRITION_PROVIDER", "usda")
-        monkeypatch.delenv("USDA_API_KEY", raising=False)
+        monkeypatch.delenv("AI_USDA_API_KEY", raising=False)
 
-        with pytest.raises(ValueError, match="USDA_API_KEY not set"):
+        with pytest.raises(ValueError, match="AI_USDA_API_KEY not set"):
             create_nutrition_provider()
 
     def test_case_insensitive_provider_selection(self, monkeypatch):
         """Should handle case-insensitive provider names."""
         monkeypatch.setenv("NUTRITION_PROVIDER", "USDA")
-        monkeypatch.setenv("USDA_API_KEY", "test-key")
+        monkeypatch.setenv("AI_USDA_API_KEY", "test-key")
         provider = create_nutrition_provider()
         assert isinstance(provider, USDAClient)
 
@@ -260,7 +260,7 @@ class TestFactoryIntegration:
         monkeypatch.setenv("VISION_PROVIDER", "openai")
         monkeypatch.setenv("OPENAI_API_KEY", "prod-key")
         monkeypatch.setenv("NUTRITION_PROVIDER", "usda")
-        monkeypatch.setenv("USDA_API_KEY", "prod-usda-key")
+        monkeypatch.setenv("AI_USDA_API_KEY", "prod-usda-key")
         monkeypatch.setenv("BARCODE_PROVIDER", "openfoodfacts")
 
         vision = create_vision_provider()

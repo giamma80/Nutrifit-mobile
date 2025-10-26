@@ -93,11 +93,11 @@ def create_nutrition_provider() -> INutritionProvider:
     mode = os.getenv("NUTRITION_PROVIDER", "stub").lower()
 
     if mode == "usda":
-        api_key = os.getenv("USDA_API_KEY")
+        api_key = os.getenv("AI_USDA_API_KEY")
         if not api_key:
             raise ValueError(
-                "NUTRITION_PROVIDER=usda but USDA_API_KEY not set. "
-                "Set USDA_API_KEY in .env or use NUTRITION_PROVIDER=stub"
+                "NUTRITION_PROVIDER=usda but AI_USDA_API_KEY not set. "
+                "Set AI_USDA_API_KEY in .env or use NUTRITION_PROVIDER=stub"
             )
         return USDAClient(api_key=api_key)
 
