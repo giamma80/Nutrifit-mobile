@@ -54,7 +54,6 @@ async def test_openfoodfacts_lookup_real_barcode():
         print(f"   - Product: {product.name}")
         print(f"   - Brand: {product.brand}")
         print(f"   - Calories: {product.nutrients.calories} kcal/100g")
-        print(f"   - Category: {product.category}")
 
 
 @pytest.mark.asyncio
@@ -100,7 +99,6 @@ async def test_openfoodfacts_metadata_extraction():
     Verifies:
     - Name extraction
     - Brand extraction
-    - Category extraction
     - Image URL extraction
     - Serving size extraction
     """
@@ -114,13 +112,9 @@ async def test_openfoodfacts_metadata_extraction():
         assert product.image_url, "Should extract image URL"
         assert product.serving_size_g > 0, "Should extract serving size"
 
-        # Verify optional fields
-        assert product.category or True, "Category is optional"
-
         print(f"\n✅ OpenFoodFacts Metadata:")
         print(f"   - Name: {product.name}")
         print(f"   - Brand: {product.brand}")
-        print(f"   - Category: {product.category or 'N/A'}")
         print(f"   - Image URL: {product.image_url[:50]}...")
         print(f"   - Serving size: {product.serving_size_g}g")
 
@@ -175,8 +169,8 @@ async def test_openfoodfacts_product_not_found():
     """
     async with OpenFoodFactsClient() as client:
 
-        # Lookup non-existent barcode
-        product = await client.lookup_barcode("9999999999999")
+        # Lookup non-existent barcode (very unlikely to exist)
+        product = await client.lookup_barcode("0000000000001")
 
         # Should return None
         assert product is None, "Should return None for non-existent product"

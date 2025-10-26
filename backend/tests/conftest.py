@@ -11,6 +11,13 @@ import pytest
 import pytest_asyncio
 from typing import Generator, AsyncIterator, cast, Any, Callable, TYPE_CHECKING
 from dataclasses import dataclass
+from pathlib import Path
+from dotenv import load_dotenv
+
+# Load .env.test for integration_real tests
+env_test_path = Path(__file__).parent.parent / ".env.test"
+if env_test_path.exists():
+    load_dotenv(env_test_path)
 
 # Type-only imports for proper type hints
 if TYPE_CHECKING:
@@ -51,7 +58,7 @@ else:
 
 
 @pytest.fixture(autouse=True)
-def _clear_ai_env() -> Generator[None, None, None]:
+def _clear_ai_env(request: pytest.FixtureRequest) -> Generator[None, None, None]:
     """Pulisce variabili AI_* e OPENAI_* prima di ogni test.
 
     Evita che valori presenti in .env (es. AI_MEAL_PHOTO_MODE=gpt4v)
@@ -59,8 +66,14 @@ def _clear_ai_env() -> Generator[None, None, None]:
     necessitano di un valore specifico lo impostano con monkeypatch.setenv.
 
     Only runs if APP_AVAILABLE (integration/e2e tests).
+    Skips clearing for integration_real tests (which need real API keys).
     """
     if not APP_AVAILABLE:
+        yield
+        return
+
+    # Skip clearing for integration_real tests
+    if request.node.get_closest_marker("integration_real"):
         yield
         return
 
