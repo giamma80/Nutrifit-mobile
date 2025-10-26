@@ -170,9 +170,12 @@ type Meal {
   userId: String!
   timestamp: DateTime!
   mealType: MealType!
+  dishName: String!
+  imageUrl: String
+  source: String!
+  confidence: Float!
   entries: [MealEntry!]!
   notes: String
-  source: String!
   analysisId: String
   totalCalories: Int!
   totalProtein: Float!

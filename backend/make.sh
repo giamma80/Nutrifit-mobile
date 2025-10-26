@@ -309,6 +309,10 @@ Targets disponibili:
   clean             Rimuovi .venv, __pycache__, pid
   clean-dist        Rimuovi eventuale dist residua
   all               setup + lint + test
+
+  # Documentation
+  docs              Genera documentazione API (SpectaQL)
+  docs-serve        Serve docs localmente (http://localhost:4400)
 EOF
     ;;
 
@@ -908,6 +912,39 @@ EOF
   typecheck)
     header "Type check (mypy)"
     uv run mypy .
+    ;;
+
+  docs)
+    header "Generate API documentation"
+    info "Exporting GraphQL schema..."
+    uv run python scripts/export_schema.py
+
+    if ! command -v npx >/dev/null 2>&1; then
+      err "npx not found - install Node.js and npm"
+      exit 1
+    fi
+
+    info "Generating SpectaQL documentation..."
+    npx -y spectaql spectaql.yaml
+
+    if [ -f docs/api/index.html ]; then
+      info "Documentation generated at: docs/api/index.html"
+      info "To view: open docs/api/index.html (or ./make.sh docs-serve)"
+    else
+      err "Documentation generation failed"
+      exit 1
+    fi
+    ;;
+
+  docs-serve)
+    header "Serve API documentation"
+    if [ ! -f docs/api/index.html ]; then
+      warn "Documentation not found - run './make.sh docs' first"
+      exit 1
+    fi
+    info "Serving documentation at http://localhost:4400"
+    info "Press Ctrl+C to stop"
+    cd docs/api && python3 -m http.server 4400
     ;;
 
   *)
