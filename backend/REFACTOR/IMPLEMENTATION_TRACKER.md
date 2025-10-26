@@ -18,8 +18,8 @@
 | **Phase 4** | 4 | 4 | 0 | 0 | 0 |
 | **Phase 5** | 4 | 4 | 0 | 0 | 0 |
 | **Phase 6** | 3 | 3 | 0 | 0 | 0 |
-| **Phase 7** | 3 | 0 | 0 | 0 | 3 |
-| **TOTAL** | **34** | **29** | **0** | **0** | **5** |
+| **Phase 7** | 4 | 0 | 0 | 0 | 4 |
+| **TOTAL** | **35** | **29** | **0** | **0** | **6** |
 
 ---
 
@@ -269,6 +269,7 @@
 | P7.0.1 | Create factory module | Implementare `infrastructure/persistence/factory.py` | `09_PERSISTENCE_STRATEGY.md` §Implementation | Factory function con env-based logic | ⚪ NOT_STARTED | 1h - Supports MEAL_REPOSITORY env var |
 | P7.0.2 | Update app.py | Usare factory in startup con singleton pattern | `09_PERSISTENCE_STRATEGY.md` §Implementation | app.py usa `create_meal_repository()` | ⚪ NOT_STARTED | 30min - Lazy initialization |
 | P7.0.3 | Add factory tests | Unit tests per factory logic | `09_PERSISTENCE_STRATEGY.md` §Testing | 4+ tests passano (default, fallback, mongo) | ⚪ NOT_STARTED | 30min - Mock environment vars |
+| P7.0.4 | Provider Factory Pattern | Implementare factory per AI providers (OpenAI, USDA, OFF) | `04_INFRASTRUCTURE_LAYER.md` | Factory functions con env-based selection | ⚪ NOT_STARTED | 1h - VISION_PROVIDER, NUTRITION_PROVIDER, BARCODE_PROVIDER env vars |
 | **P7.1** | **MongoDB Implementation** | Implementare MongoMealRepository | `08_DEPLOYMENT.md` §MongoDB | MongoDB adapter completo | ⚪ NOT_STARTED | 4h - Requires motor dependency |
 | P7.1.1 | Implement MongoMealRepository | `infrastructure/persistence/mongodb/meal_repository.py` | `08_DEPLOYMENT.md` §305-330 | Repository implementa IMealRepository | ⚪ NOT_STARTED | CRUD + query methods |
 | P7.1.2 | Create indexes script | `scripts/init_mongodb.py` per indexes | `08_DEPLOYMENT.md` §340-365 | Script crea indexes (user_id, timestamp) | ⚪ NOT_STARTED | Run once on deploy |
@@ -379,6 +380,15 @@ make quality           # lint + typecheck + format
 ## 📅 Changelog
 
 ### 26 Ottobre 2025
+
+- 📝 **TRACKER UPDATE** - Added P7.0.4 Provider Factory Pattern
+  - Commit: pending
+  - Added new subtask to Phase 7: P7.0.4 Provider Factory Pattern
+  - Goal: Implement factory functions for AI providers (OpenAI, USDA, OpenFoodFacts)
+  - Environment-based selection: VISION_PROVIDER, NUTRITION_PROVIDER, BARCODE_PROVIDER
+  - Solves hardcoded stub providers in app.py (lines 755-757)
+  - Estimated time: 1h (factory module + app.py update + tests)
+  - **NEW TOTAL:** 35 tasks (was 34)
 
 - ✅ **P6.3 COMPLETED** - API Documentation with SpectaQL
   - Commit: `a868c86` feat(docs): implement P6.3 - API Documentation with SpectaQL
@@ -778,8 +788,8 @@ make quality           # lint + typecheck + format
 ---
 
 **Ultimo aggiornamento:** 26 Ottobre 2025
-**Prossimo task:** Phase 7 - Deployment & Persistence
-**Current Progress:** 29/34 tasks completed (85.3%)
+**Prossimo task:** P7.0.4 - Provider Factory Pattern (AI services)
+**Current Progress:** 29/35 tasks completed (82.9%)
 **Phase 1 Status:** ✅ COMPLETED (5/5 tasks - 100%)
 **Phase 2 Status:** ✅ COMPLETED (3/3 tasks - 100%)
 **Phase 3 Status:** 🟢 NEAR-COMPLETE (6/7 tasks - 85.7%) - Only P3.6 Docker Compose deferred
