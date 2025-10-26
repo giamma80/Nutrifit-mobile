@@ -14,12 +14,12 @@
 | **Phase 0** | 4 | 4 | 0 | 0 | 0 |
 | **Phase 1** | 5 | 5 | 0 | 0 | 0 |
 | **Phase 2** | 3 | 3 | 0 | 0 | 0 |
-| **Phase 3** | 7 | 5 | 0 | 0 | 2 |
+| **Phase 3** | 7 | 6 | 0 | 0 | 1 |
 | **Phase 4** | 4 | 4 | 0 | 0 | 0 |
 | **Phase 5** | 4 | 4 | 0 | 0 | 0 |
 | **Phase 6** | 3 | 2 | 0 | 0 | 1 |
 | **Phase 7** | 3 | 0 | 0 | 0 | 3 |
-| **TOTAL** | **34** | **27** | **0** | **0** | **7** |
+| **TOTAL** | **34** | **28** | **0** | **0** | **6** |
 
 ---
 
@@ -157,12 +157,12 @@
 | P3.6.2 | Update make.sh | Aggiungere target: docker-up, docker-down, docker-logs, docker-restart | `01_IMPLEMENTATION_GUIDE.md` §936-955 | Target Docker aggiunti a make.sh | ⚪ NOT_STARTED | - |
 | P3.6.3 | Update Makefile | Aggiungere proxy ai target Docker | `01_IMPLEMENTATION_GUIDE.md` §959-969 | Makefile aggiornato | ⚪ NOT_STARTED | - |
 | P3.6.4 | Test Docker setup | `make docker-up` e verificare servizi | README.md §320-330 | Servizi MongoDB + Redis + Backend running | ⚪ NOT_STARTED | - |
-| **P3.7** | **Integration Tests** | Test suite completa infrastructure layer | `05_TESTING_STRATEGY.md` §400-550 | Integration tests completi | ⚪ NOT_STARTED | - |
-| P3.7.1 | Test OpenAI integration | Test con OpenAI reale (opt-in con env var) | `05_TESTING_STRATEGY.md` §420-460 | Tests OpenAI passano | ⚪ NOT_STARTED | Usare OPENAI_API_KEY |
-| P3.7.2 | Test USDA integration | Test con USDA reale (opt-in) | `05_TESTING_STRATEGY.md` §470-500 | Tests USDA passano | ⚪ NOT_STARTED | Usare USDA_API_KEY |
-| P3.7.3 | Test OFF integration | Test con OpenFoodFacts reale | `05_TESTING_STRATEGY.md` §510-540 | Tests OFF passano | ⚪ NOT_STARTED | - |
+| **P3.7** | **Integration Tests** | Test suite completa infrastructure layer | `05_TESTING_STRATEGY.md` §400-550 | Integration tests completi | 🟢 COMPLETED | 22 tests, opt-in with .env.test |
+| P3.7.1 | Test OpenAI integration | Test con OpenAI reale (opt-in con env var) | `05_TESTING_STRATEGY.md` §420-460 | Tests OpenAI passano | 🟢 COMPLETED | 5 tests, OPENAI_API_KEY from .env.test |
+| P3.7.2 | Test USDA integration | Test con USDA reale (opt-in) | `05_TESTING_STRATEGY.md` §470-500 | Tests USDA passano | 🟢 COMPLETED | 7 tests, AI_USDA_API_KEY from .env.test |
+| P3.7.3 | Test OFF integration | Test con OpenFoodFacts reale | `05_TESTING_STRATEGY.md` §510-540 | Tests OFF passano | 🟢 COMPLETED | 9 tests, public API (no key) |
 
-**Milestone P3:** ✅ Infrastructure completa, client adattati implementano ports, Docker setup funzionante
+**Milestone P3:** ✅ Infrastructure completa, client adattati implementano ports, integration tests con API reali - **PHASE 3 COMPLETE (85.7%)**
 
 ---
 
@@ -377,6 +377,24 @@ make quality           # lint + typecheck + format
 ---
 
 ## 📅 Changelog
+
+### 26 Ottobre 2025
+
+- ✅ **P3.7 COMPLETED** - Integration Tests for External APIs
+  - Commit sequence: `4de62ac`, `415e359`, `4aebeec`, `2cba121`, `f55d8c4`, `67e6aa7`
+  - Created 22 integration tests with real API calls (opt-in via pytest marker):
+    * P3.7.1 OpenAI: 5 tests (photo/text analysis, circuit breaker, multiple calls, context manager)
+    * P3.7.2 USDA: 7 tests (search, nutrients, normalization, circuit breaker, cascade, batch)
+    * P3.7.3 OpenFoodFacts: 9 tests (barcode lookup, nutrients, metadata, fallbacks, multiple products)
+  - Infrastructure:
+    * Created .env.test with API keys (auto-loaded by tests/conftest.py via python-dotenv)
+    * Added integration_real pytest marker to pyproject.toml
+    * Tests skip automatically if API keys not set (opt-in strategy)
+    * All 3 clients use async context managers for resource cleanup
+  - Documentation: .env.test header explains automatic loading via conftest.py
+  - All 22 tests passing with real APIs ✅
+  - Usage: `pytest -m integration_real` or `make test` (skips if no keys)
+  - **PHASE 3 STATUS:** 85.7% COMPLETE (6/7 tasks) - Only P3.6 Docker Compose remaining (deferred)
 
 ### 25 Ottobre 2025
 
@@ -736,12 +754,12 @@ make quality           # lint + typecheck + format
 
 ---
 
-**Ultimo aggiornamento:** 25 Ottobre 2025
-**Prossimo task:** Phase 6.2 - Coverage & Quality
-**Current Progress:** 26/32 tasks completed (81.3%)
+**Ultimo aggiornamento:** 26 Ottobre 2025
+**Prossimo task:** Phase 6.3 - Documentation OR Phase 7 - Deployment
+**Current Progress:** 28/34 tasks completed (82.4%)
 **Phase 1 Status:** ✅ COMPLETED (5/5 tasks - 100%)
 **Phase 2 Status:** ✅ COMPLETED (3/3 tasks - 100%)
-**Phase 3 Status:** 🟡 PARTIAL (5/7 tasks - 71.4%) - P3.6, P3.7 deferred
+**Phase 3 Status:** 🟢 NEAR-COMPLETE (6/7 tasks - 85.7%) - Only P3.6 Docker Compose deferred
 **Phase 4 Status:** ✅ COMPLETED (4/4 tasks - 100%)
 **Phase 5 Status:** ✅ COMPLETED (4/4 tasks - 100%)
-**Phase 6 Status:** 🟡 IN PROGRESS (1/3 tasks - 33%)
+**Phase 6 Status:** 🟡 IN PROGRESS (2/3 tasks - 67%) - P6.1 E2E + P6.2 Quality done, P6.3 Docs pending
