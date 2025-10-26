@@ -49,9 +49,11 @@ from infrastructure.cache.in_memory_idempotency_cache import InMemoryIdempotency
 from application.meal.orchestrators.photo_orchestrator import PhotoOrchestrator
 from application.meal.orchestrators.barcode_orchestrator import BarcodeOrchestrator
 from domain.meal.core.factories.meal_factory import MealFactory
-from infrastructure.meal.providers.stub_vision_provider import StubVisionProvider
-from infrastructure.meal.providers.stub_nutrition_provider import StubNutritionProvider
-from infrastructure.meal.providers.stub_barcode_provider import StubBarcodeProvider
+from infrastructure.meal.providers.factory import (
+    get_vision_provider,
+    get_nutrition_provider,
+    get_barcode_provider,
+)
 from domain.meal.recognition.services.recognition_service import FoodRecognitionService
 from domain.meal.barcode.services.barcode_service import BarcodeService
 from domain.meal.nutrition.services.enrichment_service import NutritionEnrichmentService
@@ -751,10 +753,14 @@ _event_bus = InMemoryEventBus()
 _idempotency_cache = InMemoryIdempotencyCache()
 _meal_factory = MealFactory()
 
-# Create stub providers
-_vision_provider = StubVisionProvider()
-_nutrition_provider = StubNutritionProvider()
-_barcode_provider = StubBarcodeProvider()
+# Create providers (environment-based selection via factory)
+# Environment variables control provider selection:
+# - VISION_PROVIDER: "openai" | "stub" (default: stub)
+# - NUTRITION_PROVIDER: "usda" | "stub" (default: stub)
+# - BARCODE_PROVIDER: "openfoodfacts" | "stub" (default: stub)
+_vision_provider = get_vision_provider()
+_nutrition_provider = get_nutrition_provider()
+_barcode_provider = get_barcode_provider()
 
 # Wrap providers in domain services
 _recognition_service = FoodRecognitionService(_vision_provider)
