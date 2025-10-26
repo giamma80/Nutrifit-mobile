@@ -18,8 +18,8 @@
 | **Phase 4** | 4 | 4 | 0 | 0 | 0 |
 | **Phase 5** | 4 | 4 | 0 | 0 | 0 |
 | **Phase 6** | 3 | 3 | 0 | 0 | 0 |
-| **Phase 7** | 4 | 1 | 0 | 0 | 3 |
-| **TOTAL** | **35** | **30** | **0** | **0** | **5** |
+| **Phase 7** | 4 | 4 | 0 | 0 | 0 |
+| **TOTAL** | **35** | **33** | **0** | **0** | **2** |
 
 ---
 
@@ -265,10 +265,10 @@
 
 | ID | Task | Description | Reference Doc | Expected Result | Status | Notes |
 |----|------|-------------|---------------|-----------------|--------|-------|
-| **P7.0** | **Repository Factory Pattern** | Implementare factory pattern per persistence | `09_PERSISTENCE_STRATEGY.md` | Factory con graceful fallback | ⚪ NOT_STARTED | Environment-based selection |
-| P7.0.1 | Create factory module | Implementare `infrastructure/persistence/factory.py` | `09_PERSISTENCE_STRATEGY.md` §Implementation | Factory function con env-based logic | ⚪ NOT_STARTED | 1h - Supports MEAL_REPOSITORY env var |
-| P7.0.2 | Update app.py | Usare factory in startup con singleton pattern | `09_PERSISTENCE_STRATEGY.md` §Implementation | app.py usa `create_meal_repository()` | ⚪ NOT_STARTED | 30min - Lazy initialization |
-| P7.0.3 | Add factory tests | Unit tests per factory logic | `09_PERSISTENCE_STRATEGY.md` §Testing | 4+ tests passano (default, fallback, mongo) | ⚪ NOT_STARTED | 30min - Mock environment vars |
+| **P7.0** | **Repository Factory Pattern** | Implementare factory pattern per persistence | `09_PERSISTENCE_STRATEGY.md` | Factory con graceful fallback | 🟢 COMPLETED | 12 tests, inmemory default, mongodb ready (P7.1) |
+| P7.0.1 | Create factory module | Implementare `infrastructure/persistence/factory.py` | `09_PERSISTENCE_STRATEGY.md` §Implementation | Factory function con env-based logic | 🟢 COMPLETED | MEAL_REPOSITORY env var, singleton pattern |
+| P7.0.2 | Update app.py | Usare factory in startup con singleton pattern | `09_PERSISTENCE_STRATEGY.md` §Implementation | app.py usa `create_meal_repository()` | 🟢 COMPLETED | Lazy initialization, graceful fallback |
+| P7.0.3 | Add factory tests | Unit tests per factory logic | `09_PERSISTENCE_STRATEGY.md` §Testing | 4+ tests passano (default, fallback, mongo) | 🟢 COMPLETED | 12 tests (default, mongodb validation, singleton) |
 | P7.0.4 | Provider Factory Pattern | Implementare factory per AI providers (OpenAI, USDA, OFF) | `04_INFRASTRUCTURE_LAYER.md` | Factory functions con env-based selection | 🟢 COMPLETED | 24 tests, env-based selection, graceful fallback |
 | **P7.1** | **MongoDB Implementation** | Implementare MongoMealRepository | `08_DEPLOYMENT.md` §MongoDB | MongoDB adapter completo | ⚪ NOT_STARTED | 4h - Requires motor dependency |
 | P7.1.1 | Implement MongoMealRepository | `infrastructure/persistence/mongodb/meal_repository.py` | `08_DEPLOYMENT.md` §305-330 | Repository implementa IMealRepository | ⚪ NOT_STARTED | CRUD + query methods |
@@ -380,6 +380,28 @@ make quality           # lint + typecheck + format
 ## 📅 Changelog
 
 ### 26 Ottobre 2025
+
+- ✅ **P7.0.1-3 COMPLETED** - Repository Factory Pattern for Persistence
+  - Commit: `e9443b2` feat(infrastructure): implement P7.0.1-3 - Repository Factory Pattern
+  - Created infrastructure/persistence/factory.py with repository factory
+  - Environment-based repository selection:
+    * MEAL_REPOSITORY: inmemory (default) | mongodb (P7.1 pending)
+  - Singleton pattern with lazy initialization (get_meal_repository)
+  - Graceful fallback: defaults to inmemory when not configured
+  - MongoDB validation: raises ValueError if MONGODB_URI missing
+  - MongoDB implementation: raises NotImplementedError until P7.1
+  - Updated app.py to use factory instead of hardcoded InMemoryMealRepository
+  - Updated .env and .env.test with repository configuration
+  - 12 new unit tests (all passing):
+    * Default fallback to inmemory
+    * MongoDB selection with URI validation
+    * NotImplementedError for mongodb (until P7.1)
+    * Singleton behavior
+    * Reset function
+    * Invalid types default to inmemory
+  - Test Results: 641 tests passing (was 629)
+  - **Strategy**: Dev/test use inmemory (transient), production will use mongodb via .env (P7.1)
+  - **PHASE 7 STATUS:** 100% COMPLETE (4/4 tasks) ✅
 
 - ✅ **P7.0.4 COMPLETED** - Provider Factory Pattern for AI Services
   - Commit: `b9e84d4` feat(infrastructure): implement P7.0.4 - Provider Factory Pattern
@@ -810,11 +832,12 @@ make quality           # lint + typecheck + format
 ---
 
 **Ultimo aggiornamento:** 26 Ottobre 2025
-**Prossimo task:** P7.0.1 - Repository Factory (persistence) OR P7.1 - MongoDB (deferred)
-**Current Progress:** 30/35 tasks completed (85.7%)
+**Prossimo task:** P7.1 - MongoDB Implementation (deferred) | P7.2 - Deployment (deferred)
+**Current Progress:** 33/35 tasks completed (94.3%)
 **Phase 1 Status:** ✅ COMPLETED (5/5 tasks - 100%)
 **Phase 2 Status:** ✅ COMPLETED (3/3 tasks - 100%)
 **Phase 3 Status:** 🟢 NEAR-COMPLETE (6/7 tasks - 85.7%) - Only P3.6 Docker Compose deferred
 **Phase 4 Status:** ✅ COMPLETED (4/4 tasks - 100%)
 **Phase 5 Status:** ✅ COMPLETED (4/4 tasks - 100%)
 **Phase 6 Status:** ✅ COMPLETED (3/3 tasks - 100%) - E2E + Quality + Docs ✅
+**Phase 7 Status:** ✅ COMPLETED (4/4 tasks - 100%) - Factory Patterns for Providers & Repository ✅
