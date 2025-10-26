@@ -74,6 +74,7 @@ testpaths = ["tests"]
 markers = [
     "unit: Unit tests (isolated, no dependencies)",
     "integration: Integration tests (with real dependencies)",
+    "integration_real: Integration tests with real external APIs (opt-in, requires API keys)",
     "e2e: End-to-end tests (full system)"
 ]
 
