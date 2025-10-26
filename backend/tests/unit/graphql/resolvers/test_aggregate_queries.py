@@ -169,6 +169,7 @@ async def test_meal_history_success(
     # Arrange
     repository = mock_info.context.get("meal_repository")
     repository.get_by_user.return_value = [sample_meal]
+    repository.count_by_user.return_value = 1  # Mock total count
 
     # Act
     result = await aggregate_queries.meal_history(  # type: ignore[misc,call-arg]
@@ -210,7 +211,10 @@ async def test_meal_history_with_date_range(
 
     # Assert
     assert len(result.meals) == 1
-    repository.get_by_user_and_date_range.assert_called_once()
+    # Note: Resolver calls repository twice for date range queries
+    # 1st call: Fetch paginated results
+    # 2nd call: Calculate total count
+    assert repository.get_by_user_and_date_range.call_count == 2
 
 
 @pytest.mark.asyncio
@@ -253,6 +257,7 @@ async def test_meal_history_pagination(aggregate_queries: AggregateQueries, mock
 
     repository = mock_info.context.get("meal_repository")
     repository.get_by_user.return_value = meals
+    repository.count_by_user.return_value = 20  # Mock total count
 
     # Act
     result = await aggregate_queries.meal_history(  # type: ignore[misc,call-arg]
@@ -264,7 +269,8 @@ async def test_meal_history_pagination(aggregate_queries: AggregateQueries, mock
 
     # Assert
     assert len(result.meals) == 20
-    assert result.has_more is True  # has_more=True when result count == limit
+    assert result.total_count == 20
+    assert result.has_more is False  # No more when offset + len == total
 
 
 @pytest.mark.asyncio
@@ -273,6 +279,7 @@ async def test_meal_history_empty(aggregate_queries: AggregateQueries, mock_info
     # Arrange
     repository = mock_info.context.get("meal_repository")
     repository.get_by_user.return_value = []
+    repository.count_by_user.return_value = 0  # Mock total count
 
     # Act
     result = await aggregate_queries.meal_history(  # type: ignore[misc,call-arg]

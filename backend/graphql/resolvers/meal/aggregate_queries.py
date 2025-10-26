@@ -196,21 +196,40 @@ class AggregateQueries:
         # Map domain entities → GraphQL types
         graphql_meals = [map_meal_to_graphql(meal) for meal in meals]
 
-        # Get total count of filtered meals (without pagination)
-        # Need to query again without limit/offset to get accurate count
-        count_query = GetMealHistoryQuery(
-            user_id=user_id,
-            start_date=start_date,
-            end_date=end_date,
-            meal_type=meal_type,
-            limit=10000,  # High limit to get all results for counting
-            offset=0,
-        )
-        all_meals = await handler.handle(count_query)
-        total_count = len(all_meals)
+        # Calculate total count and pagination
+        # For date range queries, we need full count (optimization needed)
+        # For simple queries, use repository count method
+        if start_date and end_date:
+            # Full count requires fetching all results
+            count_query = GetMealHistoryQuery(
+                user_id=user_id,
+                start_date=start_date,
+                end_date=end_date,
+                meal_type=meal_type,
+                limit=10000,  # High limit for counting
+                offset=0,
+            )
+            all_meals = await handler.handle(count_query)
+            total_count = len(all_meals)
+        else:
+            # Use repository count method (optimized)
+            total_count = await repository.count_by_user(user_id=user_id)
+            # Apply meal_type filter to count if present
+            if meal_type:
+                all_meals_query = GetMealHistoryQuery(
+                    user_id=user_id,
+                    meal_type=meal_type,
+                    limit=10000,
+                    offset=0,
+                )
+                all_meals = await handler.handle(all_meals_query)
+                total_count = len(all_meals)
+
         has_more = offset + len(graphql_meals) < total_count
 
-        return MealHistoryResult(meals=graphql_meals, total_count=total_count, has_more=has_more)
+        return MealHistoryResult(
+            meals=graphql_meals, total_count=total_count, has_more=has_more
+        )
 
     @strawberry.field
     async def search_meals(

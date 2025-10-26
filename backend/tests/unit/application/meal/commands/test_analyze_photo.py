@@ -80,6 +80,7 @@ class TestAnalyzeMealPhotoCommandHandler:
             photo_url="https://example.com/pasta.jpg",
             dish_hint="pasta",
             meal_type="LUNCH",
+            timestamp=None,
         )
 
         # Verify meal persisted
@@ -113,6 +114,7 @@ class TestAnalyzeMealPhotoCommandHandler:
             photo_url="https://example.com/food.jpg",
             dish_hint=None,
             meal_type="SNACK",
+            timestamp=None,
         )
 
     @pytest.mark.asyncio
