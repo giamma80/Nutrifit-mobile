@@ -82,7 +82,9 @@ async def test_photo_analysis_workflow_success(client: AsyncClient) -> None:
 
     # ✅ Verify ALL required fields (as per production schema)
     assert meal_data["dishName"] is not None, "dishName must be present"
-    assert meal_data["imageUrl"] == "https://example.com/chicken.jpg", "imageUrl must match input photoUrl"
+    assert (
+        meal_data["imageUrl"] == "https://example.com/chicken.jpg"
+    ), "imageUrl must match input photoUrl"
     assert meal_data["source"] == "PHOTO", "source must be PHOTO for photo analysis"
     assert 0.0 <= meal_data["confidence"] <= 1.0, "confidence must be between 0.0 and 1.0"
 
@@ -335,7 +337,7 @@ async def test_meal_lifecycle_crud(client: AsyncClient) -> None:
 
 @pytest.mark.asyncio
 async def test_aggregate_search_meals_with_filters(client: AsyncClient) -> None:
-    """Test searchMeals query with filters and pagination.
+    """Test search query with filters and pagination.
 
     Coverage:
     - Full-text search in entry names and notes
@@ -423,7 +425,7 @@ async def test_aggregate_search_meals_with_filters(client: AsyncClient) -> None:
         """
         query {
           meals {
-            searchMeals(
+            search(
               userId: "search_test_user"
               queryText: "oatmeal"
               limit: 10
@@ -440,7 +442,7 @@ async def test_aggregate_search_meals_with_filters(client: AsyncClient) -> None:
     data = resp.json()
 
     assert "errors" not in data
-    results = data["data"]["meals"]["searchMeals"]
+    results = data["data"]["meals"]["search"]
     assert results["totalCount"] == 1
     assert len(results["meals"]) == 1
     assert "oatmeal" in results["meals"][0]["notes"]
@@ -450,7 +452,7 @@ async def test_aggregate_search_meals_with_filters(client: AsyncClient) -> None:
         """
         query {
           meals {
-            searchMeals(
+            search(
               userId: "search_test_user"
               queryText: "chicken"
               limit: 10
@@ -467,7 +469,7 @@ async def test_aggregate_search_meals_with_filters(client: AsyncClient) -> None:
     data2 = resp2.json()
 
     assert "errors" not in data2
-    results2 = data2["data"]["meals"]["searchMeals"]
+    results2 = data2["data"]["meals"]["search"]
     assert results2["totalCount"] >= 1
     # At least one meal should have chicken in entries
     has_chicken = any(
@@ -481,7 +483,7 @@ async def test_aggregate_search_meals_with_filters(client: AsyncClient) -> None:
         """
         query {
           meals {
-            searchMeals(
+            search(
               userId: "search_test_user"
               queryText: "chicken"
               limit: 1
@@ -498,7 +500,7 @@ async def test_aggregate_search_meals_with_filters(client: AsyncClient) -> None:
     data3 = resp3.json()
 
     assert "errors" not in data3
-    results3 = data3["data"]["meals"]["searchMeals"]
+    results3 = data3["data"]["meals"]["search"]
     assert len(results3["meals"]) == 1  # Limit enforced
     assert results3["totalCount"] >= 1  # Total unchanged
 
@@ -544,7 +546,6 @@ async def test_aggregate_daily_summary(client: AsyncClient) -> None:
     resp1 = await client.post("/graphql", json={"query": breakfast_mutation})
     data1 = resp1.json()
     breakfast_result = data1["data"]["meal"]["analyzeMealPhoto"]
-    breakfast_analysis_id = breakfast_result["analysisId"]
     breakfast_data = breakfast_result["meal"]
 
     # Confirm breakfast (all entries)
@@ -597,7 +598,6 @@ async def test_aggregate_daily_summary(client: AsyncClient) -> None:
     resp2 = await client.post("/graphql", json={"query": lunch_mutation})
     data2 = resp2.json()
     lunch_result = data2["data"]["meal"]["analyzeMealBarcode"]
-    lunch_analysis_id = lunch_result["analysisId"]
     lunch_data = lunch_result["meal"]
 
     # Confirm lunch (all entries)
@@ -648,7 +648,6 @@ async def test_aggregate_daily_summary(client: AsyncClient) -> None:
     resp3 = await client.post("/graphql", json={"query": dinner_mutation})
     data3 = resp3.json()
     dinner_result = data3["data"]["meal"]["analyzeMealPhoto"]
-    dinner_analysis_id = dinner_result["analysisId"]
     dinner_data = dinner_result["meal"]
 
     # Confirm dinner (all entries)
@@ -675,17 +674,15 @@ async def test_aggregate_daily_summary(client: AsyncClient) -> None:
     summary_query = _q(
         f"""
         query {{
-          meals {{
-            dailySummary(userId: "{user_id}", date: "2025-10-25T00:00:00Z") {{
-              date
-              totalCalories
-              totalProtein
-              totalCarbs
-              totalFat
-              mealCount
-              breakdownByType
-              hasMeals
-            }}
+          dailySummary(userId: "{user_id}", date: "2025-10-25T00:00:00Z") {{
+            date
+            totalCalories
+            totalProtein
+            totalCarbs
+            totalFat
+            mealCount
+            breakdownByType
+            hasMeals
           }}
         }}
         """
@@ -694,7 +691,7 @@ async def test_aggregate_daily_summary(client: AsyncClient) -> None:
     data = resp.json()
 
     assert "errors" not in data
-    summary = data["data"]["meals"]["dailySummary"]
+    summary = data["data"]["dailySummary"]
 
     # Verify aggregation
     assert summary["hasMeals"] is True
@@ -702,16 +699,12 @@ async def test_aggregate_daily_summary(client: AsyncClient) -> None:
 
     # Verify totals (sum of all meals)
     expected_calories = (
-        breakfast_data["totalCalories"]
-        + lunch_data["totalCalories"]
-        + dinner_data["totalCalories"]
+        breakfast_data["totalCalories"] + lunch_data["totalCalories"] + dinner_data["totalCalories"]
     )
     assert summary["totalCalories"] == expected_calories
 
     expected_protein = (
-        breakfast_data["totalProtein"]
-        + lunch_data["totalProtein"]
-        + dinner_data["totalProtein"]
+        breakfast_data["totalProtein"] + lunch_data["totalProtein"] + dinner_data["totalProtein"]
     )
     assert summary["totalProtein"] == expected_protein
 

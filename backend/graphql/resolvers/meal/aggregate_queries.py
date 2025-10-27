@@ -1,16 +1,14 @@
 """Aggregate query resolvers for meal domain.
 
 These resolvers operate on meal data using CQRS query handlers:
-- getMeal: Single meal by ID
+- meal: Single meal by ID
 - mealHistory: List meals with filters
-- searchMeals: Full-text search
-- dailySummary: Daily nutrition aggregation
+- search: Full-text search in meals
 """
 
 from typing import Optional, Any
 from datetime import datetime
 from uuid import UUID
-import json
 import strawberry
 
 from application.meal.queries.get_meal import GetMealQuery, GetMealQueryHandler
@@ -22,17 +20,12 @@ from application.meal.queries.search_meals import (
     SearchMealsQuery,
     SearchMealsQueryHandler,
 )
-from application.meal.queries.get_daily_summary import (
-    GetDailySummaryQuery,
-    GetDailySummaryQueryHandler,
-)
 from graphql.types_meal_aggregate import (
     Meal,
     MealEntry,
     MealType,
     MealHistoryResult,
     MealSearchResult,
-    DailySummary,
 )
 
 
@@ -227,12 +220,10 @@ class AggregateQueries:
 
         has_more = offset + len(graphql_meals) < total_count
 
-        return MealHistoryResult(
-            meals=graphql_meals, total_count=total_count, has_more=has_more
-        )
+        return MealHistoryResult(meals=graphql_meals, total_count=total_count, has_more=has_more)
 
     @strawberry.field
-    async def search_meals(
+    async def search(
         self,
         info: strawberry.types.Info,
         user_id: str,
@@ -254,9 +245,11 @@ class AggregateQueries:
 
         Example:
             query {
-              searchMeals(userId: "user123", queryText: "chicken") {
-                meals { id, entries { name } }
-                totalCount
+              meals {
+                search(userId: "user123", queryText: "chicken") {
+                  meals { id, entries { name } }
+                  totalCount
+                }
               }
             }
         """
@@ -277,59 +270,3 @@ class AggregateQueries:
         graphql_meals = [map_meal_to_graphql(meal) for meal in meals]
 
         return MealSearchResult(meals=graphql_meals, total_count=len(graphql_meals))
-
-    @strawberry.field
-    async def daily_summary(
-        self, info: strawberry.types.Info, user_id: str, date: datetime
-    ) -> DailySummary:
-        """Get daily nutrition summary with breakdown by meal type.
-
-        Args:
-            info: Strawberry field info (injected)
-            user_id: User ID
-            date: Date for summary (defaults to today)
-
-        Returns:
-            DailySummary with totals and breakdown
-
-        Example:
-            query {
-              dailySummary(userId: "user123", date: "2025-10-25") {
-                totalCalories, totalProtein
-                mealCount
-                breakdownByType
-              }
-            }
-        """
-        context = info.context
-        repository = context.get("meal_repository")
-
-        if not repository:
-            raise ValueError("MealRepository not available in context")
-
-        # Ensure date has timezone (Strawberry may parse without it)
-        if date and date.tzinfo is None:
-            from datetime import timezone as tz
-            date = date.replace(tzinfo=tz.utc)
-
-        # Create query
-        query = GetDailySummaryQuery(user_id=user_id, date=date)
-
-        # Execute via handler
-        handler = GetDailySummaryQueryHandler(repository=repository)
-        summary = await handler.handle(query)
-
-        # Map domain entity → GraphQL type
-        # Convert breakdown dict to JSON string for GraphQL
-        breakdown_json = json.dumps(summary.breakdown_by_type)
-
-        return DailySummary(
-            date=summary.date,
-            total_calories=summary.total_calories,
-            total_protein=summary.total_protein,
-            total_carbs=summary.total_carbs,
-            total_fat=summary.total_fat,
-            total_fiber=summary.total_fiber,
-            meal_count=summary.meal_count,
-            breakdown_by_type=breakdown_json,
-        )

@@ -1,10 +1,12 @@
 """Unit tests for aggregate query resolvers.
 
-Tests the 4 aggregate queries for meal data operations:
+Tests the 3 aggregate queries for meal data operations:
 - meal: Single meal by ID with authorization
 - mealHistory: Meal list with filters (date range, meal type) + pagination
-- searchMeals: Full-text search in entries and notes
-- dailySummary: Daily nutrition aggregation with breakdown by meal type
+- search: Full-text search in entries and notes
+
+Note: dailySummary tests moved to test_global_queries.py
+(now a root-level query)
 """
 
 import pytest
@@ -301,7 +303,7 @@ async def test_meal_history_empty(aggregate_queries: AggregateQueries, mock_info
 
 
 @pytest.mark.asyncio
-async def test_search_meals_by_entry_name(
+async def test_search_by_entry_name(
     aggregate_queries: AggregateQueries, mock_info: Any, sample_meal: DomainMeal
 ) -> None:
     """Test searchMeals query matching entry name."""
@@ -310,7 +312,7 @@ async def test_search_meals_by_entry_name(
     repository.get_by_user.return_value = [sample_meal]
 
     # Act
-    result = await aggregate_queries.search_meals(  # type: ignore[misc,call-arg]
+    result = await aggregate_queries.search(  # type: ignore[misc,call-arg]
         info=mock_info,
         user_id="user123",
         query_text="chicken",
@@ -325,7 +327,7 @@ async def test_search_meals_by_entry_name(
 
 
 @pytest.mark.asyncio
-async def test_search_meals_by_notes(
+async def test_search_by_notes(
     aggregate_queries: AggregateQueries, mock_info: Any, sample_meal: DomainMeal
 ) -> None:
     """Test searchMeals query matching notes."""
@@ -334,7 +336,7 @@ async def test_search_meals_by_notes(
     repository.get_by_user.return_value = [sample_meal]
 
     # Act
-    result = await aggregate_queries.search_meals(  # type: ignore[misc,call-arg]
+    result = await aggregate_queries.search(  # type: ignore[misc,call-arg]
         info=mock_info,
         user_id="user123",
         query_text="grilled",
@@ -347,7 +349,7 @@ async def test_search_meals_by_notes(
 
 
 @pytest.mark.asyncio
-async def test_search_meals_case_insensitive(
+async def test_search_case_insensitive(
     aggregate_queries: AggregateQueries, mock_info: Any, sample_meal: DomainMeal
 ) -> None:
     """Test searchMeals query is case-insensitive."""
@@ -356,7 +358,7 @@ async def test_search_meals_case_insensitive(
     repository.get_by_user.return_value = [sample_meal]
 
     # Act
-    result = await aggregate_queries.search_meals(  # type: ignore[misc,call-arg]
+    result = await aggregate_queries.search(  # type: ignore[misc,call-arg]
         info=mock_info,
         user_id="user123",
         query_text="CHICKEN",
@@ -369,7 +371,7 @@ async def test_search_meals_case_insensitive(
 
 
 @pytest.mark.asyncio
-async def test_search_meals_no_match(
+async def test_search_no_match(
     aggregate_queries: AggregateQueries, mock_info: Any, sample_meal: DomainMeal
 ) -> None:
     """Test searchMeals query with no matching results."""
@@ -378,7 +380,7 @@ async def test_search_meals_no_match(
     repository.get_by_user.return_value = [sample_meal]
 
     # Act
-    result = await aggregate_queries.search_meals(  # type: ignore[misc,call-arg]
+    result = await aggregate_queries.search(  # type: ignore[misc,call-arg]
         info=mock_info,
         user_id="user123",
         query_text="pizza",
@@ -392,213 +394,6 @@ async def test_search_meals_no_match(
 
 
 # ============================================
-# dailySummary Query Tests
+# Note: dailySummary tests moved to test_global_queries.py
+# dailySummary is now a root-level query, not part of AggregateQueries
 # ============================================
-
-
-@pytest.mark.asyncio
-async def test_daily_summary_success(aggregate_queries: AggregateQueries, mock_info: Any) -> None:
-    """Test dailySummary query with multiple meals."""
-    # Arrange
-    breakfast_id = MealId.generate()
-    breakfast = DomainMeal(
-        id=breakfast_id.value,
-        user_id="user123",
-        timestamp=datetime(2025, 10, 25, 8, 0, 0, tzinfo=timezone.utc),
-        meal_type="BREAKFAST",
-        entries=[
-            DomainMealEntry(
-                id=uuid4(),
-                meal_id=breakfast_id.value,
-                name="oatmeal",
-                display_name="Oatmeal",
-                quantity_g=100.0,
-                calories=150,
-                protein=5.0,
-                carbs=27.0,
-                fat=3.0,
-                fiber=4.0,
-                sugar=1.0,
-                sodium=5.0,
-            )
-        ],
-        total_calories=150,
-        total_protein=5.0,
-        total_carbs=27.0,
-        total_fat=3.0,
-        total_fiber=4.0,
-        total_sugar=1.0,
-        total_sodium=5.0,
-    )
-
-    lunch_id = MealId.generate()
-    lunch = DomainMeal(
-        id=lunch_id.value,
-        user_id="user123",
-        timestamp=datetime(2025, 10, 25, 12, 30, 0, tzinfo=timezone.utc),
-        meal_type="LUNCH",
-        entries=[
-            DomainMealEntry(
-                id=uuid4(),
-                meal_id=lunch_id.value,
-                name="chicken",
-                display_name="Chicken",
-                quantity_g=150.0,
-                calories=250,
-                protein=40.0,
-                carbs=0.0,
-                fat=8.0,
-                fiber=0.0,
-                sugar=0.0,
-                sodium=100.0,
-            )
-        ],
-        total_calories=250,
-        total_protein=40.0,
-        total_carbs=0.0,
-        total_fat=8.0,
-        total_fiber=0.0,
-        total_sugar=0.0,
-        total_sodium=100.0,
-    )
-
-    repository = mock_info.context.get("meal_repository")
-    repository.get_by_user_and_date_range.return_value = [breakfast, lunch]
-
-    # Act
-    result = await aggregate_queries.daily_summary(  # type: ignore[misc,call-arg]
-        info=mock_info,
-        user_id="user123",
-        date=datetime(2025, 10, 25, tzinfo=timezone.utc),
-    )
-
-    # Assert
-    assert result.total_calories == 400.0  # 150 + 250
-    assert result.total_protein == 45.0  # 5 + 40
-    assert result.total_carbs == 27.0
-    assert result.total_fat == 11.0
-    assert result.total_fiber == 4.0
-    assert result.meal_count == 2
-
-    # Check breakdown
-    import json
-
-    breakdown = json.loads(result.breakdown_by_type)
-    assert "BREAKFAST" in breakdown
-    assert "LUNCH" in breakdown
-    assert breakdown["BREAKFAST"] == 150
-    assert breakdown["LUNCH"] == 250
-
-
-@pytest.mark.asyncio
-async def test_daily_summary_empty_day(aggregate_queries: AggregateQueries, mock_info: Any) -> None:
-    """Test dailySummary query for day with no meals."""
-    # Arrange
-    repository = mock_info.context.get("meal_repository")
-    repository.get_by_user_and_date_range.return_value = []
-
-    # Act
-    result = await aggregate_queries.daily_summary(  # type: ignore[misc,call-arg]
-        info=mock_info,
-        user_id="user123",
-        date=datetime(2025, 10, 25, tzinfo=timezone.utc),
-    )
-
-    # Assert
-    assert result.total_calories == 0.0
-    assert result.total_protein == 0.0
-    assert result.total_carbs == 0.0
-    assert result.total_fat == 0.0
-    assert result.meal_count == 0
-
-
-@pytest.mark.asyncio
-async def test_daily_summary_single_meal_type(
-    aggregate_queries: AggregateQueries, mock_info: Any
-) -> None:
-    """Test dailySummary query with meals of same type."""
-    # Arrange
-    snack1_id = MealId.generate()
-    snack1 = DomainMeal(
-        id=snack1_id.value,
-        user_id="user123",
-        timestamp=datetime(2025, 10, 25, 10, 0, 0, tzinfo=timezone.utc),
-        meal_type="SNACK",
-        entries=[
-            DomainMealEntry(
-                id=uuid4(),
-                meal_id=snack1_id.value,
-                name="apple",
-                display_name="Apple",
-                quantity_g=100.0,
-                calories=52,
-                protein=0.3,
-                carbs=14.0,
-                fat=0.2,
-                fiber=2.4,
-                sugar=10.0,
-                sodium=1.0,
-            )
-        ],
-        total_calories=52,
-        total_protein=0.3,
-        total_carbs=14.0,
-        total_fat=0.2,
-        total_fiber=2.4,
-        total_sugar=10.0,
-        total_sodium=1.0,
-    )
-
-    snack2_id = MealId.generate()
-    snack2 = DomainMeal(
-        id=snack2_id.value,
-        user_id="user123",
-        timestamp=datetime(2025, 10, 25, 15, 0, 0, tzinfo=timezone.utc),
-        meal_type="SNACK",
-        entries=[
-            DomainMealEntry(
-                id=uuid4(),
-                meal_id=snack2_id.value,
-                name="almonds",
-                display_name="Almonds",
-                quantity_g=30.0,
-                calories=173,
-                protein=6.0,
-                carbs=6.0,
-                fat=15.0,
-                fiber=3.5,
-                sugar=1.0,
-                sodium=0.0,
-            )
-        ],
-        total_calories=173,
-        total_protein=6.0,
-        total_carbs=6.0,
-        total_fat=15.0,
-        total_fiber=3.5,
-        total_sugar=1.0,
-        total_sodium=0.0,
-    )
-
-    repository = mock_info.context.get("meal_repository")
-    repository.get_by_user_and_date_range.return_value = [snack1, snack2]
-
-    # Act
-    result = await aggregate_queries.daily_summary(  # type: ignore[misc,call-arg]
-        info=mock_info,
-        user_id="user123",
-        date=datetime(2025, 10, 25, tzinfo=timezone.utc),
-    )
-
-    # Assert
-    assert result.total_calories == 225.0  # 52 + 173
-    assert result.meal_count == 2
-
-    import json
-
-    breakdown = json.loads(result.breakdown_by_type)
-    assert breakdown["SNACK"] == 225.0
-    # Other meal types should be 0
-    assert breakdown.get("BREAKFAST", 0) == 0.0
-    assert breakdown.get("LUNCH", 0) == 0.0
-    assert breakdown.get("DINNER", 0) == 0.0

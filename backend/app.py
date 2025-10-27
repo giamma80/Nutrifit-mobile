@@ -42,6 +42,9 @@ from inference.adapter import get_active_adapter
 from graphql.resolvers.meal.atomic_queries import AtomicQueries
 from graphql.resolvers.meal.aggregate_queries import AggregateQueries
 from graphql.resolvers.meal.mutations import MealMutations
+from graphql.resolvers.activity.queries import ActivityQueries
+from graphql.resolvers.global_queries import resolve_daily_summary
+from graphql.types_meal_aggregate import DailySummary
 from graphql.context import create_context
 from infrastructure.persistence.factory import get_meal_repository
 from infrastructure.events.in_memory_bus import InMemoryEventBus
@@ -50,6 +53,9 @@ from application.meal.orchestrators.photo_orchestrator import PhotoOrchestrator
 from application.meal.orchestrators.barcode_orchestrator import BarcodeOrchestrator
 from domain.meal.core.factories.meal_factory import MealFactory
 from infrastructure.meal.providers.factory import (
+    create_vision_provider,
+    create_nutrition_provider,
+    create_barcode_provider,
     get_vision_provider,
     get_nutrition_provider,
     get_barcode_provider,
@@ -61,7 +67,6 @@ from domain.meal.nutrition.services.enrichment_service import NutritionEnrichmen
 # from graphql.types_ai import AnalyzeMealPhotoInput  # Replaced by types_meal_mutations
 from graphql.types_activity_health import (
     ActivitySource,
-    ActivityEvent,
     RejectedActivityEvent,
     IngestActivityResult,
     HealthTotalsDelta,
@@ -298,10 +303,52 @@ class Query:
             query {
               meals {
                 meal(mealId: "...", userId: "user123") { totalCalories }
+                search(userId: "user123", queryText: "chicken") { meals { id } }
               }
             }
         """
         return AggregateQueries()
+
+    @strawberry.field(description="Activity data queries")  # type: ignore[misc]
+    def activity(self) -> ActivityQueries:
+        """Activity and health data queries.
+
+        Example:
+            query {
+              activity {
+                entries(userId: "user123", limit: 10) { steps }
+                syncEntries(date: "2025-10-25", userId: "user123") { timestamp }
+              }
+            }
+        """
+        return ActivityQueries()
+
+    @strawberry.field(description="Daily nutrition and activity summary")  # type: ignore[misc]
+    async def daily_summary(
+        self, info: strawberry.types.Info, user_id: str, date: datetime.datetime
+    ) -> DailySummary:
+        """Get daily summary aggregating meals, activity, and health data.
+
+        This is a global query that spans multiple domains.
+
+        Example:
+            query {
+              dailySummary(userId: "user123", date: "2025-10-25") {
+                totalCalories, totalProtein
+                mealCount
+              }
+            }
+        """
+        return await resolve_daily_summary(info, user_id, date)
+
+    # ============================================
+    # Legacy Resolvers (MOVED TO AGGREGATES)
+    # ============================================
+
+    # MOVED: activityEntries → activity.entries
+    # MOVED: syncEntries → activity.syncEntries
+    # MOVED: searchMeals → meals.search
+    # MOVED: dailySummary → root query (above)
 
     # ============================================
     # Legacy Resolvers (TEMPORARILY DISABLED)
@@ -344,49 +391,6 @@ class Query:
     #     # Nutrition domain V2 è sempre attivo
     #     nutrition_integration = get_nutrition_integration_service()
     #     return _daily_summary_nutrition_domain(uid, date, nutrition_integration)
-
-    @strawberry.field(  # type: ignore[misc]
-        description="Lista eventi activity minuto (diagnostica)"
-    )
-    def activity_entries(
-        self,
-        info: Info[Any, Any],  # noqa: ARG002
-        limit: int = 100,
-        after: Optional[str] = None,
-        before: Optional[str] = None,
-        user_id: Optional[str] = None,
-    ) -> List[ActivityEvent]:
-        if limit <= 0:
-            limit = 100
-        if limit > 500:
-            limit = 500
-        uid = user_id or DEFAULT_USER_ID
-        events = activity_repo.list(
-            uid,
-            start_ts=after,
-            end_ts=before,
-            limit=limit,
-        )
-        return [ActivityEvent(**dataclasses.asdict(e)) for e in events]
-
-    @strawberry.field(description="Lista delta sync health totals per giorno")  # type: ignore[misc]
-    def sync_entries(
-        self,
-        info: Info[Any, Any],  # noqa: ARG002
-        date: str,
-        user_id: Optional[str] = None,
-        after: Optional[str] = None,
-        limit: int = 200,
-    ) -> List[HealthTotalsDelta]:
-        if limit <= 0:
-            limit = 50
-        if limit > 500:
-            limit = 500
-        uid = user_id or DEFAULT_USER_ID
-        records = health_totals_repo.list_deltas(
-            user_id=uid, date=date, after_ts=after, limit=limit
-        )
-        return [HealthTotalsDelta(**dataclasses.asdict(r)) for r in records]
 
     @strawberry.field(description="Statistiche cache prodotto")  # type: ignore[misc]
     def cache_stats(self, info: Info[Any, Any]) -> "CacheStats":  # noqa: ARG002,E501
@@ -675,11 +679,49 @@ __all__ = [
 
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> Any:  # pragma: no cover osservabilità
-    """Startup hook: log adapter e (se debug) snapshot env.
+    """Application lifecycle manager - gestisce startup/shutdown di tutte le risorse.
 
-    Non logghiamo mai valori sensibili (OPENAI_API_KEY) ma solo presenza
-    e maschera.
+    ╔═══════════════════════════════════════════════════════════════════════════╗
+    ║                      LIFESPAN CONTEXT MANAGER                             ║
+    ║                                                                           ║
+    ║  RUOLO:                                                                   ║
+    ║  Gestisce il ciclo di vita completo delle risorse dell'applicazione:     ║
+    ║  - Inizializza client HTTP (OpenAI, USDA, OpenFoodFacts) via async with  ║
+    ║  - Prepara database connections (MongoDB - Phase 7.1)                    ║
+    ║  - Configura observability (logs, metrics, tracing)                      ║
+    ║  - Garantisce cleanup automatico alla chiusura                           ║
+    ║                                                                           ║
+    ║  PATTERN:                                                                 ║
+    ║  1. STARTUP (prima di yield):                                            ║
+    ║     - Entra nei context manager dei client HTTP                          ║
+    ║     - Inizializza sessioni aiohttp/AsyncOpenAI                           ║
+    ║     - Assegna ai singleton globali per dependency injection              ║
+    ║     - Logga configurazione e snapshot environment                        ║
+    ║                                                                           ║
+    ║  2. RUNTIME (yield):                                                     ║
+    ║     - Applicazione serve requests con risorse inizializzate              ║
+    ║                                                                           ║
+    ║  3. SHUTDOWN (dopo yield):                                               ║
+    ║     - Context manager chiudono automaticamente sessioni HTTP             ║
+    ║     - Database connections rilasciate (future)                           ║
+    ║     - Zero memory leak garantito                                         ║
+    ║                                                                           ║
+    ║  IMPLEMENTATO (Phase 7.0):                                               ║
+    ║  ✅ OpenAI Vision Client (async with)                                    ║
+    ║  ✅ USDA Nutrition Client (async with)                                   ║
+    ║  ✅ OpenFoodFacts Barcode Client (async with)                            ║
+    ║                                                                           ║
+    ║  TODO (Phase 7.1+):                                                      ║
+    ║  ⚪ MongoDB connection pool (async with motor.AsyncIOMotorClient)        ║
+    ║  ⚪ Redis cache connection (se necessario)                               ║
+    ║  ⚪ External API health checks                                           ║
+    ╚═══════════════════════════════════════════════════════════════════════════╝
     """
+    logger = _logging.getLogger("startup")
+
+    # ═══════════════════════════════════════════════════════════════════════════
+    # PHASE 1: LOGGING & OBSERVABILITY
+    # ═══════════════════════════════════════════════════════════════════════════
     adapter = get_active_adapter()
     name = adapter.name()
     real_flag = os.getenv("AI_GPT4V_REAL_ENABLED")
@@ -690,7 +732,7 @@ async def lifespan(_: FastAPI) -> Any:  # pragma: no cover osservabilità
             masked_key = api_key[:4] + "..." + api_key[-4:]
         else:
             masked_key = "***"
-    logger = _logging.getLogger("startup")
+
     logger.info(
         "adapter.selected",
         extra={
@@ -722,7 +764,88 @@ async def lifespan(_: FastAPI) -> Any:  # pragma: no cover osservabilità
         ]
         snapshot = {k: os.getenv(k) for k in env_keys}
         logger.info("env.snapshot", extra={"env": snapshot})
-    yield
+
+    # ═══════════════════════════════════════════════════════════════════════════
+    # PHASE 2: HTTP CLIENT INITIALIZATION (async with context managers)
+    # ═══════════════════════════════════════════════════════════════════════════
+    # Factory crea client non inizializzati, lifespan li inizializza via async with
+    # Questo garantisce:
+    # - Sessioni HTTP attive durante tutta la vita del server
+    # - Cleanup automatico alla chiusura (no memory leak)
+    # - Context manager __aenter__/__aexit__ eseguiti correttamente
+
+    logger.info("lifespan.startup", extra={"phase": "http_clients_init"})
+
+    vision_client = create_vision_provider()
+    nutrition_client = create_nutrition_provider()
+    barcode_client = create_barcode_provider()
+
+    async with (
+        vision_client as initialized_vision,
+        nutrition_client as initialized_nutrition,
+        barcode_client as initialized_barcode,
+    ):
+
+        # Assegna ai singleton globali per dependency injection
+        global _vision_provider, _nutrition_provider, _barcode_provider
+        global _recognition_service, _nutrition_service, _barcode_service
+        global _photo_orchestrator, _barcode_orchestrator
+
+        _vision_provider = initialized_vision
+        _nutrition_provider = initialized_nutrition
+        _barcode_provider = initialized_barcode
+
+        # CRITICAL: Ricostruisci servizi con provider inizializzati
+        # I servizi creati al module load tengono riferimenti a provider non inizializzati
+        _recognition_service = FoodRecognitionService(_vision_provider)
+        _nutrition_service = NutritionEnrichmentService(
+            usda_provider=_nutrition_provider,
+            category_provider=_nutrition_provider,
+            fallback_provider=_nutrition_provider,
+        )
+        _barcode_service = BarcodeService(_barcode_provider)
+
+        # Ricostruisci orchestrator con servizi aggiornati
+        _photo_orchestrator = PhotoOrchestrator(
+            recognition_service=_recognition_service,
+            nutrition_service=_nutrition_service,
+            meal_factory=_meal_factory,
+        )
+        _barcode_orchestrator = BarcodeOrchestrator(
+            barcode_service=_barcode_service,
+            nutrition_service=_nutrition_service,
+            meal_factory=_meal_factory,
+        )
+
+        logger.info(
+            "lifespan.clients_ready",
+            extra={
+                "vision": type(initialized_vision).__name__,
+                "nutrition": type(initialized_nutrition).__name__,
+                "barcode": type(initialized_barcode).__name__,
+            },
+        )
+
+        # ═══════════════════════════════════════════════════════════════════════
+        # PHASE 3: FUTURE - DATABASE INITIALIZATION (Phase 7.1)
+        # ═══════════════════════════════════════════════════════════════════════
+        # TODO: Quando implementeremo MongoDB repository:
+        # db_client = create_mongodb_client()
+        # async with db_client as initialized_db:
+        #     global _meal_repository
+        #     _meal_repository = MongoDBMealRepository(initialized_db)
+        #     logger.info("lifespan.mongodb_ready", ...)
+
+        # ═══════════════════════════════════════════════════════════════════════
+        # RUNTIME: Application serves requests
+        # ═══════════════════════════════════════════════════════════════════════
+        logger.info("lifespan.ready", extra={"status": "serving"})
+        yield
+
+        # ═══════════════════════════════════════════════════════════════════════
+        # SHUTDOWN: Cleanup automatico (context manager close sessions)
+        # ═══════════════════════════════════════════════════════════════════════
+        logger.info("lifespan.shutdown", extra={"status": "cleanup"})
 
 
 app = FastAPI(
@@ -804,7 +927,7 @@ def get_graphql_context() -> Any:
         photo_orchestrator=_photo_orchestrator,
         barcode_orchestrator=_barcode_orchestrator,
         recognition_service=_recognition_service,  # ✅ Fixed: was passing provider
-        enrichment_service=_nutrition_provider,
+        enrichment_service=_nutrition_service,  # ✅ BUG #1 FIXED: era _nutrition_provider
         barcode_service=_barcode_service,  # Use service not provider
     )
 
