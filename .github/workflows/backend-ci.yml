@@ -75,13 +75,13 @@ jobs:
         run: ./make.sh preflight
       - name: Upload preflight summary
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: backend-preflight-summary
           path: backend/logs/preflight_summary.log
       - name: Upload markdownlint log
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: markdownlint-log
           path: backend/logs/md_lint_latest.log
@@ -92,7 +92,7 @@ jobs:
           uv run python scripts/export_schema.py --out schema_export.graphql || true
       - name: Upload schema export
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: backend-schema
           path: backend/schema_export.graphql
