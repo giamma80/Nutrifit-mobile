@@ -275,6 +275,7 @@ Targets disponibili:
   schema-check      Verifica drift schema (fail se differente)
   schema-guard      Verifica presenza duplicati e sync canonico/mirror schema
   preflight         format + lint + test + schema-check + commitlint
+
                    (markdownlint STRICT di default; disattiva con MD_STRICT=0)
                    (usa SCHEMA_DRIFT_MODE=warn per non fallire su semplice drift)
   version-guard     Verifica che la versione non sia stata modificata fuori dal flusso autorizzato
@@ -309,10 +310,6 @@ Targets disponibili:
   clean             Rimuovi .venv, __pycache__, pid
   clean-dist        Rimuovi eventuale dist residua
   all               setup + lint + test
-
-  # Documentation
-  docs              Genera documentazione API (SpectaQL)
-  docs-serve        Serve docs localmente (http://localhost:4400)
 EOF
     ;;
 
@@ -333,6 +330,33 @@ EOF
 
   test)
     header "Tests"; uv run pytest -q
+    ;;
+
+  test-unit)
+    header "Unit Tests (stub providers)"; uv run pytest -q -m "not e2e"
+    ;;
+
+  test-e2e)
+    header "E2E Tests (real APIs - requires server running)"
+    if ! server_running; then
+      err "Server non in esecuzione. Avvia con: ./make.sh run-bg"
+      exit 1
+    fi
+    info "Testing against server on port 8080 with real APIs"
+    uv run pytest tests/test_e2e_usda_enrichment.py -v -m e2e
+    ;;
+
+  test-all)
+    header "All Tests (unit + e2e)"
+    info "Running unit tests with stubs..."
+    uv run pytest -q -m "not e2e"
+    echo ""
+    if server_running; then
+      info "Running E2E tests with real APIs..."
+      uv run pytest tests/test_e2e_usda_enrichment.py -v -m e2e
+    else
+      warn "Skipping E2E tests (server not running). Start with: ./make.sh run-bg"
+    fi
     ;;
 
   run)
@@ -754,6 +778,7 @@ EOF
     ;;
 
   schema-sync)
+
     header "Schema sync"
     DRY_RUN=${DRY_RUN:-0}
     tmpfile="$(mktemp -t schema_export_XXXX).graphql"
@@ -914,40 +939,8 @@ EOF
     uv run mypy .
     ;;
 
-  docs)
-    header "Generate API documentation"
-    info "Exporting GraphQL schema..."
-    uv run python scripts/export_schema.py
-
-    if ! command -v npx >/dev/null 2>&1; then
-      err "npx not found - install Node.js and npm"
-      exit 1
-    fi
-
-    info "Generating SpectaQL documentation..."
-    npx -y spectaql spectaql.yaml
-
-    if [ -f docs/api/index.html ]; then
-      info "Documentation generated at: docs/api/index.html"
-      info "To view: open docs/api/index.html (or ./make.sh docs-serve)"
-    else
-      err "Documentation generation failed"
-      exit 1
-    fi
-    ;;
-
-  docs-serve)
-    header "Serve API documentation"
-    if [ ! -f docs/api/index.html ]; then
-      warn "Documentation not found - run './make.sh docs' first"
-      exit 1
-    fi
-    info "Serving documentation at http://localhost:4400"
-    info "Press Ctrl+C to stop"
-    cd docs/api && python3 -m http.server 4400
-    ;;
-
   *)
+
     # Default: mostra help
     cat "$0" | sed -n '/Targets disponibili:/,$p'
     exit 1

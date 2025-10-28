@@ -224,8 +224,68 @@ class USDAClient:
         # Normalize label for search
         normalized_label = normalize_food_label(identifier)
 
-        # Search for food in USDA
-        foods = await self.search_food(normalized_label, limit=5)
+        # For generic simple foods, prefer raw/fresh versions
+        # Only add "raw" if not already specified (fried, boiled, etc.)
+        simple_foods_prefer_raw = [
+            "potato",
+            "potatoes",
+            "tomato",
+            "tomatoes",
+            "onion",
+            "onions",
+            "carrot",
+            "carrots",
+            "spinach",
+            "broccoli",
+            "zucchini",
+            "eggplant",
+            "bell pepper",
+            "cucumber",
+        ]
+
+        # Eggs need special handling: "whole raw" to avoid egg whites
+        eggs_variants = ["eggs", "egg"]
+
+        # Check if label is generic (no preparation method specified)
+        has_preparation = any(
+            prep in normalized_label.lower()
+            for prep in [
+                "raw",
+                "fried",
+                "boiled",
+                "baked",
+                "grilled",
+                "roasted",
+                "steamed",
+                "cooked",
+                "dried",
+                "canned",
+                "whole",
+                "white",
+                "yolk",
+            ]
+        )
+
+        # Add "raw" or "whole raw" for simple foods without preparation
+        search_label = normalized_label
+        if not has_preparation:
+            if normalized_label.lower() in eggs_variants:
+                # Eggs: add "whole raw" to get whole eggs not whites
+                search_label = f"{normalized_label} whole raw"
+                logger.debug(
+                    "Adding 'whole raw' to eggs query",
+                    extra={"original": normalized_label, "modified": search_label},
+                )
+            elif normalized_label.lower() in simple_foods_prefer_raw:
+                # Other simple foods: just add "raw"
+                search_label = f"{normalized_label} raw"
+                logger.debug(
+                    "Adding 'raw' to generic food query",
+                    extra={"original": normalized_label, "modified": search_label},
+                )
+
+        # Search for food in USDA with higher limit for better selection
+        foods = await self.search_food(search_label, limit=8)
 
         if not foods:
             logger.info(
@@ -234,28 +294,86 @@ class USDAClient:
             )
             return None
 
-        # Get nutrients from first result
-        fdc_id = foods[0].get("fdcId")
-        if not fdc_id:
+        # Filter and rank results to prefer natural/raw foods over processed
+        def score_food_naturalness(description: str) -> int:
+            """Score food by naturalness (higher = more natural/raw)."""
+            desc_lower = description.lower()
+
+            # Heavily penalize processed/dried/powdered foods
+            processed_keywords = [
+                "dehydrated",
+                "powder",
+                "dried",
+                "canned",
+                "crackers",
+                "cakes",
+                "juice",
+                "croissant",
+                "strudel",
+                "snacks",
+                "bars",
+                "cereal",
+            ]
+            if any(kw in desc_lower for kw in processed_keywords):
+                return -100
+
+            # Favor fresh/raw forms
+            if any(kw in desc_lower for kw in ["raw", "fresh"]):
+                return 50
+
+            # Neutral for normal preparations (fried, boiled, etc.)
+            return 0
+
+        # Sort by naturalness score (highest first)
+        foods_with_scores = [
+            (food, score_food_naturalness(food.get("description", ""))) for food in foods
+        ]
+        foods_sorted = sorted(foods_with_scores, key=lambda x: x[1], reverse=True)
+
+        logger.debug(
+            "USDA food selection",
+            extra={
+                "identifier": identifier,
+                "top_result": foods_sorted[0][0].get("description"),
+                "score": foods_sorted[0][1],
+            },
+        )
+
+        # Try results in order of preference (best score first)
+        for food, score in foods_sorted:
+            fdc_id = food.get("fdcId")
+            if not fdc_id:
+                continue
+
+            # Get detailed nutrients
+            nutrients_dict = await self.get_nutrients_by_id(fdc_id)
+
+            if nutrients_dict and nutrients_dict.get("calories", 0) > 0:
+                # Found valid result with calories > 0
+                logger.info(
+                    "USDA food selected",
+                    extra={
+                        "identifier": identifier,
+                        "fdc_id": fdc_id,
+                        "description": food.get("description"),
+                        "score": score,
+                    },
+                )
+                break
+        else:
+            # No valid results found
             logger.warning(
-                "No FDC ID in result",
+                "No valid USDA nutrients found",
                 extra={"identifier": identifier},
             )
             return None
 
-        # Get detailed nutrients
-        nutrients_dict = await self.get_nutrients_by_id(fdc_id)
-
-        if not nutrients_dict:
-            logger.warning(
-                "Failed to get nutrients by ID",
-                extra={"identifier": identifier, "fdc_id": fdc_id},
-            )
-            return None
-
+        # nutrients_dict is now set from the loop above
         # Convert to NutrientProfile domain entity
-        # Note: NutrientProfile includes calories, protein, carbs, fat, fiber, sugar, sodium
-        # Calcium is extracted but not currently used in domain model
+        # USDA nutrients are ALWAYS per 100g - NO SCALING here
+        # The service layer (enrichment_service.py) calls with quantity_g=100.0
+        # and then uses profile.scale_to_quantity(actual_quantity) to scale
+
         profile = NutrientProfile(
             calories=int(nutrients_dict.get("calories", 0.0)),
             protein=nutrients_dict.get("protein", 0.0),
@@ -264,7 +382,7 @@ class USDAClient:
             fiber=nutrients_dict.get("fiber", 0.0),
             sugar=nutrients_dict.get("sugar", 0.0),
             sodium=nutrients_dict.get("sodium", 0.0),
-            quantity_g=quantity_g,
+            quantity_g=100.0,  # Always 100g base from USDA
             source="USDA",
             confidence=0.95,  # USDA is high confidence source
         )
@@ -284,11 +402,14 @@ class USDAClient:
         """
         Extract base nutrients from USDA data.
 
+        CRITICAL: USDA nutrients are ALWAYS per 100g for FoodData Central.
+        The API documentation states all nutrient values are normalized to 100g.
+
         Args:
             food_data: Complete USDA food data
 
         Returns:
-            Dictionary with nutrient values
+            Dictionary with nutrient values (per 100g base)
         """
         nutrients: Dict[str, float] = {
             "calories": 0.0,
@@ -315,6 +436,21 @@ class USDAClient:
 
         food_nutrients = food_data.get("foodNutrients", [])
 
+        # Debug logging
+        food_desc = food_data.get("description", "unknown")
+        serving_size = food_data.get("servingSize")
+        serving_unit = food_data.get("servingSizeUnit")
+
+        logger.debug(
+            "Extracting USDA nutrients",
+            extra={
+                "description": food_desc,
+                "servingSize": serving_size,
+                "servingSizeUnit": serving_unit,
+                "nutrient_count": len(food_nutrients),
+            },
+        )
+
         for nutrient in food_nutrients:
             # USDA API can return two different structures:
             # 1. Search API: nutrientId + value (direct)
@@ -334,6 +470,23 @@ class USDAClient:
             if nutrient_id in nutrient_mapping and amount is not None:
                 field_name = nutrient_mapping[nutrient_id]
                 nutrients[field_name] = float(amount)
+
+                # Debug: log first few nutrients to verify data
+                if field_name in ["calories", "protein", "carbs"]:
+                    logger.debug(
+                        f"USDA nutrient {field_name}",
+                        extra={"nutrient_id": nutrient_id, "value": float(amount)},
+                    )
+
+        logger.debug(
+            "USDA nutrients extracted (per 100g base)",
+            extra={
+                "calories": nutrients["calories"],
+                "protein": nutrients["protein"],
+                "carbs": nutrients["carbs"],
+                "fat": nutrients["fat"],
+            },
+        )
 
         return nutrients
 

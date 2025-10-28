@@ -109,9 +109,7 @@ class MealFactory:
             entries.append(entry)
 
         # Calculate average confidence from entries
-        avg_confidence = (
-            sum(e.confidence or 0.0 for e in entries) / len(entries)
-        )
+        avg_confidence = sum(e.confidence or 0.0 for e in entries) / len(entries)
 
         # Generate dish name from AI recognition or fallback to entries
         if dish_name:
@@ -122,9 +120,7 @@ class MealFactory:
             final_dish_name = entries[0].display_name
         else:
             # Multiple items: use first + count
-            final_dish_name = (
-                f"{entries[0].display_name} (+{len(entries)-1} altri)"
-            )
+            final_dish_name = f"{entries[0].display_name} (+{len(entries)-1} altri)"
 
         # Image URL: prioritize photo_url,
         # fallback to entry image_url (barcode case)

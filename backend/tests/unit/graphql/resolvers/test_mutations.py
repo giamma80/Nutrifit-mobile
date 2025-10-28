@@ -18,7 +18,7 @@ Mock Strategy:
 """
 
 import pytest
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, ANY
 from typing import Any
 from datetime import datetime, timezone
 from uuid import uuid4
@@ -180,7 +180,7 @@ async def test_analyze_meal_photo_success(
         photo_url="https://example.com/food.jpg",
         dish_hint="chicken and rice",
         meal_type="LUNCH",
-        timestamp=None,
+        timestamp=ANY,  # Accepts any timestamp (auto-generated if None)
     )
 
     # Verify meal was persisted
@@ -333,7 +333,7 @@ async def test_analyze_meal_barcode_success(
         barcode="8001505005707",
         quantity_g=100.0,
         meal_type="SNACK",
-        timestamp=None,
+        timestamp=ANY,  # Accepts any timestamp (auto-generated if None)
     )
 
 

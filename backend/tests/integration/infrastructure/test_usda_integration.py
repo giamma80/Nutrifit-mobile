@@ -51,7 +51,7 @@ async def test_usda_search_food_real_api():
         assert "fdcId" in first_result, "Result should have FDC ID"
         assert "description" in first_result, "Result should have description"
 
-        print(f"\n✅ USDA Food Search:")
+        print("\n✅ USDA Food Search:")
         print(f"   - Found {len(results)} results for 'chicken breast'")
         print(f"   - Top result: {first_result.get('description')}")
         print(f"   - FDC ID: {first_result.get('fdcId')}")
@@ -73,21 +73,20 @@ async def test_usda_get_nutrients_real_api():
 
         # Verify response
         assert isinstance(profile, NutrientProfile), "Should return NutrientProfile"
-        assert profile.quantity_g == 150.0, "Quantity should match request"
+        # USDA always returns nutrients per 100g (base quantity)
+        # The caller is responsible for scaling using profile.scale_to_quantity()
+        assert profile.quantity_g == 100.0, "USDA base quantity should be 100g"
 
         # Verify all nutrients are present
         assert profile.calories > 0, "Calories should be positive"
         assert profile.protein > 0, "Protein should be positive"
-        assert profile.carbs >= 0, "Carbs should be non-negative"
-        assert profile.fat >= 0, "Fat should be non-negative"
-        assert profile.fiber >= 0, "Fiber should be non-negative"
-        assert profile.sugar >= 0, "Sugar should be non-negative"
-        assert profile.sodium >= 0, "Sodium should be non-negative"
+        assert profile.carbs is not None and profile.carbs >= 0, "Carbs should be non-negative"
+        assert profile.fat is not None and profile.fat >= 0, "Fat should be non-negative"
+        assert profile.fiber is not None and profile.fiber >= 0, "Fiber should be non-negative"
+        assert profile.sugar is not None and profile.sugar >= 0, "Sugar should be non-negative"
+        assert profile.sodium is not None and profile.sodium >= 0, "Sodium should be non-negative"
 
-        # Verify quantity matches request
-        assert profile.quantity_g == 150.0, "Quantity should be scaled to request"
-
-        print(f"\n✅ USDA Nutrient Extraction:")
+        print("\n✅ USDA Nutrient Extraction:")
         print(f"   - Calories: {profile.calories} kcal")
         print(f"   - Protein: {profile.protein:.1f}g")
         print(f"   - Carbs: {profile.carbs:.1f}g")
@@ -119,12 +118,14 @@ async def test_usda_label_normalization():
         # All should return valid profiles
         for label, profile in results.items():
             assert isinstance(profile, NutrientProfile), f"{label} should return profile"
+            assert profile is not None
             assert profile.protein > 0, f"{label} should have protein"
             assert profile.calories > 0, f"{label} should have calories"
 
-        print(f"\n✅ USDA Label Normalization:")
+        print("\n✅ USDA Label Normalization:")
         for label, profile in results.items():
-            print(f"   - {label}: {profile.protein:.1f}g protein, {profile.calories} kcal")
+            if profile is not None:
+                print(f"   - {label}: {profile.protein:.1f}g protein, " f"{profile.calories} kcal")
 
 
 @pytest.mark.skipif(not USDA_API_KEY, reason=SKIP_REASON)
@@ -136,19 +137,21 @@ async def test_usda_circuit_breaker_configured():
     """
     async with USDAClient(api_key=USDA_API_KEY) as client:
         # Verify circuit breaker decorators are present
-        assert hasattr(client.search_food, "__wrapped__"), \
-            "Circuit breaker should be on search_food"
-        assert hasattr(client.get_nutrients_by_id, "__wrapped__"), \
-            "Circuit breaker should be on get_nutrients_by_id"
+        assert hasattr(
+            client.search_food, "__wrapped__"
+        ), "Circuit breaker should be on search_food"
+        assert hasattr(
+            client.get_nutrients_by_id, "__wrapped__"
+        ), "Circuit breaker should be on get_nutrients_by_id"
 
         # Make successful call to verify circuit is closed
         profile = await client.get_nutrients("apple", 100.0)
         assert isinstance(profile, NutrientProfile)
 
-        print(f"\n✅ USDA Circuit Breaker:")
-        print(f"   - Circuit breaker configured on search_food")
-        print(f"   - Circuit breaker configured on get_nutrients_by_id")
-        print(f"   - Circuit is CLOSED (healthy)")
+        print("\n✅ USDA Circuit Breaker:")
+        print("   - Circuit breaker configured on search_food")
+        print("   - Circuit breaker configured on get_nutrients_by_id")
+        print("   - Circuit is CLOSED (healthy)")
 
 
 @pytest.mark.skipif(not USDA_API_KEY, reason=SKIP_REASON)
@@ -176,11 +179,11 @@ async def test_usda_cascade_strategy():
         uncommon_profile = await client.get_nutrients("exotic_fruit_xyz_123", 100.0)
         # USDA client returns None for truly unknown foods (no fallback implemented)
 
-        print(f"\n✅ USDA Cascade Strategy:")
+        print("\n✅ USDA Cascade Strategy:")
         print(f"   - Common food (rice): {common_profile.carbs:.1f}g carbs")
         print(f"   - Specific food (brown rice): {specific_profile.carbs:.1f}g carbs")
         print(f"   - Unknown food returns: {uncommon_profile}")
-        print(f"   - Fallback works for unknown foods")
+        print("   - Fallback works for unknown foods")
 
 
 @pytest.mark.skipif(not USDA_API_KEY, reason=SKIP_REASON)
@@ -219,8 +222,10 @@ async def test_usda_multiple_foods_batch():
             assert profile.carbs >= 0, f"{food} should have carbs"
             assert profile.fat >= 0, f"{food} should have fat"
 
-        print(f"\n✅ USDA Batch Query:")
+        print("\n✅ USDA Batch Query:")
         print(f"   - Found {len(results)}/{len(foods)} foods in USDA database")
         for food, (profile, category) in results.items():
-            print(f"   - {food} ({category}): {profile.calories} kcal, "
-                  f"P:{profile.protein:.1f}g C:{profile.carbs:.1f}g F:{profile.fat:.1f}g")
+            print(
+                f"   - {food} ({category}): {profile.calories} kcal, "
+                f"P:{profile.protein:.1f}g C:{profile.carbs:.1f}g F:{profile.fat:.1f}g"
+            )

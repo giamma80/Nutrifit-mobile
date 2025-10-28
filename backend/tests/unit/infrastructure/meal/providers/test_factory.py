@@ -3,9 +3,7 @@
 Tests environment-based provider selection with graceful fallback.
 """
 
-import os
 import pytest
-from unittest.mock import patch
 
 from infrastructure.meal.providers.factory import (
     create_vision_provider,
@@ -200,8 +198,8 @@ class TestSingletonGetters:
         assert isinstance(provider2, OpenAIVisionClient)
 
         # Different instances, different types
-        assert provider1 is not provider2
-        assert type(provider1) != type(provider2)
+        assert provider1 is not provider2  # type: ignore[comparison-overlap]
+        assert type(provider1) is not type(provider2)  # type: ignore[comparison-overlap]
 
 
 class TestFactoryIntegration:

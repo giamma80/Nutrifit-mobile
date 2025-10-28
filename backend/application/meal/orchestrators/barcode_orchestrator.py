@@ -172,6 +172,8 @@ class BarcodeOrchestrator:
             "quantity_g": quantity_g,
             "confidence": 1.0,  # Barcode = 100% confidence
             "category": None,  # Not available for barcode products
+            "barcode": barcode,  # Include barcode for entry metadata
+            "image_url": product.image_url,  # Product image from OpenFoodFacts
         }
 
         meal = self._factory.create_from_analysis(

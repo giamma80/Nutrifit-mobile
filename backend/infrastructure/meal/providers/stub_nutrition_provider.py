@@ -14,9 +14,20 @@ class StubNutritionProvider:
     Stub implementation of INutritionProvider for testing.
 
     Returns hardcoded nutrient profiles based on food label.
+    Supports async context manager protocol for lifespan compatibility.
     """
 
-    async def enrich(self, label: str, quantity_g: float, category: Optional[str] = None) -> Optional[NutrientProfile]:
+    async def __aenter__(self) -> "StubNutritionProvider":
+        """Enter async context (no-op for stub)."""
+        return self
+
+    async def __aexit__(self, exc_type: object, exc_val: object, exc_tb: object) -> None:
+        """Exit async context (no-op for stub)."""
+        return None
+
+    async def enrich(
+        self, label: str, quantity_g: float, category: Optional[str] = None
+    ) -> Optional[NutrientProfile]:
         """
         Enrich food label with nutrient data (stub implementation).
 

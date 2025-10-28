@@ -10,13 +10,13 @@ class Product:
     name: str
     brand: Optional[str] = None
     category: Optional[str] = None
-    calories: Optional[int] = None
-    protein: Optional[float] = None
-    carbs: Optional[float] = None
-    fat: Optional[float] = None
-    fiber: Optional[float] = None
-    sugar: Optional[float] = None
-    sodium: Optional[float] = None
+    calories: Optional[int] = None  # kcal
+    protein: Optional[float] = None  # grams
+    carbs: Optional[float] = None  # grams
+    fat: Optional[float] = None  # grams
+    fiber: Optional[float] = None  # grams
+    sugar: Optional[float] = None  # grams
+    sodium: Optional[float] = None  # milligrams (mg)
     image_url: Optional[str] = None
 
 

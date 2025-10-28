@@ -75,7 +75,11 @@ class TestAnalyzeMealBarcodeCommandHandler:
 
         # Verify orchestrator called correctly
         mock_orchestrator.analyze.assert_called_once_with(
-            user_id="user123", barcode="8001505005707", quantity_g=150.0, meal_type="SNACK", timestamp=None
+            user_id="user123",
+            barcode="8001505005707",
+            quantity_g=150.0,
+            meal_type="SNACK",
+            timestamp=None,
         )
 
         # Verify meal persisted

@@ -507,6 +507,60 @@ make docker-build     # Build image
 
 ---
 
+#### ✅ End-to-End Test Scripts
+
+**New comprehensive test scripts** (added 27 Ottobre 2025):
+
+**Meal Persistence Testing:**
+```bash
+# Test complete meal workflows (photo + barcode analysis)
+cd backend
+./scripts/test_meal_persistence.sh
+
+# Custom configuration
+./scripts/test_meal_persistence.sh http://localhost:8080 giamma
+BASE_URL=http://staging.com USER_ID=test-staging ./scripts/test_meal_persistence.sh
+```
+
+**What it tests:**
+- ✅ Photo analysis workflow (upload → analyze → confirm)
+- ✅ Barcode analysis workflow (barcode → analyze → confirm)
+- ✅ Search meals functionality
+- ✅ Daily summary aggregation
+- ✅ Cross-verification with activity data
+- ✅ Image URL persistence (barcode products)
+
+**Activity Persistence Testing:**
+```bash
+# Test activity workflows (440 events, realistic simulation)
+cd backend
+./scripts/test_activity_persistence.sh
+
+# Custom configuration
+./scripts/test_activity_persistence.sh http://localhost:8080 giamma
+```
+
+**What it tests:**
+- ✅ 440 minute-by-minute activity events
+- ✅ 10+ workout types (walks, gym cardio, strength training)
+- ✅ syncHealthTotals (3 cumulative snapshots)
+- ✅ Deduplication and idempotency
+- ✅ Realistic daily simulation (~19,683 steps, ~1,168 kcal)
+
+**Script Features:**
+- Parametric BASE_URL and USER_ID (CLI args + env vars)
+- Default fallback: `http://localhost:8080` + unique user per run
+- Timeout handling on all HTTP calls (--max-time 10)
+- Clean state verification for rieseguibilità
+- Comprehensive output with validation
+
+**Files:**
+- `backend/scripts/test_meal_persistence.sh` (493 lines)
+- `backend/scripts/test_activity_persistence.sh` (755 lines)
+- Total: 1248 lines of comprehensive test logic
+
+---
+
 #### ✅ Configuration Files
 
 **Keep:**

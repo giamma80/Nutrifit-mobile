@@ -7,6 +7,30 @@ from repository.activities import ActivitySource as _RepoActivitySource
 ActivitySource = strawberry.enum(_RepoActivitySource, name="ActivitySource")
 
 
+@strawberry.input
+class ActivityMinuteInput:
+    """Input for minute-level activity event."""
+
+    ts: str  # DateTime as string, will be normalized to minute precision
+    steps: Optional[int] = 0
+    calories_out: Optional[float] = None
+    hr_avg: Optional[float] = None
+    # Enum GraphQL (repo enum esposto) default MANUAL
+    source: ActivitySource = ActivitySource.MANUAL
+
+
+@strawberry.input
+class HealthTotalsInput:
+    """Input for health totals snapshot."""
+
+    timestamp: str
+    date: str
+    steps: int
+    calories_out: float
+    hr_avg_session: Optional[float] = None
+    user_id: Optional[str] = None
+
+
 @strawberry.type
 class ActivityEvent:
     user_id: str
@@ -64,6 +88,8 @@ class CacheStats:
 
 __all__ = [
     "ActivitySource",
+    "ActivityMinuteInput",
+    "HealthTotalsInput",
     "ActivityEvent",
     "RejectedActivityEvent",
     "IngestActivityResult",

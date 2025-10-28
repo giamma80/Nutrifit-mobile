@@ -10,6 +10,7 @@ These resolvers execute CQRS commands using Command Handlers from P4.1:
 
 from typing import Union, Dict, Any
 from uuid import UUID
+from datetime import datetime, timezone
 import strawberry
 
 from application.meal.commands.analyze_photo import (
@@ -109,7 +110,7 @@ class MealMutations:
                 photo_url=input.photo_url,
                 dish_hint=input.dish_hint,
                 meal_type=input.meal_type.value,
-                timestamp=input.timestamp,
+                timestamp=input.timestamp or datetime.now(timezone.utc),
                 idempotency_key=input.idempotency_key,
             )
 
@@ -173,7 +174,7 @@ class MealMutations:
                 barcode=input.barcode,
                 quantity_g=input.quantity_g,
                 meal_type=input.meal_type.value,
-                timestamp=input.timestamp,
+                timestamp=input.timestamp or datetime.now(timezone.utc),
                 idempotency_key=input.idempotency_key,
             )
 

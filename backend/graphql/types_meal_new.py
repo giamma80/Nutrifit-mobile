@@ -68,14 +68,14 @@ class NutrientProfile:
     Atomic query result for testing INutritionProvider capability.
     """
 
-    calories: float
-    protein: float
-    carbs: float
-    fat: float
-    fiber: Optional[float] = None
-    sugar: Optional[float] = None
-    sodium: Optional[float] = None
-    quantity_g: float = 100.0
+    calories: float  # kcal
+    protein: float  # grams
+    carbs: float  # grams
+    fat: float  # grams
+    fiber: Optional[float] = None  # grams
+    sugar: Optional[float] = None  # grams
+    sodium: Optional[float] = None  # milligrams (mg)
+    quantity_g: float = 100.0  # grams
 
     def calories_from_macros(self) -> float:
         """Calculate calories from macronutrients (4-4-9 rule)."""

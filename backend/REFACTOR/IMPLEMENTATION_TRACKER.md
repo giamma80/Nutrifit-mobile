@@ -380,6 +380,44 @@ make quality           # lint + typecheck + format
 
 ## 📅 Changelog
 
+### 27 Ottobre 2025 - Bug Fixes & Test Infrastructure
+
+- 🐛 **BARCODE IMAGEURL FIX** - Fixed critical bug where barcode meals missing product images
+  - Issue: `BarcodeOrchestrator` not passing `product.image_url` to MealFactory
+  - Fix: Added `image_url` and `barcode` fields to `food_dict` in BarcodeOrchestrator.analyze()
+  - Files: `backend/application/meal/orchestrators/barcode_orchestrator.py` (lines 169-177)
+  - Impact: Barcode meals now correctly display product images from OpenFoodFacts
+  - Validation: Test script confirms imageUrl persistence
+
+- 🧪 **TEST SCRIPTS ENHANCEMENT** - Created comprehensive end-to-end test infrastructure
+  - **test_meal_persistence.sh** (493 lines): Photo + barcode workflows, search, daily summary
+  - **test_activity_persistence.sh** (755 lines): 440 events, 10+ workout types, realistic simulation
+  - Features:
+    * Parametric BASE_URL and USER_ID (CLI args + env vars)
+    * Default fallback: `http://localhost:8080` + `test-user-${TIMESTAMP}`
+    * Timeout handling: `--max-time 10` on curl calls
+    * Port correction: 8000 → 8080 (Render default)
+    * Cross-verification: Activity steps → meal calories
+    * Clean state verification for rieseguibilità
+  - Usage: `./test_meal_persistence.sh [BASE_URL] [USER_ID]`
+  - Total: 1248 lines of comprehensive test logic
+
+- 📝 **GRAPHQL API DOCS CORRECTIONS** - Fixed Activity API type inconsistencies
+  - Issue: `ActivityMinuteInput` had incorrect types (`ts: DateTime` should be `String`, `hrAvg: Int` should be `Float`)
+  - Issue: `ActivityEvent` documented non-existent fields (id, distance, activeMinutes)
+  - Issue: `HealthTotalsDelta` ambiguous (delta vs cumulative confusion)
+  - Fix: Corrected all types in `graphql-api-reference.md`
+  - Impact: Documentation now matches actual GraphQL schema
+
+- ✅ **ALL TESTS PASSING** - 668 backend tests passing (was 605)
+- ✅ **LINT CLEAN** - make lint passes (flake8 + mypy on 256 files)
+
+**Commits:**
+- fix(barcode): preserve image_url from OpenFoodFacts in BarcodeOrchestrator
+- feat(test): add comprehensive test scripts for meal and activity persistence
+- fix(test): parameterize BASE_URL and USER_ID in test scripts
+- fix(docs): correct Activity API types in graphql-api-reference.md
+
 ### 26 Ottobre 2025
 
 - ✅ **P7.0.1-3 COMPLETED** - Repository Factory Pattern for Persistence
@@ -833,6 +871,227 @@ make quality           # lint + typecheck + format
 ---
 
 ## 🐛 Bug Fixes & Improvements
+
+### 27 Ottobre 2025 - Barcode ImageUrl Persistence Fix
+
+**Issue:** Pasti analizzati tramite barcode non salvavano la `imageUrl` dal prodotto OpenFoodFacts, risultando in `imageUrl: null` nell'output GraphQL.
+
+**Root Cause:**
+- `BarcodeOrchestrator.analyze()` (lines 169-177) NON passava `product.image_url` al `food_dict`
+- MealFactory riceveva `food_dict` senza il campo `image_url`
+- OpenFoodFacts API restituiva correttamente `product.image_url`, ma veniva ignorato
+
+**Solution Implemented:**
+
+#### Fix in BarcodeOrchestrator
+- **File:** `backend/application/meal/orchestrators/barcode_orchestrator.py` (lines 169-177)
+- **Changes:**
+  - Aggiunto `"image_url": product.image_url` al `food_dict`
+  - Aggiunto `"barcode": barcode` per metadata entry
+  
+```python
+# PRIMA (SBAGLIATO):
+food_dict = {
+    "label": product.name,
+    "display_name": product.display_name(),
+    "quantity_g": quantity_g,
+    "confidence": 1.0,
+    "category": None,
+    # ❌ image_url NON passato
+}
+
+# DOPO (CORRETTO):
+food_dict = {
+    "label": product.name,
+    "display_name": product.display_name(),
+    "quantity_g": quantity_g,
+    "confidence": 1.0,
+    "category": None,
+    "barcode": barcode,  # ✅ Barcode per metadata
+    "image_url": product.image_url,  # ✅ Product image da OpenFoodFacts
+}
+```
+
+**Validation:**
+```bash
+$ ./backend/scripts/test_meal_persistence.sh giamma
+✅ Barcode analyzed: BARILLA NORGE ASbarilla - SPAGHETTI N° 5
+  Meal ID: 3a6e848c-31fa-413e-b357-1fdef2f45c55
+  Calories: 359 kcal
+  Image URL: https://images.openfoodfacts.org/images/products/807/680/019/5057/front_en.3428.400.jpg
+```
+
+**Impact:**
+- 🎯 UX migliorata: Utente vede foto prodotto quando scansiona barcode
+- 🔄 Comportamento consistente: Photo analysis e barcode entrambi mostrano immagini
+- ✅ OpenFoodFacts valorizzato: Informazione image_url non più persa
+
+**Files Modified:**
+- `backend/application/meal/orchestrators/barcode_orchestrator.py` (2 lines added)
+
+**Test Validation:**
+- Test script: `backend/scripts/test_meal_persistence.sh` (NEW FILE - 493 lines)
+- Workflow: Barcode → Analyze → Confirm → Query (image_url verified)
+- All tests passing ✅
+
+**Commits:**
+- fix(barcode): preserve image_url from OpenFoodFacts in BarcodeOrchestrator
+
+---
+
+### 27 Ottobre 2025 - Test Scripts Enhancement
+
+**Context:** Test scripts necessitavano di maggiore flessibilità per testing in diversi ambienti (dev, staging, prod) e con diversi utenti.
+
+**Changes Implemented:**
+
+#### 1. **Parametric BASE_URL and USER_ID**
+- **Files:** `backend/scripts/test_meal_persistence.sh`, `backend/scripts/test_activity_persistence.sh`
+- **Features:**
+  - Parametri CLI: `./script.sh [BASE_URL] [USER_ID]`
+  - Environment variables: `BASE_URL=http://staging.com ./script.sh`
+  - Default fallback: `http://localhost:8080` + `test-user-${TIMESTAMP}`
+  
+```bash
+# Usage examples:
+./test_meal_persistence.sh                           # Default: localhost:8080
+./test_meal_persistence.sh http://localhost:8080 giamma  # Custom user
+BASE_URL=http://staging.com USER_ID=test-staging ./test_meal_persistence.sh
+```
+
+#### 2. **Port Correction (8000 → 8080)**
+- Default port changed from 8000 to 8080 (correct Render port)
+- All scripts updated for consistency
+
+#### 3. **Timeout Handling**
+- Added `--max-time 10` to all curl calls to prevent hangs
+- Better error handling for network issues
+
+#### 4. **Comprehensive Test Coverage**
+
+**test_meal_persistence.sh (493 lines):**
+- ✅ Photo analysis workflow (upload image → analyze → confirm)
+- ✅ Barcode analysis workflow (barcode → analyze → confirm)
+- ✅ Cross-verification with activity data (steps → calories)
+- ✅ Search meals functionality
+- ✅ Daily summary aggregation
+
+**test_activity_persistence.sh (755 lines):**
+- ✅ 440 minute-by-minute activity events
+- ✅ 10+ workout types (walks, gym cardio, strength training)
+- ✅ Realistic daily simulation (~19,683 steps, ~1,168 kcal, HR avg 95 bpm)
+- ✅ syncHealthTotals testing (3 cumulative snapshots)
+- ✅ Deduplication and idempotency validation
+
+**Results Validated:**
+- ✅ Meal persistence: Photo and barcode workflows complete
+- ✅ Activity persistence: 440 events, multiple workout types
+- ✅ ImageUrl preservation: Barcode meals show product images
+- ✅ Cross-domain integrity: Activity steps → meal calories
+
+**Impact:**
+- 🚀 End-to-end test coverage: Complete meal + activity workflows
+- 🔧 Flexible testing: Works with dev, staging, production
+- 🎯 Rieseguibilità: Unique user_id per run, clean state verification
+- ✅ Validation completa: 1248 lines of comprehensive test logic
+
+**Files Created:**
+- `backend/scripts/test_meal_persistence.sh` (493 lines, NEW)
+- `backend/scripts/test_activity_persistence.sh` (755 lines, NEW)
+
+**Commits:**
+- feat(test): add comprehensive test scripts for meal and activity persistence
+- fix(test): parameterize BASE_URL and USER_ID in test scripts
+- fix(test): correct default port from 8000 to 8080
+
+---
+
+### 27 Ottobre 2025 - GraphQL API Documentation Corrections
+
+**Context:** GraphQL API reference documentation aveva type inconsistencies nelle Activity API (ActivityMinuteInput e ActivityEvent types).
+
+**Issues Found:**
+
+#### 1. **ActivityMinuteInput Type Mismatches**
+- ❌ `ts: DateTime!` dovrebbe essere `ts: String!` (ISO 8601 format)
+- ❌ `hrAvg: Int!` dovrebbe essere `hrAvg: Float` (heart rate può essere decimale)
+- ❌ `source` era required ma ha default `MANUAL`
+
+#### 2. **ActivityEvent Fields Incorrect**
+- ❌ Documentati campi `id`, `distance`, `activeMinutes` che non esistono
+- ❌ Timestamp field dovrebbe essere `ts` non `timestamp`
+
+#### 3. **HealthTotalsDelta Confusion**
+- ❌ Documentazione ambigua: non chiaro se valori sono delta o cumulativi
+
+**Solutions Implemented:**
+
+#### Fix in graphql-api-reference.md
+- **File:** `backend/REFACTOR/graphql-api-reference.md` (sections corrected)
+- **Changes:**
+
+```graphql
+# PRIMA (SBAGLIATO):
+input ActivityMinuteInput {
+  ts: DateTime!           # ❌ DateTime non esiste
+  steps: Int! = 0         # ❌ default non espresso correttamente
+  hrAvg: Int!             # ❌ Int invece di Float
+  source: ActivitySource! # ❌ Required ma ha default
+}
+
+type ActivityEvent {
+  id: ID!                 # ❌ Campo non esiste
+  timestamp: DateTime!    # ❌ Dovrebbe essere `ts: String!`
+  distance: Float         # ❌ Campo non esiste
+  activeMinutes: Int      # ❌ Campo non esiste
+}
+
+# DOPO (CORRETTO):
+input ActivityMinuteInput {
+  ts: String!             # ✅ ISO 8601 string
+  steps: Int              # ✅ Optional con default 0
+  hrAvg: Float            # ✅ Float per precisione
+  source: ActivitySource  # ✅ Optional con default MANUAL
+}
+
+type ActivityEvent {
+  ts: String!             # ✅ ISO 8601 timestamp
+  userId: String!
+  steps: Int!
+  hrAvg: Float
+  workoutType: WorkoutType
+  intensity: IntensityLevel
+  source: ActivitySource!
+  # ✅ Nessun campo id, distance, activeMinutes
+}
+```
+
+**HealthTotalsDelta Clarification:**
+```graphql
+# Added documentation note:
+"""
+HealthTotalsDelta: DELTA INCREMENTS (not cumulative totals)
+- steps: Steps to ADD to cumulative total
+- calories: Calories to ADD to cumulative total
+- activeMinutes: Minutes to ADD to cumulative total
+
+Usage:
+  cumulativeTotal += delta.steps
+"""
+```
+
+**Impact:**
+- 🎯 Documentation accuracy: Types match actual GraphQL schema
+- 🔧 Developer clarity: No more confusion about optional fields
+- ✅ Consistent API: ActivityMinuteInput types corrected
+
+**Files Modified:**
+- `backend/REFACTOR/graphql-api-reference.md` (~50 lines corrected)
+
+**Commits:**
+- fix(docs): correct Activity API types in graphql-api-reference.md
+
+---
 
 ### 26 Ottobre 2025 - USDA Nutrient Enrichment Fix
 

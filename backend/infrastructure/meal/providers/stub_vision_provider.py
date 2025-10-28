@@ -14,7 +14,16 @@ class StubVisionProvider:
     Stub implementation of IVisionProvider for testing.
 
     Returns hardcoded food recognition results based on hints in the photo URL or description.
+    Supports async context manager protocol for lifespan compatibility.
     """
+
+    async def __aenter__(self) -> "StubVisionProvider":
+        """Enter async context (no-op for stub)."""
+        return self
+
+    async def __aexit__(self, exc_type: object, exc_val: object, exc_tb: object) -> None:
+        """Exit async context (no-op for stub)."""
+        return None
 
     async def analyze_photo(
         self, photo_url: str, hint: Optional[str] = None

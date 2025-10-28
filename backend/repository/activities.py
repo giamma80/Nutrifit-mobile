@@ -260,6 +260,33 @@ class InMemoryActivityRepository(ActivityRepository):
         # Track for duplicates
         self._duplicate_keys[event.duplicate_key()] = event
 
+    def get_idempotency(self, key: str) -> Optional[str]:
+        """Recupera la signature cached per una chiave di idempotenza.
+
+        Returns:
+            signature string se presente, None altrimenti
+        """
+        # La chiave completa include user_id, ma per semplicità
+        # cerchiamo tra tutte le chiavi che terminano con il nostro key
+        for (_, k), (sig, _) in self._batch_idempo.items():
+            if k == key:
+                return sig
+        return None
+
+    def store_idempotency(self, key: str, signature: str, ttl_seconds: int = 86400) -> None:
+        """Salva una signature per una chiave di idempotenza.
+
+        Args:
+            key: chiave di idempotenza
+            signature: signature del payload
+            ttl_seconds: TTL in secondi (ignorato in implementazione in-memory)
+        """
+        # Per l'implementazione in-memory, usiamo un user_id fittizio
+        # In una implementazione reale con DB, useremmo il TTL
+        user_key = ("__global__", key)
+        # Salviamo signature e un dict vuoto come result placeholder
+        self._batch_idempo[user_key] = (signature, {})
+
 
 # Global instance (singleton pattern come meal_repo)
 activity_repo = InMemoryActivityRepository()

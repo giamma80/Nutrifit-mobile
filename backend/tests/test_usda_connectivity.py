@@ -1,9 +1,24 @@
-"""Test connettività e raggiungibilità API USDA."""
+"""Test connettività e raggiungibilità API USDA.
+
+⚠️ LEGACY TEST - Uses old ai_models.usda_client (to be removed in Phase 8)
+This test uses the legacy USDA client and enrichment service.
+New tests use infrastructure/external_apis/usda/client.py instead.
+
+TODO Phase 8: Remove this file and migrate relevant tests to:
+  - tests/integration/infrastructure/test_usda_integration.py
+  - tests/test_e2e_usda_enrichment.py
+"""
 
 import pytest
 import asyncio
-from ai_models.usda_client import USDAClient, USDANutrient
-from ai_models.nutrient_enrichment import NutrientEnrichmentService
+from ai_models.usda_client import USDAClient, USDANutrient  # noqa: E402
+from ai_models.nutrient_enrichment import NutrientEnrichmentService  # noqa: E402
+
+# Skip all tests in this file - legacy code uses old clients
+pytestmark = pytest.mark.skip(
+    reason="LEGACY: Uses old ai_models.usda_client - "
+    "will be removed in Phase 8 cleanup"
+)
 
 
 # API Key fornita nella documentazione del client

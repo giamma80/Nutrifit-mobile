@@ -21,7 +21,7 @@ DEFAULT_USER_ID = "default"
 class ActivityQueries:
     """Activity data queries."""
 
-    @strawberry.field(description="Lista eventi attività con paginazione")
+    @strawberry.field(description="Lista eventi attività con paginazione")  # type: ignore[misc]
     def entries(
         self,
         info: Info[Any, Any],  # noqa: ARG002
@@ -63,7 +63,7 @@ class ActivityQueries:
         )
         return [ActivityEvent(**dataclasses.asdict(e)) for e in events]
 
-    @strawberry.field(description="Lista delta sync health totals per giorno")
+    @strawberry.field(description="Lista delta sync health totals per giorno")  # type: ignore[misc]
     def sync_entries(
         self,
         info: Info[Any, Any],  # noqa: ARG002

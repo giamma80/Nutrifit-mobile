@@ -72,6 +72,8 @@ async def resolve_daily_summary(
         total_carbs=summary.total_carbs,
         total_fat=summary.total_fat,
         total_fiber=summary.total_fiber,
+        total_sugar=summary.total_sugar,
+        total_sodium=summary.total_sodium,
         meal_count=summary.meal_count,
         breakdown_by_type=breakdown_json,
     )

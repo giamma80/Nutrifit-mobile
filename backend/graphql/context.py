@@ -16,16 +16,21 @@ from domain.shared.ports.event_bus import IEventBus
 from domain.shared.ports.idempotency_cache import IIdempotencyCache
 from application.meal.orchestrators.photo_orchestrator import PhotoOrchestrator
 from application.meal.orchestrators.barcode_orchestrator import BarcodeOrchestrator
-from domain.meal.recognition.ports.vision_provider import IVisionProvider
-from domain.meal.nutrition.ports.nutrition_provider import INutritionProvider
+from domain.meal.recognition.services.recognition_service import (
+    FoodRecognitionService,
+)
+from domain.meal.nutrition.services.enrichment_service import (
+    NutritionEnrichmentService,
+)
 from domain.meal.barcode.services.barcode_service import BarcodeService
 
 
 class GraphQLContext(BaseContext):
     """GraphQL context with all dependencies.
 
-    This context is injected into all GraphQL resolvers via the `info` parameter.
-    Resolvers access dependencies using `info.context.get("service_name")`.
+    This context is injected into all GraphQL resolvers via the
+    `info` parameter. Resolvers access dependencies using
+    `info.context.get("service_name")`.
 
     Attributes:
         meal_repository: Repository for meal persistence
@@ -34,7 +39,7 @@ class GraphQLContext(BaseContext):
         photo_orchestrator: Orchestrator for photo analysis workflow
         barcode_orchestrator: Orchestrator for barcode analysis workflow
         recognition_service: Vision provider (OpenAI GPT-4V)
-        enrichment_service: Nutrition provider (USDA)
+        enrichment_service: Nutrition enrichment service (wraps USDA)
         barcode_service: Barcode lookup service
     """
 
@@ -45,8 +50,8 @@ class GraphQLContext(BaseContext):
         idempotency_cache: IIdempotencyCache,
         photo_orchestrator: PhotoOrchestrator,
         barcode_orchestrator: BarcodeOrchestrator,
-        recognition_service: IVisionProvider,
-        enrichment_service: INutritionProvider,
+        recognition_service: FoodRecognitionService,
+        enrichment_service: NutritionEnrichmentService,
         barcode_service: BarcodeService,
     ):
         """Initialize GraphQL context with all dependencies."""
@@ -82,8 +87,8 @@ def create_context(
     idempotency_cache: IIdempotencyCache,
     photo_orchestrator: PhotoOrchestrator,
     barcode_orchestrator: BarcodeOrchestrator,
-    recognition_service: IVisionProvider,
-    enrichment_service: INutritionProvider,
+    recognition_service: "FoodRecognitionService",
+    enrichment_service: NutritionEnrichmentService,
     barcode_service: BarcodeService,
 ) -> GraphQLContext:
     """Create GraphQL context with all dependencies.
@@ -95,7 +100,7 @@ def create_context(
         photo_orchestrator: Photo orchestrator instance
         barcode_orchestrator: Barcode orchestrator instance
         recognition_service: Vision provider implementation
-        enrichment_service: Nutrition provider implementation
+        enrichment_service: Nutrition enrichment service (domain service)
         barcode_service: Barcode service implementation
 
     Returns:

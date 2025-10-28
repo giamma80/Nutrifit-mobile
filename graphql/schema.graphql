@@ -29,6 +29,19 @@ input ActivityMinuteInput {
   source: ActivitySource! = MANUAL
 }
 
+type ActivityMutations {
+  """Sync batch minute activity events (idempotent)"""
+  syncActivityEvents(input: [ActivityMinuteInput!]!, idempotencyKey: String = null, userId: String = null): IngestActivityResult!
+}
+
+type ActivityQueries {
+  """Lista eventi attività con paginazione"""
+  entries(limit: Int! = 100, after: String = null, before: String = null, userId: String = null): [ActivityEvent!]!
+
+  """Lista delta sync health totals per giorno"""
+  syncEntries(date: String!, userId: String = null, after: String = null, limit: Int! = 200): [HealthTotalsDelta!]!
+}
+
 enum ActivitySource {
   APPLE_HEALTH
   GOOGLE_FIT
@@ -38,7 +51,7 @@ enum ActivitySource {
 type AggregateQueries {
   meal(mealId: String!, userId: String!): Meal
   mealHistory(userId: String!, startDate: DateTime = null, endDate: DateTime = null, mealType: String = null, limit: Int! = 20, offset: Int! = 0): MealHistoryResult!
-  searchMeals(userId: String!, queryText: String!, limit: Int! = 20, offset: Int! = 0): MealSearchResult!
+  search(userId: String!, queryText: String!, limit: Int! = 20, offset: Int! = 0): MealSearchResult!
   dailySummary(userId: String!, date: DateTime!): DailySummary!
 }
 
@@ -107,6 +120,8 @@ type DailySummary {
   totalCarbs: Float!
   totalFat: Float!
   totalFiber: Float!
+  totalSugar: Float!
+  totalSodium: Float!
   mealCount: Int!
   breakdownByType: String!
   hasMeals: Boolean!
@@ -170,9 +185,12 @@ type Meal {
   userId: String!
   timestamp: DateTime!
   mealType: MealType!
+  dishName: String!
+  imageUrl: String
+  source: String!
+  confidence: Float!
   entries: [MealEntry!]!
   notes: String
-  source: String!
   analysisId: String
   totalCalories: Int!
   totalProtein: Float!
@@ -244,10 +262,10 @@ enum MealType {
 
 type Mutation {
   """Meal domain mutations (CQRS commands)"""
-  meal: MealMutations!
+  meals: MealMutations!
 
-  """Ingest batch minute activity events (idempotent)"""
-  ingestActivityEvents(input: [ActivityMinuteInput!]!, idempotencyKey: String = null, userId: String = null): IngestActivityResult!
+  """Activity domain mutations"""
+  activity: ActivityMutations!
 
   """Sincronizza snapshot cumulativi attività"""
   syncHealthTotals(input: HealthTotalsInput!, idempotencyKey: String = null, userId: String = null): SyncHealthTotalsResult!
@@ -264,28 +282,9 @@ type NutrientProfile {
   quantityG: Float!
 }
 
-type Product {
-  barcode: String!
-  name: String!
-  brand: String
-  category: String
-  calories: Int
-  protein: Float
-  carbs: Float
-  fat: Float
-  fiber: Float
-  sugar: Float
-  sodium: Float
-  imageUrl: String
-}
-
 type Query {
-  hello: String!
   serverTime: String!
   health: String!
-
-  """Fetch prodotto da OpenFoodFacts (cache)"""
-  product(barcode: String!): Product
 
   """Atomic utility queries for testing capabilities"""
   atomic: AtomicQueries!
@@ -293,11 +292,8 @@ type Query {
   """Aggregate meal data queries"""
   meals: AggregateQueries!
 
-  """Lista eventi activity minuto (diagnostica)"""
-  activityEntries(limit: Int! = 100, after: String = null, before: String = null, userId: String = null): [ActivityEvent!]!
-
-  """Lista delta sync health totals per giorno"""
-  syncEntries(date: String!, userId: String = null, after: String = null, limit: Int! = 200): [HealthTotalsDelta!]!
+  """Activity data queries"""
+  activity: ActivityQueries!
 
   """Statistiche cache prodotto"""
   cacheStats: CacheStats!

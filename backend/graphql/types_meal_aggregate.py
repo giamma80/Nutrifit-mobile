@@ -50,14 +50,14 @@ class MealEntry:
     id: str
     name: str
     display_name: str
-    quantity_g: float
-    calories: int
-    protein: float
-    carbs: float
-    fat: float
-    fiber: Optional[float] = None
-    sugar: Optional[float] = None
-    sodium: Optional[float] = None
+    quantity_g: float  # grams
+    calories: int  # kcal
+    protein: float  # grams
+    carbs: float  # grams
+    fat: float  # grams
+    fiber: Optional[float] = None  # grams
+    sugar: Optional[float] = None  # grams
+    sodium: Optional[float] = None  # milligrams (mg)
     confidence: float = 1.0
     barcode: Optional[str] = None
 
@@ -83,13 +83,13 @@ class Meal:
     analysis_id: Optional[str] = None
 
     # Calculated totals
-    total_calories: int
-    total_protein: float
-    total_carbs: float
-    total_fat: float
-    total_fiber: float
-    total_sugar: float
-    total_sodium: float
+    total_calories: int  # kcal
+    total_protein: float  # grams
+    total_carbs: float  # grams
+    total_fat: float  # grams
+    total_fiber: float  # grams
+    total_sugar: float  # grams
+    total_sodium: float  # milligrams (mg)
 
     created_at: datetime
     updated_at: Optional[datetime] = None
@@ -140,8 +140,10 @@ class DailySummary:
     total_carbs: float
     total_fat: float
     total_fiber: float
+    total_sugar: float  # grams
+    total_sodium: float  # milligrams (mg)
     meal_count: int
-    breakdown_by_type: str  # JSON string: {"BREAKFAST": 450, "LUNCH": 650, ...}
+    breakdown_by_type: str  # JSON: {"BREAKFAST": 450, "LUNCH": 650}
 
     @strawberry.field
     def has_meals(self) -> bool:

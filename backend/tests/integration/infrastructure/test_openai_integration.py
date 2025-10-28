@@ -40,6 +40,7 @@ async def test_openai_analyze_photo_real_api():
     - Response contains valid food items
     """
     # Initialize client with real API key
+    assert OPENAI_API_KEY is not None, "API key must be set"
     client = OpenAIVisionClient(api_key=OPENAI_API_KEY)
 
     # Test photo URL (public image)
@@ -59,7 +60,7 @@ async def test_openai_analyze_photo_real_api():
         assert item.quantity_g > 0, "Quantity should be positive"
         assert 0.0 <= item.confidence <= 1.0, "Confidence should be 0-1"
 
-    print(f"\n✅ OpenAI Photo Analysis:")
+    print("\n✅ OpenAI Photo Analysis:")
     print(f"   - Recognized {len(result.items)} items")
     print(f"   - Items: {[item.label for item in result.items]}")
 
@@ -73,6 +74,7 @@ async def test_openai_analyze_text_real_api():
     - Text parsing works with real API
     - Structured outputs return valid items
     """
+    assert OPENAI_API_KEY is not None, "API key must be set"
     client = OpenAIVisionClient(api_key=OPENAI_API_KEY)
 
     # Test text description
@@ -89,7 +91,7 @@ async def test_openai_analyze_text_real_api():
     for item in result.items:
         assert item.quantity_g > 0, "Quantity should be extracted from text"
 
-    print(f"\n✅ OpenAI Text Analysis:")
+    print("\n✅ OpenAI Text Analysis:")
     print(f"   - Parsed {len(result.items)} items from text")
     print(f"   - Items: {[(item.label, f'{item.quantity_g}g') for item in result.items]}")
 
@@ -102,11 +104,13 @@ async def test_openai_circuit_breaker_recovery():
     Note: This test doesn't trigger actual failures (to avoid wasting API calls),
     but verifies the circuit breaker is configured correctly.
     """
+    assert OPENAI_API_KEY is not None, "API key must be set"
     client = OpenAIVisionClient(api_key=OPENAI_API_KEY)
 
     # Verify circuit breaker is configured
-    assert hasattr(client.analyze_photo, "__wrapped__"), \
-        "Circuit breaker should be configured on analyze_photo"
+    assert hasattr(
+        client.analyze_photo, "__wrapped__"
+    ), "Circuit breaker should be configured on analyze_photo"
 
     # Make a successful call to verify circuit is closed
     photo_url = "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=400"  # Food
@@ -115,10 +119,10 @@ async def test_openai_circuit_breaker_recovery():
     assert isinstance(result, FoodRecognitionResult)
     assert len(result.items) > 0
 
-    print(f"\n✅ OpenAI Circuit Breaker:")
-    print(f"   - Circuit breaker configured correctly")
-    print(f"   - Circuit is CLOSED (healthy)")
-    print(f"   - Thresholds: 5 failures → 60s timeout")
+    print("\n✅ OpenAI Circuit Breaker:")
+    print("   - Circuit breaker configured correctly")
+    print("   - Circuit is CLOSED (healthy)")
+    print("   - Thresholds: 5 failures → 60s timeout")
 
 
 @pytest.mark.skipif(not OPENAI_API_KEY, reason=SKIP_REASON)
@@ -130,6 +134,7 @@ async def test_openai_multiple_calls():
     - Multiple calls to different photos work
     - Structured outputs remain consistent
     """
+    assert OPENAI_API_KEY is not None, "API key must be set"
     client = OpenAIVisionClient(api_key=OPENAI_API_KEY)
 
     # First call - pizza
@@ -146,16 +151,16 @@ async def test_openai_multiple_calls():
     assert isinstance(result2, FoodRecognitionResult)
     assert len(result2.items) > 0
 
-    print(f"\n✅ OpenAI Multiple Calls:")
-    print(f"   - First call: {len(result1.items)} items recognized")
-    print(f"   - Second call: {len(result2.items)} items recognized")
-    print(f"   - Both calls successful")
+    print("\n✅ OpenAI Multiple Calls:")
+    print(f"   - First call: {len(result1.items)} items")
+    print(f"   - Second call: {len(result2.items)} items")
 
 
 @pytest.mark.skipif(not OPENAI_API_KEY, reason=SKIP_REASON)
 @pytest.mark.asyncio
 async def test_openai_context_manager():
     """Test async context manager properly closes connection."""
+    assert OPENAI_API_KEY is not None, "API key must be set"
     async with OpenAIVisionClient(api_key=OPENAI_API_KEY) as client:
         result = await client.analyze_photo(
             photo_url="https://images.unsplash.com/photo-1565958011703-44f9829ba187?w=400"  # Salad
@@ -163,6 +168,6 @@ async def test_openai_context_manager():
         assert isinstance(result, FoodRecognitionResult)
 
     # Client should be closed after context exit
-    print(f"\n✅ OpenAI Context Manager:")
-    print(f"   - Client properly closed after use")
-    print(f"   - Resources cleaned up")
+    print("\n✅ OpenAI Context Manager:")
+    print("   - Client properly closed after use")
+    print("   - Resources cleaned up")

@@ -15,7 +15,16 @@ class StubBarcodeProvider:
     Stub implementation of IBarcodeProvider for testing.
 
     Returns hardcoded product data based on barcode.
+    Supports async context manager protocol for lifespan compatibility.
     """
+
+    async def __aenter__(self) -> "StubBarcodeProvider":
+        """Enter async context (no-op for stub)."""
+        return self
+
+    async def __aexit__(self, exc_type: object, exc_val: object, exc_tb: object) -> None:
+        """Exit async context (no-op for stub)."""
+        return None
 
     async def lookup_barcode(self, barcode: str) -> Optional[BarcodeProduct]:
         """

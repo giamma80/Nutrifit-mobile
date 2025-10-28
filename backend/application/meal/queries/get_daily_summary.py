@@ -24,6 +24,8 @@ class DailySummary:
         total_carbs: Total carbohydrates (g)
         total_fat: Total fat (g)
         total_fiber: Total fiber (g)
+        total_sugar: Total sugar (g)
+        total_sodium: Total sodium (mg)
         meal_count: Number of meals logged
         breakdown_by_type: Calories by meal type
     """
@@ -34,6 +36,8 @@ class DailySummary:
     total_carbs: float
     total_fat: float
     total_fiber: float
+    total_sugar: float
+    total_sodium: float
     meal_count: int
     breakdown_by_type: Dict[str, float]  # meal_type -> calories
 
@@ -101,6 +105,8 @@ class GetDailySummaryQueryHandler:
         total_carbs = sum(m.total_carbs for m in meals)
         total_fat = sum(m.total_fat for m in meals)
         total_fiber = sum(m.total_fiber for m in meals)
+        total_sugar = sum(m.total_sugar for m in meals)
+        total_sodium = sum(m.total_sodium for m in meals)
 
         # Breakdown by meal type
         breakdown: Dict[str, float] = {
@@ -121,6 +127,8 @@ class GetDailySummaryQueryHandler:
             total_carbs=total_carbs,
             total_fat=total_fat,
             total_fiber=total_fiber,
+            total_sugar=total_sugar,
+            total_sodium=total_sodium,
             meal_count=len(meals),
             breakdown_by_type=breakdown,
         )

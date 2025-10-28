@@ -4,27 +4,18 @@ from __future__ import annotations
 import os
 import datetime
 import dataclasses
-import hashlib as _hashlib  # NEW
-import json as _json  # NEW
 import logging as _logging
 from contextlib import asynccontextmanager
-from typing import Final, Any, Optional, List, cast
+from typing import Final, Any, Optional
 
 # Third-party
 import strawberry
 from fastapi import FastAPI
 from strawberry.fastapi import GraphQLRouter
 from strawberry.types import Info
-from graphql import GraphQLError
 
 # Local application imports
 from cache import cache
-from openfoodfacts import adapter
-from repository.activities import (
-    activity_repo,
-    ActivityEventRecord as _ActivityEventRecord,
-    ActivitySource as _RepoActivitySource,
-)  # NEW
 from repository.health_totals import health_totals_repo  # NEW
 from inference.adapter import get_active_adapter
 
@@ -43,12 +34,13 @@ from graphql.resolvers.meal.atomic_queries import AtomicQueries
 from graphql.resolvers.meal.aggregate_queries import AggregateQueries
 from graphql.resolvers.meal.mutations import MealMutations
 from graphql.resolvers.activity.queries import ActivityQueries
-from graphql.resolvers.global_queries import resolve_daily_summary
-from graphql.types_meal_aggregate import DailySummary
+from graphql.resolvers.activity.mutations import ActivityMutations
 from graphql.context import create_context
 from infrastructure.persistence.factory import get_meal_repository
 from infrastructure.events.in_memory_bus import InMemoryEventBus
-from infrastructure.cache.in_memory_idempotency_cache import InMemoryIdempotencyCache
+from infrastructure.cache.in_memory_idempotency_cache import (
+    InMemoryIdempotencyCache,
+)
 from application.meal.orchestrators.photo_orchestrator import PhotoOrchestrator
 from application.meal.orchestrators.barcode_orchestrator import BarcodeOrchestrator
 from domain.meal.core.factories.meal_factory import MealFactory
@@ -64,16 +56,13 @@ from domain.meal.recognition.services.recognition_service import FoodRecognition
 from domain.meal.barcode.services.barcode_service import BarcodeService
 from domain.meal.nutrition.services.enrichment_service import NutritionEnrichmentService
 
-# from graphql.types_ai import AnalyzeMealPhotoInput  # Replaced by types_meal_mutations
+# from graphql.types_ai import AnalyzeMealPhotoInput  # Replaced
 from graphql.types_activity_health import (
-    ActivitySource,
-    RejectedActivityEvent,
-    IngestActivityResult,
+    HealthTotalsInput,
     HealthTotalsDelta,
     SyncHealthTotalsResult,
     CacheStats,
 )
-from graphql.types_product import Product, map_product
 
 # --- Basic logging configuration (minimal) ---
 _LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
@@ -97,9 +86,6 @@ PRODUCT_CACHE_TTL_S = float(os.getenv("PRODUCT_CACHE_TTL_S", "600"))
 APP_VERSION = os.getenv("APP_VERSION", "0.0.0-dev")
 
 
-_map_product = map_product  # retro compat alias
-
-
 # ----------------- Meal Logging (B2) + Repository refactor -----------------
 """GraphQL types spostati in moduli per ridurre complessità mypy."""
 
@@ -118,27 +104,10 @@ _map_product = map_product  # retro compat alias
 # Legacy function removed - using only V2 domain service flow
 
 
-@strawberry.input
-class HealthTotalsInput:
-    timestamp: str
-    date: str
-    steps: int
-    calories_out: float
-    hr_avg_session: Optional[float] = None
-    user_id: Optional[str] = None
+NUTRIENT_FIELDS = ...  # Disabled during Phase 5 refactor
 
 
-@strawberry.input
-class ActivityMinuteInput:
-    ts: str  # DateTime as string, will be normalized to minute precision
-    steps: Optional[int] = 0
-    calories_out: Optional[float] = None
-    hr_avg: Optional[float] = None
-    # Enum GraphQL (repo enum esposto) default MANUAL
-    source: ActivitySource = ActivitySource.MANUAL
-
-
-"""Input pasti spostati in graphql.types_meal"""
+"""Input types spostati in graphql.types_* modules"""
 
 
 DEFAULT_USER_ID = "default"
@@ -246,35 +215,12 @@ DEFAULT_USER_ID = "default"
 @strawberry.type
 class Query:
     @strawberry.field
-    def hello(self) -> str:
-        return "nutrifit-backend alive"
-
-    @strawberry.field
     def server_time(self) -> str:
         return datetime.datetime.utcnow().isoformat() + "Z"
 
     @strawberry.field
     def health(self) -> str:
         return "ok"
-
-    @strawberry.field(description="Fetch prodotto da OpenFoodFacts (cache)")  # type: ignore[misc]
-    async def product(
-        self, info: Info[Any, Any], barcode: str
-    ) -> Optional[Product]:  # noqa: ARG002
-        key = f"product:{barcode}"
-        cached = cache.get(key)
-        if cached is not None:
-            return cast(Product, cached)
-        try:
-            dto = await adapter.fetch_product(barcode)
-        except adapter.ProductNotFound:
-            return None
-        except adapter.OpenFoodFactsError as e:
-            raise GraphQLError(f"OPENFOODFACTS_ERROR: {e}") from e
-        # cast per soddisfare protocollo _ProductLike (nutrients compatibili)
-        prod = _map_product(cast(Any, dto))
-        cache.set(key, prod, PRODUCT_CACHE_TTL_S)
-        return prod
 
     # ============================================
     # Phase 5: New CQRS Meal Resolvers
@@ -323,24 +269,6 @@ class Query:
         """
         return ActivityQueries()
 
-    @strawberry.field(description="Daily nutrition and activity summary")  # type: ignore[misc]
-    async def daily_summary(
-        self, info: strawberry.types.Info, user_id: str, date: datetime.datetime
-    ) -> DailySummary:
-        """Get daily summary aggregating meals, activity, and health data.
-
-        This is a global query that spans multiple domains.
-
-        Example:
-            query {
-              dailySummary(userId: "user123", date: "2025-10-25") {
-                totalCalories, totalProtein
-                mealCount
-              }
-            }
-        """
-        return await resolve_daily_summary(info, user_id, date)
-
     # ============================================
     # Legacy Resolvers (MOVED TO AGGREGATES)
     # ============================================
@@ -348,7 +276,7 @@ class Query:
     # MOVED: activityEntries → activity.entries
     # MOVED: syncEntries → activity.syncEntries
     # MOVED: searchMeals → meals.search
-    # MOVED: dailySummary → root query (above)
+    # MOVED: dailySummary → meals.dailySummary
 
     # ============================================
     # Legacy Resolvers (TEMPORARILY DISABLED)
@@ -508,12 +436,12 @@ class Mutation:
     # ============================================
 
     @strawberry.field(description="Meal domain mutations (CQRS commands)")  # type: ignore[misc]
-    def meal(self) -> MealMutations:
+    def meals(self) -> MealMutations:
         """Meal domain mutations following CQRS pattern.
 
         Example:
             mutation {
-              meal {
+              meals {
                 analyzeMealPhoto(input: {...}) {
                   ... on MealAnalysisSuccess { meal { id } }
                 }
@@ -526,84 +454,22 @@ class Mutation:
     # Activity & Health Mutations
     # ============================================
 
-    @strawberry.mutation(  # type: ignore[misc]
-        description="Ingest batch minute activity events (idempotent)"
-    )
-    def ingest_activity_events(
-        self,
-        info: Info[Any, Any],  # noqa: ARG002
-        input: List[ActivityMinuteInput],
-        idempotency_key: Optional[str] = None,
-        user_id: Optional[str] = None,
-    ) -> IngestActivityResult:
-        uid = user_id or DEFAULT_USER_ID
-        # Canonicalize & normalize timestamps to minute BEFORE signature
-        norm_events: List[_ActivityEventRecord] = []
-        for ev in input:
-            raw_ts = ev.ts
-            ts_norm = activity_repo.normalize_minute_iso(raw_ts) or raw_ts
-            src_name = getattr(ev.source, "name", "MANUAL")
-            repo_source = _RepoActivitySource[src_name]
-            norm_events.append(
-                _ActivityEventRecord(
-                    user_id=uid,
-                    ts=ts_norm,
-                    steps=ev.steps if ev.steps is not None else 0,
-                    calories_out=ev.calories_out,
-                    hr_avg=ev.hr_avg,
-                    source=repo_source,
-                )
-            )
-        sig_payload = [
-            {
-                "ts": e.ts,
-                "steps": e.steps,
-                "calories_out": e.calories_out,
-                "hr_avg": e.hr_avg,
-                "source": e.source.value,
+    @strawberry.field(description="Activity domain mutations")  # type: ignore[misc]
+    def activity(self) -> ActivityMutations:
+        """Activity domain mutations.
+
+        Example:
+            mutation {
+              activity {
+                syncActivityEvents(input: [...]) {
+                  accepted
+                  duplicates
+                  rejected { index reason }
+                }
+              }
             }
-            for e in sorted(norm_events, key=lambda r: r.ts)
-        ]
-        canonical = _json.dumps(sig_payload, sort_keys=True, separators=(",", ":"))
-        signature = _hashlib.sha256(canonical.encode("utf-8")).hexdigest()
-        # Se la chiave non è fornita generiamo deterministico da signature
-        auto_key = None
-        if idempotency_key is None:
-            auto_key = "auto-" + signature[:16]
-            idempotency_key = auto_key
-        idem_key = (uid, idempotency_key)
-        cached = getattr(activity_repo, "_batch_idempo", {}).get(idem_key)
-        if cached:
-            existing_sig, result_dict = cached
-            if existing_sig == signature:
-                # Cached result: convert rejected tuples into GraphQL objects
-                return IngestActivityResult(
-                    accepted=result_dict["accepted"],  # noqa: E501
-                    duplicates=result_dict["duplicates"],
-                    rejected=[
-                        RejectedActivityEvent(index=idx, reason=reason)
-                        for idx, reason in result_dict["rejected"]
-                    ],
-                    idempotency_key_used=idempotency_key,
-                )
-            raise GraphQLError("IdempotencyConflict: key re-used with different payload")
-        # Ingest via repository (normalization & dedup inside repo)
-        accepted, duplicates, rejected = activity_repo.ingest_batch(norm_events)
-        # Cache idempotent result
-        getattr(activity_repo, "_batch_idempo")[idem_key] = (
-            signature,
-            {
-                "accepted": accepted,
-                "duplicates": duplicates,
-                "rejected": rejected,
-            },
-        )
-        return IngestActivityResult(
-            accepted=accepted,
-            duplicates=duplicates,
-            rejected=[RejectedActivityEvent(index=i, reason=r) for i, r in rejected],
-            idempotency_key_used=idempotency_key,
-        )
+        """
+        return ActivityMutations()
 
     @strawberry.mutation(  # type: ignore[misc]
         description="Sincronizza snapshot cumulativi attività"
@@ -671,10 +537,8 @@ schema = strawberry.Schema(
     mutation=Mutation,
 )
 
-# Esplicit export per mypy/tests
-__all__ = [
-    "Product",
-]
+# Explicit export per mypy/tests
+__all__: list[str] = []
 
 
 @asynccontextmanager
@@ -781,9 +645,9 @@ async def lifespan(_: FastAPI) -> Any:  # pragma: no cover osservabilità
     barcode_client = create_barcode_provider()
 
     async with (
-        vision_client as initialized_vision,
-        nutrition_client as initialized_nutrition,
-        barcode_client as initialized_barcode,
+        vision_client as initialized_vision,  # type: ignore[attr-defined]
+        nutrition_client as initialized_nutrition,  # type: ignore[attr-defined]
+        barcode_client as initialized_barcode,  # type: ignore[attr-defined]
     ):
 
         # Assegna ai singleton globali per dependency injection
@@ -936,3 +800,8 @@ graphql_app: Final[GraphQLRouter[Any, Any]] = GraphQLRouter(
     schema, context_getter=get_graphql_context
 )
 app.include_router(graphql_app, prefix="/graphql")
+
+
+# ============================================
+# API Documentation Endpoints
+# ============================================

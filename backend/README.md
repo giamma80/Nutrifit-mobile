@@ -28,6 +28,25 @@
 
 ##   Tipi GraphQL Principali
 
+### Unità di Misura
+
+Tutti i valori nutrizionali seguono queste unità di misura standard:
+
+| Campo | Unità | Note |
+|-------|-------|------|
+| `calories` | kcal | Chilocalorie |
+| `protein` | g | Grammi |
+| `carbs` | g | Grammi |
+| `fat` | g | Grammi |
+| `fiber` | g | Grammi |
+| `sugar` | g | Grammi |
+| **`sodium`** | **mg** | **Milligrammi** (⚠️ non grammi!) |
+| `quantityG` | g | Grammi (peso dell'alimento) |
+
+**⚠️ Attenzione al Sodio**: Il sodio è espresso in **milligrammi (mg)**, non grammi. 
+- Es: `"sodium": 286` = 286 mg = 0.286 g
+- Linee guida: max 2000-2300 mg/giorno
+
 ```graphql
 # Estratto sintetico (schema runtime attuale – vedere `backend/graphql/schema.graphql` per versione completa)
 

@@ -75,11 +75,36 @@ class AnalyzeMealBarcodeInput:
 
 @strawberry.input
 class ConfirmAnalysisInput:
-    """Input for confirm analysis mutation (2-step process)."""
+    """Input for confirm analysis mutation (2-step process).
 
-    meal_id: str
+    Use meal.id from analyzeMealPhoto response (NOT analysis_id).
+
+    Example workflow:
+        # Step 1: Analyze
+        mutation {
+          analyzeMealPhoto(input: {...}) {
+            ... on MealAnalysisSuccess {
+              meal {
+                id  # ← Use this as meal_id in step 2
+                entries { id, name, calories }
+              }
+            }
+          }
+        }
+
+        # Step 2: Confirm selected entries
+        mutation {
+          confirmMealAnalysis(input: {
+            meal_id: "abc-123"  # ← From meal.id above
+            user_id: "user123"
+            confirmed_entry_ids: ["entry1", "entry2"]
+          }) { ... }
+        }
+    """
+
+    meal_id: str  # Use meal.id from analyzeMealPhoto response
     user_id: str
-    confirmed_entry_ids: List[str]
+    confirmed_entry_ids: List[str]  # IDs of entries to keep
 
 
 @strawberry.input
@@ -108,10 +133,18 @@ class DeleteMealInput:
 
 @strawberry.type
 class MealAnalysisSuccess:
-    """Successful meal analysis result."""
+    """Successful meal analysis result.
 
-    meal: Meal
-    analysis_id: Optional[str] = None
+    Use meal.id (NOT analysis_id) for confirmMealAnalysis mutation.
+
+    Fields:
+        meal: Complete meal with entries and totals
+        analysis_id: Optional tracking ID (not used for confirmation)
+        processing_time_ms: Analysis duration in milliseconds
+    """
+
+    meal: Meal  # Use meal.id for confirmMealAnalysis
+    analysis_id: Optional[str] = None  # For tracking, not for confirmation
     processing_time_ms: Optional[int] = None
 
 

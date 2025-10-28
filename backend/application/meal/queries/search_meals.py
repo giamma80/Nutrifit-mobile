@@ -80,16 +80,16 @@ class SearchMealsQueryHandler:
         matching_meals = []
 
         for meal in all_meals:
-            # Search in entry names/display names
-            entry_match = any(
-                search_term in entry.name.lower() or search_term in entry.display_name.lower()
-                for entry in meal.entries
-            )
+            # Search in dish name
+            dish_match = search_term in meal.dish_name.lower()
+
+            # Search in entry names
+            entry_match = any(search_term in entry.name.lower() for entry in meal.entries)
 
             # Search in meal notes
             notes_match = meal.notes and search_term in meal.notes.lower()
 
-            if entry_match or notes_match:
+            if dish_match or entry_match or notes_match:
                 matching_meals.append(meal)
 
         # Apply pagination
