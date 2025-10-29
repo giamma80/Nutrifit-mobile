@@ -1,9 +1,9 @@
 # 🎯 Nutrifit Meal Domain Refactor - Implementation Tracker
 
-**Version:** 3.0
-**Date:** 26 Ottobre 2025
+**Version:** 3.1
+**Date:** 29 Ottobre 2025
 **Branch:** `refactor`
-**Status:** ✅ Phase 7 Complete + Pending: Legacy Test Cleanup (20 files)
+**Status:** ✅ Phase 7 Complete + v2.1 Range Query APIs Released
 
 ---
 
@@ -19,8 +19,9 @@
 | **Phase 5** | 4 | 4 | 0 | 0 | 0 |
 | **Phase 6** | 3 | 3 | 0 | 0 | 0 |
 | **Phase 7** | 4 | 4 | 0 | 0 | 0 |
+| **v2.1** | 10 | 10 | 0 | 0 | 0 |
 | **Phase 8** | 1 | 0 | 0 | 0 | 1 |
-| **TOTAL** | **36** | **33** | **0** | **0** | **3** |
+| **TOTAL** | **46** | **43** | **0** | **0** | **3** |
 
 ---
 
@@ -1370,9 +1371,36 @@ Test integrazione USDA. Logica valida ma usa vecchio adapter/prompt.
 
 ---
 
-**Ultimo aggiornamento:** 26 Ottobre 2025
-**Prossimo task:** P7.1 - MongoDB Implementation (deferred) | P7.2 - Deployment (deferred)
-**Current Progress:** 33/35 tasks completed (94.3%)
+## 🆕 v2.1 Features (29 Ottobre 2025)
+
+### Phase v2.1: Range Query APIs
+
+**Goal:** Add efficient multi-day aggregation queries for nutrition and activity data.
+
+| ID | Task | Description | Reference Doc | Expected Result | Status | Notes |
+|----|------|-------------|---------------|-----------------|--------|-------|
+| **v2.1.1** | **Atomic Timezone Parser** | Create reusable datetime parsing utility | `graphql/utils/datetime_helpers.py` | `parse_datetime_to_naive_utc()` function | ✅ COMPLETED | Handles naive + aware datetimes |
+| **v2.1.2** | **Shared Domain Types** | Create GroupByPeriod enum | `domain/shared/types.py` | `GroupByPeriod(DAY, WEEK, MONTH)` enum | ✅ COMPLETED | Shared across meal + activity |
+| **v2.1.3** | **Meal Range Query** | Implement meals.summaryRange API | `application/meal/queries/get_summary_range.py` | Query handler + GraphQL resolver | ✅ COMPLETED | 180 lines, period splitting logic |
+| **v2.1.4** | **Activity Range Query** | Implement activity.aggregateRange API | `domain/activity/application/get_aggregate_range.py` | Query handler + GraphQL resolver | ✅ COMPLETED | 190 lines, metrics aggregation |
+| **v2.1.5** | **Repository Fixes** | Fix timezone comparison in meal repo | `infrastructure/persistence/in_memory/meal_repository.py` | Naive datetime comparison | ✅ COMPLETED | Normalize meal.timestamp |
+| **v2.1.6** | **Repository Fixes** | Implement list_events() in activity repo | `repository/activities.py` | Full list_events() implementation | ✅ COMPLETED | Date filtering + user filtering |
+| **v2.1.7** | **Integration Tests** | Add range query tests to scripts | `scripts/test_meal_persistence.sh` (Steps 10-12) | 3 new test cases (DAY/WEEK/MONTH) | ✅ COMPLETED | macOS + Linux compatible |
+| **v2.1.8** | **Integration Tests** | Add range query tests to scripts | `scripts/test_activity_persistence.sh` (Steps 14-16) | 3 new test cases | ✅ COMPLETED | All 28 tests passing |
+| **v2.1.9** | **API Documentation** | Document new APIs | `REFACTOR/graphql-api-reference.md` | +614 lines documentation | ✅ COMPLETED | Examples + use cases |
+| **v2.1.10** | **Architecture Docs** | Update REFACTOR docs | Files 00, 03, 06 | Version 2.1 updates | ✅ COMPLETED | Schema + handlers |
+
+**Milestone v2.1:** ✅ Range Query APIs released with full documentation
+
+**Commit:** `0ff7dfc` - "feat: add summaryRange and aggregateRange queries with timezone fixes"
+**Files Changed:** 20 files, +3038 insertions, -23 deletions
+**Test Status:** 28/28 integration tests passing (16 activity + 12 meals)
+
+---
+
+**Ultimo aggiornamento:** 29 Ottobre 2025
+**Prossimo task:** P8.2 - Legacy Test Cleanup | Push v2.1 to origin
+**Current Progress:** 43/45 tasks completed (95.6%)
 **Phase 1 Status:** ✅ COMPLETED (5/5 tasks - 100%)
 **Phase 2 Status:** ✅ COMPLETED (3/3 tasks - 100%)
 **Phase 3 Status:** 🟢 NEAR-COMPLETE (6/7 tasks - 85.7%) - Only P3.6 Docker Compose deferred
@@ -1380,4 +1408,5 @@ Test integrazione USDA. Logica valida ma usa vecchio adapter/prompt.
 **Phase 5 Status:** ✅ COMPLETED (4/4 tasks - 100%)
 **Phase 6 Status:** ✅ COMPLETED (3/3 tasks - 100%) - E2E + Quality + Docs ✅
 **Phase 7 Status:** ✅ COMPLETED (4/4 tasks - 100%) - Factory Patterns for Providers & Repository ✅
-**Bug Fixes:** ✅ USDA Nutrient Enrichment - Naturalness Filter + Auto-Raw + E2E Tests
+**v2.1 Status:** ✅ COMPLETED (10/10 tasks - 100%) - Range Query APIs Released ✅
+**Bug Fixes:** ✅ USDA Nutrient Enrichment | ✅ Timezone Comparison | ✅ Activity list_events()

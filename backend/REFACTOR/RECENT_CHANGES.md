@@ -1,10 +1,160 @@
-# 📝 Recent Changes - 27 Ottobre 2025
+# 📝 Recent Changes - 29 Ottobre 2025
 
-**Summary**: Bug fixes, test infrastructure enhancements, and documentation improvements.
+**Summary**: New range query APIs (v2.1), timezone fixes, comprehensive documentation updates.
 
 ---
 
-## 🐛 Bug Fixes
+## � New Features (v2.1)
+
+### 1. Range Query APIs
+
+**Added**: Two new GraphQL APIs for efficient multi-day aggregations.
+
+**APIs**:
+```graphql
+# Nutrition aggregates across multiple days
+meals {
+  summaryRange(
+    userId: ID!
+    startDate: String!  # ISO date (YYYY-MM-DD)
+    endDate: String!
+    groupBy: GroupByPeriod!  # DAY, WEEK, MONTH
+  ): RangeSummaryResult!
+}
+
+# Activity aggregates across multiple days
+activity {
+  aggregateRange(
+    userId: ID!
+    startDate: String!
+    endDate: String!
+    groupBy: GroupByPeriod!
+  ): ActivityRangeResult!
+}
+```
+
+**Key Features**:
+- **Flexible Grouping**: DAY, WEEK (Mon-Sun), MONTH boundaries
+- **Server-Side Aggregation**: 1 query instead of N daily queries
+- **Comprehensive Metrics**: Full nutrition totals + activity stats
+- **Period Summaries**: Individual period data + grand total
+
+**Use Cases**:
+- 📊 Weekly nutrition dashboard (1 query vs 7)
+- 📈 Monthly progress reports
+- 🎯 Goal tracking with period comparisons
+- 🔍 Trend analysis across time ranges
+
+**Implementation**:
+- `GetSummaryRangeQueryHandler`: Meal domain range queries
+- `GetAggregateRangeQueryHandler`: Activity domain range queries
+- `GroupByPeriod` enum: Shared domain type in `domain/shared/types.py`
+
+---
+
+## 🔧 Infrastructure Improvements
+
+### 1. Atomic Timezone Parser
+
+**Added**: Reusable timezone parsing utility.
+
+**File**: `graphql/utils/datetime_helpers.py`
+
+**Function**:
+```python
+def parse_datetime_to_naive_utc(dt_string: str) -> datetime:
+    """Parse ISO datetime string to naive UTC datetime.
+    
+    Handles:
+    - Timezone-aware strings (2025-01-01T12:00:00Z)
+    - Naive strings (2025-01-01T12:00:00)
+    - Normalizes to naive UTC for consistent comparisons
+    """
+```
+
+**Benefits**:
+- ✅ DRY: Single source of truth for datetime parsing
+- ✅ Consistent: Same logic across meal and activity flows
+- ✅ Robust: Handles both naive and aware datetime strings
+- ✅ Testable: Isolated unit for timezone logic
+
+---
+
+## �🐛 Bug Fixes
+
+### 1. Timezone Comparison Error (CRITICAL)
+
+**Issue**: `TypeError: can't compare offset-naive and offset-aware datetimes` in meal repository.
+
+**Root Cause**: 
+- `Meal.timestamp` is timezone-aware (UTC)
+- Query date filters use naive datetimes
+- Direct comparison failed
+
+**Fix Applied**:
+```python
+# File: infrastructure/persistence/in_memory/meal_repository.py
+
+def get_by_user_and_date_range(self, user_id, start_date, end_date):
+    return [
+        meal for meal in self._meals.values()
+        if meal.user_id == user_id
+        and start_date <= meal.timestamp.replace(tzinfo=None) <= end_date  # ✅ Normalize to naive
+    ]
+```
+
+**Impact**:
+- ✅ All range queries now work correctly
+- ✅ No data loss or incorrect filtering
+- ✅ 28/28 integration tests passing
+
+### 2. Activity Repository Not Implemented
+
+**Issue**: `list_events()` raised `NotImplementedError`.
+
+**Fix Applied**:
+```python
+# File: repository/activities.py
+
+def list_events(self, user_id=None, start_time=None, end_time=None, limit=None):
+    # Full implementation with date filtering, user filtering, limit application
+    events = list(self._events.values())
+    
+    if user_id:
+        events = [e for e in events if e.user_id == user_id]
+    if start_time:
+        events = [e for e in events if parse_iso(e.timestamp) >= start_time]
+    if end_time:
+        events = [e for e in events if parse_iso(e.timestamp) <= end_time]
+    if limit:
+        events = events[:limit]
+    
+    return events
+```
+
+**Impact**:
+- ✅ Activity range queries functional
+- ✅ Proper date filtering
+- ✅ All activity tests passing (16/16)
+
+### 3. macOS Date Command Compatibility
+
+**Issue**: Test scripts used Linux `date -d` which doesn't work on macOS.
+
+**Fix Applied**:
+```bash
+# Platform-agnostic date calculation
+YESTERDAY=$(date -v-1d +%Y-%m-%d 2>/dev/null || date -d "yesterday" +%Y-%m-%d)
+WEEK_AGO=$(date -v-7d +%Y-%m-%d 2>/dev/null || date -d "7 days ago" +%Y-%m-%d)
+```
+
+**Impact**:
+- ✅ Test scripts work on macOS and Linux
+- ✅ CI/CD compatibility
+
+---
+
+## 🐛 Bug Fixes (Previous)
 
 ### 1. Barcode ImageUrl Persistence (CRITICAL)
 

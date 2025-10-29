@@ -1,6 +1,6 @@
 # ⚡ Application Layer - Implementation Details
 
-**Data:** 22 Ottobre 2025  
+**Data:** 29 Ottobre 2025  
 **Layer:** Application (Use Cases & Orchestration)  
 **Dependencies:** Domain Layer only
 
@@ -44,7 +44,8 @@ application/meal/
 │   ├── get_meal.py
 │   ├── list_meals.py
 │   ├── search_meals.py
-│   └── daily_summary.py
+│   ├── daily_summary.py
+│   └── get_summary_range.py  # Multi-day aggregates
 │
 ├── orchestrators/         # Complex workflows
 │   ├── photo_orchestrator.py
@@ -783,6 +784,221 @@ class DailySummaryQueryHandler:
         
         return summary
 ```
+
+---
+
+### 4. GetSummaryRangeQuery
+
+```python
+# application/meal/queries/get_summary_range.py
+from dataclasses import dataclass
+from datetime import datetime
+from typing import List
+from enum import Enum
+import structlog
+
+from domain.shared.ports.repository import IMealRepository
+from domain.shared.types import GroupByPeriod
+
+logger = structlog.get_logger(__name__)
+
+
+@dataclass(frozen=True)
+class GetSummaryRangeQuery:
+    """Query: Get nutrition summaries for date range with grouping."""
+    user_id: str
+    start_date: datetime
+    end_date: datetime
+    group_by: GroupByPeriod = GroupByPeriod.DAY
+
+
+@dataclass
+class PeriodSummaryData:
+    """Summary data for a single period."""
+    period: str  # ISO format: "2025-10-28" (day), "2025-W43" (week), "2025-10" (month)
+    start_date: datetime
+    end_date: datetime
+    total_calories: float
+    total_protein: float
+    total_carbs: float
+    total_fat: float
+    total_fiber: float
+    total_sugar: float
+    total_sodium: float
+    meal_count: int
+    breakdown_by_type: dict[str, float]  # {"BREAKFAST": 450, "LUNCH": 650, ...}
+
+
+class GetSummaryRangeQueryHandler:
+    """
+    Handler for GetSummaryRangeQuery.
+    
+    Aggregates meal data across date ranges with flexible grouping (DAY/WEEK/MONTH).
+    Optimized for dashboard queries requiring multi-day summaries.
+    
+    Use Cases:
+    - Weekly dashboard: "Show me last 7 days nutrition by day"
+    - Monthly report: "Show me October nutrition by week"
+    - Trend analysis: "Compare this month vs last month"
+    """
+    
+    def __init__(self, repository: IMealRepository):
+        self._repository = repository
+    
+    async def handle(self, query: GetSummaryRangeQuery) -> List[PeriodSummaryData]:
+        """
+        Execute summary range query.
+        
+        Algorithm:
+        1. Split date range into periods based on group_by
+        2. For each period, fetch meals and calculate aggregates
+        3. Return list of period summaries
+        
+        Returns:
+            List of PeriodSummaryData, one per period in range
+        """
+        # Split range into periods
+        periods = self._split_range_into_periods(
+            start_date=query.start_date,
+            end_date=query.end_date,
+            group_by=query.group_by,
+        )
+        
+        # Calculate summary for each period
+        summaries: List[PeriodSummaryData] = []
+        for period_start, period_end in periods:
+            summary = await self._calculate_period_summary(
+                user_id=query.user_id,
+                start_date=period_start,
+                end_date=period_end,
+                group_by=query.group_by,
+            )
+            summaries.append(summary)
+        
+        logger.info(
+            "summary_range_calculated",
+            user_id=query.user_id,
+            periods=len(summaries),
+            group_by=query.group_by.value
+        )
+        
+        return summaries
+    
+    async def _calculate_period_summary(
+        self,
+        user_id: str,
+        start_date: datetime,
+        end_date: datetime,
+        group_by: GroupByPeriod,
+    ) -> PeriodSummaryData:
+        """Calculate summary for a single period."""
+        # Get all meals in period
+        meals = await self._repository.get_by_user_and_date_range(
+            user_id=user_id, start_date=start_date, end_date=end_date
+        )
+        
+        # Aggregate nutrition values
+        total_calories = sum(meal.total_calories for meal in meals)
+        total_protein = sum(meal.total_protein for meal in meals)
+        # ... other aggregations
+        
+        # Breakdown by meal type
+        breakdown: dict[str, float] = {}
+        for meal in meals:
+            meal_type = meal.meal_type
+            if meal_type not in breakdown:
+                breakdown[meal_type] = 0.0
+            breakdown[meal_type] += float(meal.total_calories)
+        
+        period_label = self._format_period_label(start_date, group_by)
+        
+        return PeriodSummaryData(
+            period=period_label,
+            start_date=start_date,
+            end_date=end_date,
+            total_calories=total_calories,
+            total_protein=total_protein,
+            # ... other fields
+            meal_count=len(meals),
+            breakdown_by_type=breakdown,
+        )
+```
+
+**Key Features**:
+- **Flexible Grouping**: Supports DAY/WEEK/MONTH periods
+- **Efficient**: 1 query for entire range instead of N daily queries
+- **Dashboard-Optimized**: Returns both per-period breakdown and totals
+- **Type-Safe**: Uses `GroupByPeriod` enum from shared domain types
+
+---
+
+### 5. GetAggregateRangeQuery (Activity Domain)
+
+```python
+# domain/activity/application/get_aggregate_range.py
+from dataclasses import dataclass
+from datetime import datetime
+from typing import List
+from enum import Enum
+
+from domain.shared.types import GroupByPeriod
+from repository.activities import activity_repo
+
+
+@dataclass(frozen=True)
+class GetAggregateRangeQuery:
+    """Query: Get activity aggregates for date range with grouping."""
+    user_id: str
+    start_date: datetime
+    end_date: datetime
+    group_by: GroupByPeriod = GroupByPeriod.DAY
+
+
+@dataclass
+class ActivityPeriodSummaryData:
+    """Activity summary for a single period."""
+    period: str  # ISO format
+    start_date: datetime
+    end_date: datetime
+    total_steps: int
+    total_calories_out: float
+    avg_heart_rate: float | None
+    event_count: int
+    total_active_minutes: int
+
+
+class GetAggregateRangeQueryHandler:
+    """
+    Handler for GetAggregateRangeQuery.
+    
+    Aggregates activity events across date ranges with flexible grouping.
+    Similar to GetSummaryRangeQuery but for activity domain.
+    
+    Use Cases:
+    - Weekly activity dashboard: "Show me last 7 days steps by day"
+    - Monthly progress: "Show me October activity by week"
+    - Goal tracking: "Am I on track for 50,000 steps this week?"
+    """
+    
+    async def handle(self, query: GetAggregateRangeQuery) -> List[ActivityPeriodSummaryData]:
+        """
+        Execute aggregate range query.
+        
+        Algorithm:
+        1. Split date range into periods
+        2. For each period, fetch events and calculate totals/averages
+        3. Return list of period summaries
+        """
+        # Implementation similar to GetSummaryRangeQueryHandler
+        # but operates on ActivityEvent entities
+        pass
+```
+
+**Key Features**:
+- **Activity-Specific Metrics**: Steps, calories out, heart rate, active minutes
+- **Event Counting**: Tracks number of minute-by-minute events per period
+- **HR Averaging**: Calculates average heart rate excluding null values
+- **Goal-Friendly**: Designed for weekly/monthly goal tracking
 
 ---
 

@@ -1,8 +1,9 @@
 # 🌐 GraphQL API - Complete Schema & Resolvers
 
-**Data:** 22 Ottobre 2025  
+**Data:** 29 Ottobre 2025  
 **Layer:** GraphQL (Presentation)  
-**Dependencies:** Application Layer (Commands, Queries, Orchestrators)
+**Dependencies:** Application Layer (Commands, Queries, Orchestrators)  
+**Version:** 2.1 (with Range Query APIs)
 
 ---
 
@@ -84,6 +85,22 @@ type Query {
     userId: String!
     date: Date!
   ): DailySummaryResult!
+  
+  """Get nutrition summaries for date range with grouping (NEW v2.1)"""
+  summaryRange(
+    userId: String!
+    startDate: DateTime!
+    endDate: DateTime!
+    groupBy: GroupByPeriod!
+  ): RangeSummaryResult!
+  
+  """Get activity aggregates for date range with grouping (NEW v2.1)"""
+  aggregateRange(
+    userId: String!
+    startDate: String!
+    endDate: String!
+    groupBy: GroupByPeriod!
+  ): ActivityRangeResult!
   
   """Atomic: Recognize food from photo (utility)"""
   recognizeFood(
@@ -561,6 +578,106 @@ type BarcodeProduct {
   
   """Nutrients (per 100g)"""
   nutrients: NutrientProfile
+}
+
+# ============================================
+# RANGE QUERY TYPES (v2.1)
+# ============================================
+
+"""Grouping period for range queries"""
+enum GroupByPeriod {
+  """Group by day (ISO date: 2025-10-28)"""
+  DAY
+  
+  """Group by week (ISO week: 2025-W43)"""
+  WEEK
+  
+  """Group by month (YYYY-MM: 2025-10)"""
+  MONTH
+}
+
+"""Nutrition summary for a single period"""
+type PeriodSummary {
+  """Period label (ISO format)"""
+  period: String!
+  
+  """Period start date"""
+  startDate: DateTime!
+  
+  """Period end date"""
+  endDate: DateTime!
+  
+  """Total calories"""
+  totalCalories: Float!
+  
+  """Total protein (g)"""
+  totalProtein: Float!
+  
+  """Total carbs (g)"""
+  totalCarbs: Float!
+  
+  """Total fat (g)"""
+  totalFat: Float!
+  
+  """Total fiber (g)"""
+  totalFiber: Float!
+  
+  """Total sugar (g)"""
+  totalSugar: Float!
+  
+  """Total sodium (mg)"""
+  totalSodium: Float!
+  
+  """Number of meals"""
+  mealCount: Int!
+  
+  """Breakdown by meal type (JSON string)"""
+  breakdownByType: String!
+}
+
+"""Range summary result with periods and total"""
+type RangeSummaryResult {
+  """List of period summaries"""
+  periods: [PeriodSummary!]!
+  
+  """Total aggregate across all periods"""
+  total: PeriodSummary!
+}
+
+"""Activity summary for a single period"""
+type ActivityPeriodSummary {
+  """Period label (ISO format)"""
+  period: String!
+  
+  """Period start date"""
+  startDate: String!
+  
+  """Period end date"""
+  endDate: String!
+  
+  """Total steps"""
+  totalSteps: Int!
+  
+  """Total calories out"""
+  totalCaloriesOut: Float!
+  
+  """Average heart rate"""
+  avgHeartRate: Float
+  
+  """Number of events"""
+  eventCount: Int!
+  
+  """Total active minutes (steps > 0)"""
+  activeMinutes: Int!
+}
+
+"""Activity range result with periods and total"""
+type ActivityRangeResult {
+  """List of period summaries"""
+  periods: [ActivityPeriodSummary!]!
+  
+  """Total aggregate across all periods"""
+  total: ActivityPeriodSummary!
 }
 
 # ============================================
@@ -1722,10 +1839,89 @@ nutrient_loader = DataLoader(load_fn=load_nutrients_batch)
 - `mealHistory` → List with filters
 - `searchMeals` → Text search
 - `dailySummary` → Daily aggregation
+- `summaryRange` → Multi-day nutrition aggregates (v2.1)
+- `aggregateRange` → Multi-day activity aggregates (v2.1)
 - `recognizeFood` → Atomic utility (OpenAI)
 - `enrichNutrients` → Atomic utility (USDA)
 - `searchFoodByBarcode` → Atomic utility (OpenFoodFacts)
 
+---
+
+## 🆕 Range Query APIs (v2.1)
+
+### summaryRange - Multi-Day Nutrition Aggregates
+
+**Use Case**: Dashboard queries requiring nutrition data over multiple days/weeks/months
+
+**Example - Weekly Dashboard**:
+```graphql
+query WeeklyNutrition {
+  summaryRange(
+    userId: "user123"
+    startDate: "2025-10-22T00:00:00Z"
+    endDate: "2025-10-28T23:59:59Z"
+    groupBy: DAY
+  ) {
+    periods {
+      period          # "2025-10-22", "2025-10-23", ...
+      totalCalories
+      totalProtein
+      mealCount
+      breakdownByType
+    }
+    total {
+      period          # "TOTAL"
+      totalCalories   # Sum of all periods
+      totalProtein
+      mealCount
+    }
+  }
+}
+```
+
+**Advantages**:
+- ✅ 1 query instead of 7 separate `dailySummary` calls
+- ✅ Returns both per-period breakdown AND total aggregate
+- ✅ Flexible grouping (DAY/WEEK/MONTH)
+
+---
+
+### aggregateRange - Multi-Day Activity Aggregates
+
+**Use Case**: Activity dashboards and goal tracking over time periods
+
+**Example - Monthly Activity Report**:
+```graphql
+query MonthlyActivity {
+  aggregateRange(
+    userId: "user123"
+    startDate: "2025-10-01T00:00:00Z"
+    endDate: "2025-10-31T23:59:59Z"
+    groupBy: WEEK
+  ) {
+    periods {
+      period          # "2025-W40", "2025-W41", ...
+      totalSteps
+      totalCaloriesOut
+      avgHeartRate
+      activeMinutes
+    }
+    total {
+      totalSteps      # Sum of all weeks
+      totalCaloriesOut
+      avgHeartRate    # Average across all periods
+    }
+  }
+}
+```
+
+**Advantages**:
+- ✅ Optimized for goal tracking ("Am I on track for 50,000 steps this week?")
+- ✅ Aggregates minute-by-minute events server-side
+- ✅ Supports trend analysis and period comparisons
+
+---
+
 **Next**: `README.md` - Navigation index
 
-**Last Updated**: 22 Ottobre 2025
+**Last Updated**: 29 Ottobre 2025

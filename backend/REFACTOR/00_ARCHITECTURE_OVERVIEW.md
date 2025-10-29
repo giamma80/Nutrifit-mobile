@@ -1,7 +1,7 @@
 # 🏗️ Meal Domain - Architecture Overview
 
-**Data:** 22 Ottobre 2025  
-**Versione:** 2.0  
+**Data:** 29 Ottobre 2025  
+**Versione:** 2.1  
 **Status:** Architecture Definition
 
 ---
@@ -75,6 +75,8 @@ Costruire un sistema di meal tracking modulare, manutenibile e performante che s
 - `GetMealQuery`
 - `ListMealsQuery`
 - `DailySummaryQuery`
+- `GetSummaryRangeQuery` (multi-day aggregates)
+- `GetAggregateRangeQuery` (activity multi-day aggregates)
 
 ### 4. Ports & Adapters (Hexagonal Architecture)
 
@@ -342,16 +344,28 @@ backend/
 #### Queries
 ```graphql
 type Query {
-  # Meal queries
-  meal(id: ID!): Meal
-  mealHistory(userId: ID!, filter: MealFilter, pagination: PaginationInput): MealConnection!
-  searchMeals(userId: ID!, query: String!): [Meal!]!
-  dailySummary(userId: ID!, date: Date!): NutritionSummary!
+  # Meal queries (namespace: meals)
+  meals {
+    meal(id: ID!, userId: ID!): Meal
+    mealHistory(userId: ID!, filter: MealFilter, pagination: PaginationInput): MealConnection!
+    search(userId: ID!, query: String!): [Meal!]!
+    dailySummary(userId: ID!, date: Date!): NutritionSummary!
+    summaryRange(userId: ID!, startDate: DateTime!, endDate: DateTime!, groupBy: GroupByPeriod!): RangeSummaryResult!
+  }
   
-  # Utility queries (atomic operations)
-  recognizeFood(photoUrl: String!): FoodRecognitionResult!
-  enrichNutrients(label: String!, quantityG: Float!): NutrientProfile!
-  searchFoodByBarcode(barcode: String!): Product
+  # Activity queries (namespace: activity)
+  activity {
+    entries(userId: ID!, after: String, before: String, limit: Int): [ActivityEvent!]!
+    syncEntries(date: String!, userId: ID, after: String, limit: Int): [HealthTotalsDelta!]!
+    aggregateRange(userId: ID!, startDate: String!, endDate: String!, groupBy: GroupByPeriod!): ActivityRangeResult!
+  }
+  
+  # Utility queries (namespace: atomic)
+  atomic {
+    recognizeFood(photoUrl: String!): FoodRecognitionResult!
+    enrichNutrients(label: String!, quantityG: Float!): NutrientProfile!
+    searchFoodByBarcode(barcode: String!): Product
+  }
 }
 ```
 
@@ -437,5 +451,23 @@ type Mutation {
 
 ---
 
-**Last Updated**: 22 Ottobre 2025  
+## 📝 Recent Updates (v2.1 - 29 Oct 2025)
+
+### New Range Query APIs
+- **`meals.summaryRange`**: Multi-day nutrition aggregates with flexible grouping (DAY/WEEK/MONTH)
+  - Returns wrapper type: `RangeSummaryResult { periods: [PeriodSummary!]!, total: PeriodSummary! }`
+  - Optimized for dashboard queries (1 query instead of N loops)
+  
+- **`activity.aggregateRange`**: Multi-day activity aggregates with flexible grouping
+  - Returns wrapper type: `ActivityRangeResult { periods: [ActivityPeriodSummary!]!, total: ActivityPeriodSummary! }`
+  - Supports DAY/WEEK/MONTH grouping for goal tracking and trend analysis
+
+### Architecture Enhancements
+- **Atomic Timezone Parser**: `parse_datetime_to_naive_utc()` helper for consistent timezone handling
+- **Shared Domain Types**: `GroupByPeriod` enum in `domain/shared/types.py`
+- **Repository Fixes**: Improved timezone comparison in meal/activity repositories
+
+---
+
+**Last Updated**: 29 Ottobre 2025  
 **Maintainer**: Development Team
