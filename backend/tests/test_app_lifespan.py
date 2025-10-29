@@ -61,12 +61,8 @@ class TestLifespanContextManager:
             patch("app.create_vision_provider", return_value=mock_vision_client),
             patch("app.create_nutrition_provider", return_value=mock_nutrition_client),
             patch("app.create_barcode_provider", return_value=mock_barcode_client),
-            patch("app.get_active_adapter") as mock_adapter,
             patch("app._logging.getLogger"),
         ):
-
-            mock_adapter.return_value.name.return_value = "test_adapter"
-
             # Enter and exit lifespan
             mock_app = MagicMock()
             async with lifespan(mock_app):
@@ -97,12 +93,8 @@ class TestLifespanContextManager:
             patch("app.create_vision_provider", return_value=mock_vision_client),
             patch("app.create_nutrition_provider", return_value=mock_nutrition_client),
             patch("app.create_barcode_provider", return_value=mock_barcode_client),
-            patch("app.get_active_adapter") as mock_adapter,
             patch("app._logging.getLogger"),
         ):
-
-            mock_adapter.return_value.name.return_value = "test_adapter"
-
             mock_app = MagicMock()
             async with lifespan(mock_app):
                 # Globals should be set to initialized clients
@@ -127,11 +119,8 @@ class TestLifespanContextManager:
             patch("app.create_vision_provider", return_value=mock_vision_client),
             patch("app.create_nutrition_provider", return_value=mock_nutrition_client),
             patch("app.create_barcode_provider", return_value=mock_barcode_client),
-            patch("app.get_active_adapter") as mock_adapter,
             patch("app._logging.getLogger") as mock_logger,
         ):
-
-            mock_adapter.return_value.name.return_value = "test_adapter"
             mock_log = MagicMock()
             mock_logger.return_value = mock_log
 
@@ -140,7 +129,9 @@ class TestLifespanContextManager:
                 pass
 
             # Verify logging calls
-            assert mock_log.info.call_count >= 3  # adapter.selected, clients_ready, ready
+            assert (
+                mock_log.info.call_count >= 3
+            )  # adapter.selected, clients_ready, ready
 
     @pytest.mark.asyncio
     async def test_lifespan_cleanup_on_exception(
@@ -159,12 +150,8 @@ class TestLifespanContextManager:
             patch("app.create_vision_provider", return_value=mock_vision_client),
             patch("app.create_nutrition_provider", return_value=mock_nutrition_client),
             patch("app.create_barcode_provider", return_value=mock_barcode_client),
-            patch("app.get_active_adapter") as mock_adapter,
             patch("app._logging.getLogger"),
         ):
-
-            mock_adapter.return_value.name.return_value = "test_adapter"
-
             mock_app = MagicMock()
             try:
                 async with lifespan(mock_app):
@@ -198,12 +185,8 @@ class TestLifespanContextManager:
             patch("app.create_vision_provider", return_value=failing_client),
             patch("app.create_nutrition_provider", return_value=mock_nutrition_client),
             patch("app.create_barcode_provider", return_value=mock_barcode_client),
-            patch("app.get_active_adapter") as mock_adapter,
             patch("app._logging.getLogger"),
         ):
-
-            mock_adapter.return_value.name.return_value = "test_adapter"
-
             mock_app = MagicMock()
             with pytest.raises(Exception, match="API key invalid"):
                 async with lifespan(mock_app):
@@ -223,14 +206,10 @@ class TestLifespanIntegrationWithFactories:
         """
         # This test runs with actual factories but stub providers
         # Stubs don't need HTTP sessions so should initialize cleanly
-        with patch("app.get_active_adapter") as mock_adapter, patch("app._logging.getLogger"):
-
-            mock_adapter.return_value.name.return_value = "stub_adapter"
-
-            mock_app = MagicMock()
-            async with lifespan(mock_app):
-                # Should complete without errors
-                pass
+        mock_app = MagicMock()
+        async with lifespan(mock_app):
+            # Should complete without errors
+            pass
 
     @pytest.mark.asyncio
     @pytest.mark.integration  # Requires real API keys

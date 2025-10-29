@@ -17,7 +17,6 @@ from strawberry.types import Info
 # Local application imports
 from cache import cache
 from repository.health_totals import health_totals_repo  # NEW
-from inference.adapter import get_active_adapter
 
 # TEMPORARILY DISABLED DURING REFACTOR - Phase 0
 # from graphql.types_meal import (
@@ -586,9 +585,6 @@ async def lifespan(_: FastAPI) -> Any:  # pragma: no cover osservabilità
     # ═══════════════════════════════════════════════════════════════════════════
     # PHASE 1: LOGGING & OBSERVABILITY
     # ═══════════════════════════════════════════════════════════════════════════
-    adapter = get_active_adapter()
-    name = adapter.name()
-    real_flag = os.getenv("AI_GPT4V_REAL_ENABLED")
     api_key = os.getenv("OPENAI_API_KEY")
     masked_key = None
     if api_key:
@@ -598,36 +594,12 @@ async def lifespan(_: FastAPI) -> Any:  # pragma: no cover osservabilità
             masked_key = "***"
 
     logger.info(
-        "adapter.selected",
+        "startup.config",
         extra={
-            "adapter": name,
-            "ai_meal_photo_mode": os.getenv("AI_MEAL_PHOTO_MODE"),
-            "gpt4v_real_flag": real_flag,
             "openai_key_present": bool(api_key),
             "openai_key_masked": masked_key,
         },
     )
-
-    # Snapshot esteso solo se debug attivo
-    if os.getenv("AI_MEAL_PHOTO_DEBUG") == "1":
-        env_keys = [
-            "AI_MEAL_PHOTO_MODE",
-            "AI_GPT4V_REAL_ENABLED",
-            "OPENAI_VISION_MODEL",
-            "AI_NORMALIZATION_MODE",
-            "AI_PHOTO_URL_ALLOWED_HOSTS",
-            "AI_USDA_ENABLED",
-            "AI_USDA_SNAPSHOT",
-            "AI_USDA_COOKING",
-            "AI_USDA_MICROS",
-            "AI_METRICS_PARSE",
-            "AI_METRICS_NORMALIZATION",
-            "AI_GPT_DAILY_QUOTA",
-            "AI_GPT_RATE_LIMIT_PER_MIN",
-            "AI_MEAL_PHOTO_DEBUG",
-        ]
-        snapshot = {k: os.getenv(k) for k in env_keys}
-        logger.info("env.snapshot", extra={"env": snapshot})
 
     # ═══════════════════════════════════════════════════════════════════════════
     # PHASE 2: HTTP CLIENT INITIALIZATION (async with context managers)
