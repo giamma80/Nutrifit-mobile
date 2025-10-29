@@ -35,10 +35,8 @@ reset_all: Callable[[], None] | None
 if UNIT_TESTS_ONLY:
     APP_AVAILABLE = False
     app = None
-    reset_all = None
 else:
     try:
-        from metrics.ai_meal_photo import reset_all
         from httpx import AsyncClient, ASGITransport
         from app import app
 
@@ -47,11 +45,10 @@ else:
         # During refactor, some modules may be temporarily unavailable
         APP_AVAILABLE = False
         app = None
-        reset_all = None
         import warnings
 
         warnings.warn(
-            f"App/metrics import failed (expected during refactor): {e}. "
+            f"App import failed (expected during refactor): {e}. "
             "Integration/E2E tests requiring app will be skipped.",
             UserWarning,
         )
@@ -135,14 +132,14 @@ def _reset_metrics() -> Generator[None, None, None]:
     """Reset metriche prima e dopo ogni test per isolamento.
 
     Only runs if APP_AVAILABLE (integration/e2e tests).
+    Legacy metrics system removed - fixture kept for compatibility.
     """
-    if not APP_AVAILABLE or reset_all is None:
+    if not APP_AVAILABLE:
         yield
         return
 
-    reset_all()
+    # Legacy metrics removed - no-op
     yield
-    reset_all()
 
 
 @pytest_asyncio.fixture
