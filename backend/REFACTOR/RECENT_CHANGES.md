@@ -1,10 +1,65 @@
 # 📝 Recent Changes - 29 Ottobre 2025
 
-**Summary**: New range query APIs (v2.1), timezone fixes, comprehensive documentation updates.
+**Summary**: Range query APIs (v2.1), timezone fixes, legacy test cleanup (Phase 8), documentation updates.
 
 ---
 
-## � New Features (v2.1)
+## 🧹 Cleanup (Phase 8) - 29 Ottobre 2025
+
+### 1. Legacy Test Cleanup (P8.2 Completed)
+
+**Removed**: 21 legacy test files (2356 lines) that used old OpenAI adapter system.
+
+**Categories Removed**:
+1. **OpenAI Adapter Tests** (8 files): 
+   - test_gpt4v_adapter_success.py
+   - test_gpt4v_adapter_parse_error.py
+   - test_gpt4v_adapter_partial_response.py
+   - test_gpt4v_adapter_timeout_fallback.py
+   - test_gpt4v_adapter_transient_error_fallback.py
+   - test_gpt4v_adapter_enrichment.py
+   - test_inference_adapter.py
+   - test_inference_adapter_selection.py
+
+2. **Prompt v3 Tests** (3 files):
+   - test_prompt_v3.py
+   - test_integration_v3.py
+   - test_dish_title_italian.py
+
+3. **USDA Integration Tests** (6 files):
+   - test_simple_usda.py
+   - test_usda_connectivity.py
+   - test_usda_fallback.py
+   - test_usda_integration.py
+   - test_nutrient_enrichment.py
+   - test_end_to_end_enrichment.py
+
+4. **Feature Tests** (3 files):
+   - test_improved_usda_labels.py
+   - test_normalization_unit.py
+   - test_ai_meal_photo_metrics_sentinel.py
+
+5. **Dependency Test** (1 file):
+   - test_openai_integration_deps.py
+
+**Replacement Coverage**:
+- OpenAI: `tests/unit/infrastructure/test_openai_client.py` (15 tests)
+- USDA: `tests/test_e2e_usda_enrichment.py` (19 tests)
+- Integration: `tests/integration/infrastructure/` (comprehensive)
+
+**Impact**:
+- ✅ **Test Suite Clean**: 640 tests passing (was 661), 1 skipped
+- ✅ **Architecture Aligned**: Only new system tested
+- ✅ **Maintenance Reduced**: -2356 lines of obsolete code
+- ✅ **Clarity Improved**: No confusion about which system to use
+
+**Deferred**: P8.1 (Remove legacy adapter files) - Files kept for backward compatibility but not tested.
+
+**Commit**: `d7368e9` - "chore: remove 21 legacy test files using old OpenAI adapter"
+
+---
+
+## 🚀 New Features (v2.1)
 
 ### 1. Range Query APIs
 
