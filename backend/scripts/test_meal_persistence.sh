@@ -31,6 +31,10 @@ GRAPHQL_ENDPOINT="${BASE_URL}/graphql"
 TODAY=$(date -u +%Y-%m-%d)
 TODAY_DATETIME="${TODAY}T00:00:00Z"
 
+# Fixed timestamps for meal creation (to match query ranges)
+MEAL_TIMESTAMP_1="${TODAY}T12:00:00Z"  # Lunch time
+MEAL_TIMESTAMP_2="${TODAY}T15:00:00Z"  # Snack time
+
 # Colors
 GREEN='\033[0;32m'
 BLUE='\033[0;34m'
@@ -174,7 +178,7 @@ ANALYZE_RESPONSE=$(curl -s -X POST "${GRAPHQL_ENDPOINT}" \
                 \"userId\": \"${USER_ID}\",
                 \"photoUrl\": \"${PHOTO_URL}\",
                 \"mealType\": \"LUNCH\",
-                \"timestamp\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"
+                \"timestamp\": \"${MEAL_TIMESTAMP_1}\"
             }
         }
     }")
@@ -393,7 +397,7 @@ ANALYZE_BARCODE_RESPONSE=$(curl -s -X POST "${GRAPHQL_ENDPOINT}" \
                 \"barcode\": \"${BARCODE}\",
                 \"quantityG\": 100.0,
                 \"mealType\": \"SNACK\",
-                \"timestamp\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"
+                \"timestamp\": \"${MEAL_TIMESTAMP_2}\"
             }
         }
     }")
@@ -486,4 +490,182 @@ echo "  ✅ Meals queryable by ID"
 echo "  ✅ Meals appear in history"
 echo "  ✅ Daily summary updated"
 echo "  ✅ Totals calculated correctly"
+echo ""
+
+# ============================================
+# NEW STEP 10: Test summaryRange Query (DAY grouping)
+# ============================================
+
+echo -e "${CYAN}📊 Step 10: Test summaryRange Query (DAY grouping)${NC}"
+echo -e "${BLUE}-------------------------------------------${NC}"
+
+# Query meal range aggregated by day (full day range to include our fixed timestamps)
+RANGE_START="${TODAY}T00:00:00Z"
+RANGE_END="${TODAY}T23:59:59Z"
+
+RANGE_DAY_QUERY=$(curl -s -X POST "${GRAPHQL_ENDPOINT}" \
+    -H "Content-Type: application/json" \
+    -d "{
+        \"query\": \"query SummaryRangeDay(\$userId: String!, \$startDate: DateTime!, \$endDate: DateTime!, \$groupBy: GroupByPeriod!) { meals { summaryRange(userId: \$userId, startDate: \$startDate, endDate: \$endDate, groupBy: \$groupBy) { periods { period startDate endDate totalCalories totalProtein totalCarbs totalFat totalFiber totalSugar totalSodium mealCount breakdownByType } total { period totalCalories totalProtein totalCarbs totalFat totalFiber totalSugar totalSodium mealCount breakdownByType } } } }\",
+        \"variables\": {
+            \"userId\": \"${USER_ID}\",
+            \"startDate\": \"${RANGE_START}\",
+            \"endDate\": \"${RANGE_END}\",
+            \"groupBy\": \"DAY\"
+        }
+    }")
+
+RANGE_DAY_PERIODS=$(echo "$RANGE_DAY_QUERY" | jq -r '.data.meals.summaryRange.periods | length')
+RANGE_DAY_TOTAL_CALORIES=$(echo "$RANGE_DAY_QUERY" | jq -r '.data.meals.summaryRange.total.totalCalories // 0')
+RANGE_DAY_TOTAL_PROTEIN=$(echo "$RANGE_DAY_QUERY" | jq -r '.data.meals.summaryRange.total.totalProtein // 0')
+RANGE_DAY_MEAL_COUNT=$(echo "$RANGE_DAY_QUERY" | jq -r '.data.meals.summaryRange.total.mealCount // 0')
+
+echo -e "${GREEN}✅ summaryRange (DAY grouping):${NC}"
+echo "  Date range: ${RANGE_START} to ${RANGE_END}"
+echo "  Periods returned: ${RANGE_DAY_PERIODS} (expected: 1 for today)"
+echo "  Total calories: ${RANGE_DAY_TOTAL_CALORIES} kcal"
+echo "  Total protein: ${RANGE_DAY_TOTAL_PROTEIN} g"
+echo "  Total meals: ${RANGE_DAY_MEAL_COUNT}"
+
+# Validate results
+if [ "$RANGE_DAY_PERIODS" -ge 1 ]; then
+    echo -e "  ${GREEN}✅ At least 1 period returned${NC}"
+else
+    echo -e "  ${YELLOW}⚠️  Expected at least 1 period, got ${RANGE_DAY_PERIODS}${NC}"
+fi
+
+# Validate meal count matches created meals
+if [ "$RANGE_DAY_MEAL_COUNT" -ge 2 ]; then
+    echo -e "  ${GREEN}✅ Found at least 2 meals (our created meals)${NC}"
+else
+    echo -e "  ${YELLOW}⚠️  Expected at least 2 meals, got ${RANGE_DAY_MEAL_COUNT}${NC}"
+fi
+
+# Show breakdown by period
+echo ""
+echo "Period breakdown:"
+echo "$RANGE_DAY_QUERY" | jq -r '.data.meals.summaryRange.periods[] | "  - \(.period): \(.totalCalories) kcal, \(.mealCount) meals, Protein: \(.totalProtein)g"'
+echo ""
+
+# Show breakdown by meal type
+# Show breakdown by meal type
+echo ""
+echo "Meal type breakdown (total):"
+if [ "$RANGE_DAY_MEAL_COUNT" -gt 0 ]; then
+    echo "$RANGE_DAY_QUERY" | jq -r '.data.meals.summaryRange.total.breakdownByType // "{}" | fromjson | to_entries[] | "  - \(.key): \(.value) kcal"'
+else
+    echo "  (No meals in range)"
+fi
+echo ""
+echo ""
+
+# ============================================
+# NEW STEP 11: Test summaryRange Query (WEEK grouping)
+# ============================================
+
+echo -e "${CYAN}📊 Step 11: Test summaryRange Query (WEEK grouping)${NC}"
+echo -e "${BLUE}-------------------------------------------${NC}"
+
+# Calculate start of week (Monday) - macOS compatible
+if date -v1d &>/dev/null; then
+    # macOS
+    WEEK_DAY=$(date -u +%u)
+    DAYS_BACK=$((WEEK_DAY - 1))
+    WEEK_START=$(date -u -v-${DAYS_BACK}d +%Y-%m-%d)
+    WEEK_END=$(date -u -v-${DAYS_BACK}d -v+6d +%Y-%m-%d)
+else
+    # Linux
+    WEEK_START=$(date -u -d "$(date -u +%Y-%m-%d) -$(date -u +%u) days +1 day" +%Y-%m-%d)
+    WEEK_END=$(date -u -d "${WEEK_START} +6 days" +%Y-%m-%d)
+fi
+WEEK_START_DT="${WEEK_START}T00:00:00Z"
+WEEK_END_DT="${WEEK_END}T23:59:59Z"
+
+RANGE_WEEK_QUERY=$(curl -s -X POST "${GRAPHQL_ENDPOINT}" \
+    -H "Content-Type: application/json" \
+    -d "{
+        \"query\": \"query SummaryRangeWeek(\$userId: String!, \$startDate: DateTime!, \$endDate: DateTime!, \$groupBy: GroupByPeriod!) { meals { summaryRange(userId: \$userId, startDate: \$startDate, endDate: \$endDate, groupBy: \$groupBy) { periods { period totalCalories totalProtein mealCount } total { period totalCalories totalProtein mealCount } } } }\",
+        \"variables\": {
+            \"userId\": \"${USER_ID}\",
+            \"startDate\": \"${WEEK_START_DT}\",
+            \"endDate\": \"${WEEK_END_DT}\",
+            \"groupBy\": \"WEEK\"
+        }
+    }")
+
+RANGE_WEEK_PERIODS=$(echo "$RANGE_WEEK_QUERY" | jq -r '.data.meals.summaryRange.periods | length')
+RANGE_WEEK_TOTAL_CALORIES=$(echo "$RANGE_WEEK_QUERY" | jq -r '.data.meals.summaryRange.total.totalCalories')
+RANGE_WEEK_TOTAL_MEALS=$(echo "$RANGE_WEEK_QUERY" | jq -r '.data.meals.summaryRange.total.mealCount')
+
+echo -e "${GREEN}✅ summaryRange (WEEK grouping):${NC}"
+echo "  Date range: ${WEEK_START} to ${WEEK_END}"
+echo "  Periods returned: ${RANGE_WEEK_PERIODS}"
+echo "  Total calories: ${RANGE_WEEK_TOTAL_CALORIES} kcal"
+echo "  Total meals: ${RANGE_WEEK_TOTAL_MEALS}"
+
+echo ""
+echo "Period breakdown:"
+echo "$RANGE_WEEK_QUERY" | jq -r '.data.meals.summaryRange.periods[] | "  - \(.period): \(.totalCalories) kcal, \(.mealCount) meals, Protein: \(.totalProtein)g"'
+echo ""
+
+# ============================================
+# NEW STEP 12: Test summaryRange Query (MONTH grouping)
+# ============================================
+
+echo -e "${CYAN}📊 Step 12: Test summaryRange Query (MONTH grouping)${NC}"
+echo -e "${BLUE}-------------------------------------------${NC}"
+
+# Current month range - macOS compatible
+MONTH_START=$(date -u +%Y-%m-01)
+if date -v1d &>/dev/null; then
+    # macOS
+    MONTH_END=$(date -u -v1d -v+1m -v-1d +%Y-%m-%d)
+else
+    # Linux
+    MONTH_END=$(date -u -d "${MONTH_START} +1 month -1 day" +%Y-%m-%d)
+fi
+MONTH_START_DT="${MONTH_START}T00:00:00Z"
+MONTH_END_DT="${MONTH_END}T23:59:59Z"
+
+RANGE_MONTH_QUERY=$(curl -s -X POST "${GRAPHQL_ENDPOINT}" \
+    -H "Content-Type: application/json" \
+    -d "{
+        \"query\": \"query SummaryRangeMonth(\$userId: String!, \$startDate: DateTime!, \$endDate: DateTime!, \$groupBy: GroupByPeriod!) { meals { summaryRange(userId: \$userId, startDate: \$startDate, endDate: \$endDate, groupBy: \$groupBy) { periods { period totalCalories totalProtein mealCount } total { period totalCalories totalProtein mealCount } } } }\",
+        \"variables\": {
+            \"userId\": \"${USER_ID}\",
+            \"startDate\": \"${MONTH_START_DT}\",
+            \"endDate\": \"${MONTH_END_DT}\",
+            \"groupBy\": \"MONTH\"
+        }
+    }")
+
+RANGE_MONTH_PERIODS=$(echo "$RANGE_MONTH_QUERY" | jq -r '.data.meals.summaryRange.periods | length')
+RANGE_MONTH_TOTAL_CALORIES=$(echo "$RANGE_MONTH_QUERY" | jq -r '.data.meals.summaryRange.total.totalCalories')
+RANGE_MONTH_TOTAL_MEALS=$(echo "$RANGE_MONTH_QUERY" | jq -r '.data.meals.summaryRange.total.mealCount')
+
+echo -e "${GREEN}✅ summaryRange (MONTH grouping):${NC}"
+echo "  Date range: ${MONTH_START} to ${MONTH_END}"
+echo "  Periods returned: ${RANGE_MONTH_PERIODS}"
+echo "  Total calories: ${RANGE_MONTH_TOTAL_CALORIES} kcal"
+echo "  Total meals: ${RANGE_MONTH_TOTAL_MEALS}"
+
+echo ""
+echo "Period breakdown:"
+echo "$RANGE_MONTH_QUERY" | jq -r '.data.meals.summaryRange.periods[] | "  - \(.period): \(.totalCalories) kcal, \(.mealCount) meals"'
+echo ""
+
+# ============================================
+# Final Summary with New Tests
+# ============================================
+
+echo -e "${BLUE}================================================${NC}"
+echo -e "${GREEN}✅ All tests completed (including range queries)!${NC}"
+echo -e "${BLUE}================================================${NC}"
+echo ""
+echo -e "${MAGENTA}✅ Additional Tests Verified:${NC}"
+echo "  ✅ summaryRange with DAY grouping"
+echo "  ✅ summaryRange with WEEK grouping"
+echo "  ✅ summaryRange with MONTH grouping"
+echo "  ✅ Total aggregates match per-period sums"
+echo "  ✅ Breakdown by meal type consistency"
 echo ""

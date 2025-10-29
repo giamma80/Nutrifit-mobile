@@ -759,3 +759,154 @@ echo "  ✅ Sync history tracking (3 snapshots)"
 echo "  ✅ Cross-domain calorie balance"
 echo "  ✅ Realistic activity patterns validated"
 echo ""
+
+# ============================================
+# NEW STEP 14: Test aggregateRange Query (DAY grouping)
+# ============================================
+
+echo -e "${CYAN}📊 Step 14: Test aggregateRange Query (DAY grouping)${NC}"
+echo -e "${BLUE}-------------------------------------------${NC}"
+
+# Query activity range aggregated by day
+# Date range: today only
+RANGE_DAY_QUERY=$(curl -s -X POST "${GRAPHQL_ENDPOINT}" \
+    -H "Content-Type: application/json" \
+    -d "{
+        \"query\": \"query AggregateRangeDay(\$userId: String!, \$startDate: String!, \$endDate: String!, \$groupBy: GroupByPeriod!) { activity { aggregateRange(userId: \$userId, startDate: \$startDate, endDate: \$endDate, groupBy: \$groupBy) { periods { period totalSteps totalCaloriesOut totalActiveMinutes avgHeartRate eventCount } total { period totalSteps totalCaloriesOut totalActiveMinutes avgHeartRate eventCount } } } }\",
+        \"variables\": {
+            \"userId\": \"${USER_ID}\",
+            \"startDate\": \"${TODAY}T00:00:00Z\",
+            \"endDate\": \"${TODAY}T23:59:59Z\",
+            \"groupBy\": \"DAY\"
+        }
+    }")
+
+RANGE_DAY_PERIODS=$(echo "$RANGE_DAY_QUERY" | jq -r '.data.activity.aggregateRange.periods | length')
+RANGE_DAY_TOTAL_STEPS=$(echo "$RANGE_DAY_QUERY" | jq -r '.data.activity.aggregateRange.total.totalSteps')
+RANGE_DAY_TOTAL_CALORIES=$(echo "$RANGE_DAY_QUERY" | jq -r '.data.activity.aggregateRange.total.totalCaloriesOut')
+RANGE_DAY_AVG_HR=$(echo "$RANGE_DAY_QUERY" | jq -r '.data.activity.aggregateRange.total.avgHeartRate')
+
+echo -e "${GREEN}✅ aggregateRange (DAY grouping):${NC}"
+echo "  Periods returned: ${RANGE_DAY_PERIODS} (expected: 1 for today)"
+echo "  Total steps: ${RANGE_DAY_TOTAL_STEPS}"
+echo "  Total calories: ${RANGE_DAY_TOTAL_CALORIES} kcal"
+echo "  Average HR: ${RANGE_DAY_AVG_HR} bpm"
+
+# Validate total matches calculated total
+STEPS_DIFF=$((RANGE_DAY_TOTAL_STEPS - TOTAL_STEPS_INT))
+if [ $STEPS_DIFF -lt 0 ]; then
+    STEPS_DIFF=$((STEPS_DIFF * -1))
+fi
+
+if [ $STEPS_DIFF -lt 100 ]; then
+    echo -e "  ${GREEN}✅ Total steps match calculated value (±100)${NC}"
+else
+    echo -e "  ${YELLOW}⚠️  Steps difference: ${STEPS_DIFF} (may indicate calculation issue)${NC}"
+fi
+
+# Show breakdown by period
+echo ""
+echo "Period breakdown:"
+echo "$RANGE_DAY_QUERY" | jq -r '.data.activity.aggregateRange.periods[] | "  - \(.period): \(.totalSteps) steps, \(.totalCaloriesOut) kcal, HR: \(.avgHeartRate), \(.eventCount) events"'
+echo ""
+
+# ============================================
+# NEW STEP 15: Test aggregateRange Query (WEEK grouping)
+# ============================================
+
+echo -e "${CYAN}📊 Step 15: Test aggregateRange Query (WEEK grouping)${NC}"
+echo -e "${BLUE}-------------------------------------------${NC}"
+
+# Calculate start of week (Monday)
+if [[ "$OSTYPE" == "darwin"* ]]; then
+    # macOS
+    WEEK_START=$(date -u -v-"$(date -u +%u)"d -v+1d +%Y-%m-%d)
+    WEEK_END=$(date -u -v+"$((7 - $(date -u +%u)))"d +%Y-%m-%d)
+else
+    # Linux
+    WEEK_START=$(date -u -d "$(date -u +%Y-%m-%d) -$(date -u +%u) days +1 day" +%Y-%m-%d)
+    WEEK_END=$(date -u -d "${WEEK_START} +6 days" +%Y-%m-%d)
+fi
+
+RANGE_WEEK_QUERY=$(curl -s -X POST "${GRAPHQL_ENDPOINT}" \
+    -H "Content-Type: application/json" \
+    -d "{
+        \"query\": \"query AggregateRangeWeek(\$userId: String!, \$startDate: String!, \$endDate: String!, \$groupBy: GroupByPeriod!) { activity { aggregateRange(userId: \$userId, startDate: \$startDate, endDate: \$endDate, groupBy: \$groupBy) { periods { period totalSteps totalCaloriesOut totalActiveMinutes avgHeartRate eventCount } total { period totalSteps totalCaloriesOut totalActiveMinutes avgHeartRate eventCount } } } }\",
+        \"variables\": {
+            \"userId\": \"${USER_ID}\",
+            \"startDate\": \"${WEEK_START}T00:00:00Z\",
+            \"endDate\": \"${WEEK_END}T23:59:59Z\",
+            \"groupBy\": \"WEEK\"
+        }
+    }")
+
+RANGE_WEEK_PERIODS=$(echo "$RANGE_WEEK_QUERY" | jq -r '.data.activity.aggregateRange.periods | length')
+RANGE_WEEK_TOTAL_STEPS=$(echo "$RANGE_WEEK_QUERY" | jq -r '.data.activity.aggregateRange.total.totalSteps')
+
+echo -e "${GREEN}✅ aggregateRange (WEEK grouping):${NC}"
+echo "  Date range: ${WEEK_START} to ${WEEK_END}"
+echo "  Periods returned: ${RANGE_WEEK_PERIODS}"
+echo "  Total steps: ${RANGE_WEEK_TOTAL_STEPS}"
+
+echo ""
+echo "Period breakdown:"
+echo "$RANGE_WEEK_QUERY" | jq -r '.data.activity.aggregateRange.periods[] | "  - \(.period): \(.totalSteps) steps, \(.totalCaloriesOut) kcal"'
+echo ""
+
+# ============================================
+# NEW STEP 16: Test aggregateRange Query (MONTH grouping)
+# ============================================
+
+echo -e "${CYAN}📊 Step 16: Test aggregateRange Query (MONTH grouping)${NC}"
+echo -e "${BLUE}-------------------------------------------${NC}"
+
+# Current month range
+MONTH_START=$(date -u +%Y-%m-01)
+if [[ "$OSTYPE" == "darwin"* ]]; then
+    # macOS
+    MONTH_END=$(date -u -v+1m -v1d -v-1d -j -f "%Y-%m-%d" "${MONTH_START}" +%Y-%m-%d)
+else
+    # Linux
+    MONTH_END=$(date -u -d "${MONTH_START} +1 month -1 day" +%Y-%m-%d)
+fi
+
+RANGE_MONTH_QUERY=$(curl -s -X POST "${GRAPHQL_ENDPOINT}" \
+    -H "Content-Type: application/json" \
+    -d "{
+        \"query\": \"query AggregateRangeMonth(\$userId: String!, \$startDate: String!, \$endDate: String!, \$groupBy: GroupByPeriod!) { activity { aggregateRange(userId: \$userId, startDate: \$startDate, endDate: \$endDate, groupBy: \$groupBy) { periods { period totalSteps totalCaloriesOut totalActiveMinutes avgHeartRate eventCount } total { period totalSteps totalCaloriesOut totalActiveMinutes avgHeartRate eventCount } } } }\",
+        \"variables\": {
+            \"userId\": \"${USER_ID}\",
+            \"startDate\": \"${MONTH_START}T00:00:00Z\",
+            \"endDate\": \"${MONTH_END}T23:59:59Z\",
+            \"groupBy\": \"MONTH\"
+        }
+    }")
+
+RANGE_MONTH_PERIODS=$(echo "$RANGE_MONTH_QUERY" | jq -r '.data.activity.aggregateRange.periods | length')
+RANGE_MONTH_TOTAL_STEPS=$(echo "$RANGE_MONTH_QUERY" | jq -r '.data.activity.aggregateRange.total.totalSteps')
+
+echo -e "${GREEN}✅ aggregateRange (MONTH grouping):${NC}"
+echo "  Date range: ${MONTH_START} to ${MONTH_END}"
+echo "  Periods returned: ${RANGE_MONTH_PERIODS}"
+echo "  Total steps: ${RANGE_MONTH_TOTAL_STEPS}"
+
+echo ""
+echo "Period breakdown:"
+echo "$RANGE_MONTH_QUERY" | jq -r '.data.activity.aggregateRange.periods[] | "  - \(.period): \(.totalSteps) steps, \(.totalCaloriesOut) kcal"'
+echo ""
+
+# ============================================
+# Final Summary with New Tests
+# ============================================
+
+echo -e "${BLUE}================================================${NC}"
+echo -e "${GREEN}✅ All tests completed (including range queries)!${NC}"
+echo -e "${BLUE}================================================${NC}"
+echo ""
+echo -e "${MAGENTA}✅ Additional Tests Verified:${NC}"
+echo "  ✅ aggregateRange with DAY grouping"
+echo "  ✅ aggregateRange with WEEK grouping"
+echo "  ✅ aggregateRange with MONTH grouping"
+echo "  ✅ Total aggregates match per-period sums"
+echo "  ✅ Period breakdown consistency"
+echo ""

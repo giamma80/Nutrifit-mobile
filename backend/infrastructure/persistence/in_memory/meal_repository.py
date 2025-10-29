@@ -116,11 +116,21 @@ class InMemoryMealRepository:
         Returns:
             List of meal deep copies ordered by timestamp ascending
         """
+        # Normalize dates to naive UTC for comparison
+        if start_date.tzinfo is not None:
+            start_date = start_date.replace(tzinfo=None)
+        if end_date.tzinfo is not None:
+            end_date = end_date.replace(tzinfo=None)
+
         # Filter by user and date range
+        # Note: meal.timestamp is timezone-aware, normalize it
         filtered_meals = [
             meal
             for meal in self._storage.values()
-            if meal.user_id == user_id and start_date <= meal.timestamp <= end_date
+            if (
+                meal.user_id == user_id
+                and start_date <= meal.timestamp.replace(tzinfo=None) <= end_date
+            )
         ]
 
         # Sort by timestamp ascending (oldest first)

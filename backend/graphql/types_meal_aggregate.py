@@ -13,18 +13,23 @@ from typing import Optional, List
 from datetime import datetime
 from enum import Enum
 import strawberry
+from domain.shared.types import GroupByPeriod as _SharedGroupByPeriod
 
 
 __all__ = [
     "MealType",
+    "GroupByPeriod",
     "MealEntry",
     "Meal",
     "MealHistoryResult",
     "MealSearchResult",
     "DailySummary",
+    "PeriodSummary",
+    "RangeSummaryResult",
     "MealHistoryInput",
     "SearchMealsInput",
     "DailySummaryInput",
+    "SummaryRangeInput",
 ]
 
 
@@ -41,6 +46,10 @@ class MealType(Enum):
     LUNCH = "LUNCH"
     DINNER = "DINNER"
     SNACK = "SNACK"
+
+
+# Shared enum with activity domain
+GroupByPeriod = strawberry.enum(_SharedGroupByPeriod, name="GroupByPeriod")
 
 
 @strawberry.type
@@ -74,7 +83,8 @@ class Meal:
     # Recognition metadata (from AI analysis)
     dish_name: str  # Recognized dish name (e.g., "Spaghetti Carbonara")
     image_url: Optional[str] = None  # Photo/barcode image URL
-    source: str = "MANUAL"  # Analysis source: "gpt4v_v2", "barcode", "manual", "text"
+    # Analysis source: "gpt4v_v2", "barcode", "manual", "text"
+    source: str = "MANUAL"
     confidence: float = 1.0  # Average confidence (0.0-1.0)
 
     # Meal content
@@ -151,6 +161,46 @@ class DailySummary:
         return self.meal_count > 0
 
 
+@strawberry.type
+class PeriodSummary:
+    """Nutrition summary for a time period (day, week, month).
+
+    Used by summaryRange query to aggregate meals over custom date ranges.
+    """
+
+    period: str  # ISO format: "2025-10-28" (day), "2025-W43" (week), etc
+    start_date: datetime  # Period start (inclusive)
+    end_date: datetime  # Period end (inclusive)
+    total_calories: float
+    total_protein: float
+    total_carbs: float
+    total_fat: float
+    total_fiber: float
+    total_sugar: float  # grams
+    total_sodium: float  # milligrams (mg)
+    meal_count: int
+    breakdown_by_type: str  # JSON: {"BREAKFAST": 450, "LUNCH": 650}
+
+    @strawberry.field
+    def has_meals(self) -> bool:
+        """Check if user logged any meals in this period."""
+        return self.meal_count > 0
+
+    @strawberry.field
+    def avg_daily_calories(self) -> float:
+        """Average daily calories in this period."""
+        days = (self.end_date - self.start_date).days + 1
+        return self.total_calories / days if days > 0 else 0.0
+
+
+@strawberry.type
+class RangeSummaryResult:
+    """Result for summaryRange query with periods and total aggregate."""
+
+    periods: List[PeriodSummary]  # Per-period breakdown
+    total: PeriodSummary  # Total aggregate across entire range
+
+
 # ============================================
 # INPUT TYPES
 # ============================================
@@ -184,3 +234,13 @@ class DailySummaryInput:
 
     user_id: str
     date: datetime  # Date to get summary for (defaults to today)
+
+
+@strawberry.input
+class SummaryRangeInput:
+    """Input for summary range query with grouping."""
+
+    user_id: str
+    start_date: datetime  # Range start (inclusive)
+    end_date: datetime  # Range end (inclusive)
+    group_by: GroupByPeriod = GroupByPeriod.DAY  # Group by day/week/month

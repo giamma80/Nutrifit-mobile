@@ -5,6 +5,7 @@ These resolvers operate on meal data using CQRS query handlers:
 - mealHistory: List meals with filters
 - search: Full-text search in meals
 - dailySummary: Daily nutrition summary
+- summaryRange: Nutrition summaries for date ranges with grouping
 """
 
 from typing import Optional, Any
@@ -29,13 +30,21 @@ from application.meal.queries.get_daily_summary import (
     GetDailySummaryQuery,
     GetDailySummaryQueryHandler,
 )
+from application.meal.queries.get_summary_range import (
+    GetSummaryRangeQuery,
+    GetSummaryRangeQueryHandler,
+    GroupByPeriod as QueryGroupByPeriod,
+)
 from graphql.types_meal_aggregate import (
+    MealType,
+    GroupByPeriod,
     Meal,
     MealEntry,
-    MealType,
     MealHistoryResult,
     MealSearchResult,
     DailySummary,
+    PeriodSummary,
+    RangeSummaryResult,
 )
 
 
@@ -55,7 +64,7 @@ def map_meal_to_graphql(meal: Any) -> Meal:
             fiber=entry.fiber,
             sugar=entry.sugar,
             sodium=entry.sodium,
-            confidence=entry.confidence if hasattr(entry, "confidence") else 1.0,
+            confidence=(entry.confidence if hasattr(entry, "confidence") else 1.0),
             barcode=entry.barcode if hasattr(entry, "barcode") else None,
         )
         for entry in meal.entries
@@ -270,7 +279,12 @@ class AggregateQueries:
             raise ValueError("MealRepository not available in context")
 
         # Create query
-        query = SearchMealsQuery(user_id=user_id, query_text=query_text, limit=limit, offset=offset)
+        query = SearchMealsQuery(
+            user_id=user_id,
+            query_text=query_text,
+            limit=limit,
+            offset=offset,
+        )
 
         # Execute via handler
         handler = SearchMealsQueryHandler(repository=repository)
@@ -341,3 +355,148 @@ class AggregateQueries:
             meal_count=summary.meal_count,
             breakdown_by_type=breakdown_json,
         )
+
+    @strawberry.field
+    async def summary_range(
+        self,
+        info: strawberry.types.Info,
+        user_id: str,
+        start_date: datetime,
+        end_date: datetime,
+        group_by: GroupByPeriod = GroupByPeriod.DAY,
+    ) -> RangeSummaryResult:
+        """Get nutrition summaries for date range with flexible grouping.
+
+        This query enables efficient dashboard queries over custom date
+        ranges without needing to loop through individual days. Returns both
+        per-period breakdown and total aggregate across entire range.
+
+        Args:
+            info: Strawberry field info (injected)
+            user_id: User ID
+            start_date: Range start (inclusive)
+            end_date: Range end (inclusive)
+            group_by: Group results by DAY, WEEK, or MONTH
+
+        Returns:
+            List of PeriodSummary, one per period in range
+
+        Example:
+            # Last 7 days grouped by day
+            query {
+              meals {
+                summaryRange(
+                  userId: "user123"
+                  startDate: "2025-10-21T00:00:00Z"
+                  endDate: "2025-10-27T23:59:59Z"
+                  groupBy: DAY
+                ) {
+                  period
+                  totalCalories
+                  totalProtein
+                  mealCount
+                  avgDailyCalories
+                }
+              }
+            }
+
+            # Last 4 weeks grouped by week
+            query {
+              meals {
+                summaryRange(
+                  userId: "user123"
+                  startDate: "2025-10-01T00:00:00Z"
+                  endDate: "2025-10-28T23:59:59Z"
+                  groupBy: WEEK
+                ) {
+                  period        # "2025-W40", "2025-W41", etc
+                  totalCalories
+                  breakdownByType
+                }
+              }
+            }
+        """
+        context = info.context
+        repository = context.get("meal_repository")
+
+        if not repository:
+            raise ValueError("MealRepository not available in context")
+
+        # Normalize to naive UTC (remove timezone info for consistency)
+        if start_date.tzinfo is not None:
+            start_date = start_date.replace(tzinfo=None)
+        if end_date.tzinfo is not None:
+            end_date = end_date.replace(tzinfo=None)
+
+        # Map GraphQL enum to query enum
+        group_by_map = {
+            GroupByPeriod.DAY: QueryGroupByPeriod.DAY,
+            GroupByPeriod.WEEK: QueryGroupByPeriod.WEEK,
+            GroupByPeriod.MONTH: QueryGroupByPeriod.MONTH,
+        }
+        query_group_by = group_by_map[group_by]
+
+        # Create query
+        query = GetSummaryRangeQuery(
+            user_id=user_id,
+            start_date=start_date,
+            end_date=end_date,
+            group_by=query_group_by,
+        )
+
+        # Execute via handler
+        handler = GetSummaryRangeQueryHandler(repository=repository)
+        summaries = await handler.handle(query)
+
+        # Map domain entities → GraphQL types
+        graphql_summaries = []
+        for s in summaries:
+            period_summary = object.__new__(PeriodSummary)
+            period_summary.period = s.period
+            period_summary.start_date = s.start_date
+            period_summary.end_date = s.end_date
+            period_summary.total_calories = s.total_calories
+            period_summary.total_protein = s.total_protein
+            period_summary.total_carbs = s.total_carbs
+            period_summary.total_fat = s.total_fat
+            period_summary.total_fiber = s.total_fiber
+            period_summary.total_sugar = s.total_sugar
+            period_summary.total_sodium = s.total_sodium
+            period_summary.meal_count = s.meal_count
+            period_summary.breakdown_by_type = json.dumps(s.breakdown_by_type)
+            graphql_summaries.append(period_summary)
+
+        # Calculate total aggregate across all periods
+        total_calories = sum(s.total_calories for s in summaries)
+        total_protein = sum(s.total_protein for s in summaries)
+        total_carbs = sum(s.total_carbs for s in summaries)
+        total_fat = sum(s.total_fat for s in summaries)
+        total_fiber = sum(s.total_fiber for s in summaries)
+        total_sugar = sum(s.total_sugar for s in summaries)
+        total_sodium = sum(s.total_sodium for s in summaries)
+        total_meal_count = sum(s.meal_count for s in summaries)
+
+        # Merge breakdown dictionaries
+        total_breakdown: dict[str, float] = {}
+        for s in summaries:
+            for meal_type, calories in s.breakdown_by_type.items():
+                total_breakdown[meal_type] = total_breakdown.get(meal_type, 0.0) + calories
+
+        total_summary = object.__new__(PeriodSummary)
+        total_summary.period = "TOTAL"
+        total_summary.start_date = start_date
+        total_summary.end_date = end_date
+        total_summary.total_calories = total_calories
+        total_summary.total_protein = total_protein
+        total_summary.total_carbs = total_carbs
+        total_summary.total_fat = total_fat
+        total_summary.total_fiber = total_fiber
+        total_summary.total_sugar = total_sugar
+        total_summary.total_sodium = total_sodium
+        total_summary.meal_count = total_meal_count
+        total_summary.breakdown_by_type = json.dumps(total_breakdown)
+
+        result = object.__new__(RangeSummaryResult)
+        result.periods = graphql_summaries
+        result.total = total_summary
+        return result

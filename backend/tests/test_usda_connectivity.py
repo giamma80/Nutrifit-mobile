@@ -16,8 +16,7 @@ from ai_models.nutrient_enrichment import NutrientEnrichmentService  # noqa: E40
 
 # Skip all tests in this file - legacy code uses old clients
 pytestmark = pytest.mark.skip(
-    reason="LEGACY: Uses old ai_models.usda_client - "
-    "will be removed in Phase 8 cleanup"
+    reason="LEGACY: Uses old ai_models.usda_client - " "will be removed in Phase 8 cleanup"
 )
 
 

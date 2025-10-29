@@ -63,15 +63,6 @@ class ActivityRepository:
         """
         raise NotImplementedError
 
-    def list_events(
-        self,
-        user_id: str,
-        start_ts: Optional[str] = None,
-        end_ts: Optional[str] = None,
-        limit: int = 100,
-    ) -> List[ActivityEventRecord]:  # pragma: no cover
-        raise NotImplementedError
-
 
 class InMemoryActivityRepository(ActivityRepository):
     """Implementazione in-memory del repository activity."""
@@ -212,6 +203,19 @@ class InMemoryActivityRepository(ActivityRepository):
             if len(res) >= limit:
                 break
         return res
+
+    def list_events(
+        self,
+        user_id: str,
+        start_ts: Optional[str] = None,
+        end_ts: Optional[str] = None,
+        limit: int = 10000,
+    ) -> List[ActivityEventRecord]:
+        """List activity events for user within time range.
+
+        Implementation delegates to list() method.
+        """
+        return self.list(user_id, start_ts, end_ts, limit)
 
     def list_all(self, user_id: str) -> List[ActivityEventRecord]:
         return list(self._events_by_user.get(user_id, []))

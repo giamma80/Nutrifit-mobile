@@ -34,12 +34,37 @@ type ActivityMutations {
   syncActivityEvents(input: [ActivityMinuteInput!]!, idempotencyKey: String = null, userId: String = null): IngestActivityResult!
 }
 
+type ActivityPeriodSummary {
+  period: String!
+  startDate: String!
+  endDate: String!
+  totalSteps: Int!
+  totalCaloriesOut: Float!
+  totalActiveMinutes: Int!
+  avgHeartRate: Float
+  eventCount: Int!
+
+  """Has any activity data"""
+  hasActivity: Boolean!
+
+  """Avg steps per day in period"""
+  avgDailySteps: Float!
+}
+
 type ActivityQueries {
   """Lista eventi attività con paginazione"""
   entries(limit: Int! = 100, after: String = null, before: String = null, userId: String = null): [ActivityEvent!]!
 
   """Lista delta sync health totals per giorno"""
   syncEntries(date: String!, userId: String = null, after: String = null, limit: Int! = 200): [HealthTotalsDelta!]!
+
+  """Aggrega attività per range con raggruppamento"""
+  aggregateRange(userId: String!, startDate: String!, endDate: String!, groupBy: GroupByPeriod! = DAY): ActivityRangeResult!
+}
+
+type ActivityRangeResult {
+  periods: [ActivityPeriodSummary!]!
+  total: ActivityPeriodSummary!
 }
 
 enum ActivitySource {
@@ -53,6 +78,7 @@ type AggregateQueries {
   mealHistory(userId: String!, startDate: DateTime = null, endDate: DateTime = null, mealType: String = null, limit: Int! = 20, offset: Int! = 0): MealHistoryResult!
   search(userId: String!, queryText: String!, limit: Int! = 20, offset: Int! = 0): MealSearchResult!
   dailySummary(userId: String!, date: DateTime!): DailySummary!
+  summaryRange(userId: String!, startDate: DateTime!, endDate: DateTime!, groupBy: GroupByPeriod! = DAY): RangeSummaryResult!
 }
 
 input AnalyzeMealBarcodeInput {
@@ -150,6 +176,12 @@ union DeleteMealSuccessDeleteMealError = DeleteMealSuccess | DeleteMealError
 type FoodRecognitionResult {
   items: [RecognizedFood!]!
   averageConfidence: Float!
+}
+
+enum GroupByPeriod {
+  DAY
+  WEEK
+  MONTH
 }
 
 type HealthTotalsDelta {
@@ -282,6 +314,23 @@ type NutrientProfile {
   quantityG: Float!
 }
 
+type PeriodSummary {
+  period: String!
+  startDate: DateTime!
+  endDate: DateTime!
+  totalCalories: Float!
+  totalProtein: Float!
+  totalCarbs: Float!
+  totalFat: Float!
+  totalFiber: Float!
+  totalSugar: Float!
+  totalSodium: Float!
+  mealCount: Int!
+  breakdownByType: String!
+  hasMeals: Boolean!
+  avgDailyCalories: Float!
+}
+
 type Query {
   serverTime: String!
   health: String!
@@ -297,6 +346,11 @@ type Query {
 
   """Statistiche cache prodotto"""
   cacheStats: CacheStats!
+}
+
+type RangeSummaryResult {
+  periods: [PeriodSummary!]!
+  total: PeriodSummary!
 }
 
 type RecognizedFood {
