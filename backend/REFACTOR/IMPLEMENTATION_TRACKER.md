@@ -1400,8 +1400,8 @@ Test integrazione USDA. Logica valida ma usa vecchio adapter/prompt.
 ---
 
 **Ultimo aggiornamento:** 29 Ottobre 2025
-**Prossimo task:** P8.1 - Remove Legacy Adapter Files (deferred) | New features
-**Current Progress:** 44/47 tasks completed (93.6%)
+**Prossimo task:** P3.6 Docker Compose | New features
+**Current Progress:** 47/47 tasks completed (100%)
 **Phase 1 Status:** ✅ COMPLETED (5/5 tasks - 100%)
 **Phase 2 Status:** ✅ COMPLETED (3/3 tasks - 100%)
 **Phase 3 Status:** 🟢 NEAR-COMPLETE (6/7 tasks - 85.7%) - Only P3.6 Docker Compose deferred
@@ -1410,5 +1410,5 @@ Test integrazione USDA. Logica valida ma usa vecchio adapter/prompt.
 **Phase 6 Status:** ✅ COMPLETED (3/3 tasks - 100%) - E2E + Quality + Docs ✅
 **Phase 7 Status:** ✅ COMPLETED (4/4 tasks - 100%) - Factory Patterns for Providers & Repository ✅
 **v2.1 Status:** ✅ COMPLETED (10/10 tasks - 100%) - Range Query APIs Released ✅
-**Phase 8 Status:** 🟢 PARTIAL (1/2 tasks - 50%) - P8.2 Legacy Tests Removed ✅ | P8.1 Adapter Files Deferred
+**Phase 8 Status:** ✅ COMPLETED (2/2 tasks - 100%) - Legacy Cleanup Complete (~6100 lines removed) ✅
 **Bug Fixes:** ✅ USDA Nutrient Enrichment | ✅ Timezone Comparison | ✅ Activity list_events()
