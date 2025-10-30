@@ -20,8 +20,9 @@
 | **Phase 6** | 3 | 3 | 0 | 0 | 0 |
 | **Phase 7** | 4 | 4 | 0 | 0 | 0 |
 | **v2.1** | 10 | 10 | 0 | 0 | 0 |
-| **Phase 8** | 2 | 1 | 0 | 0 | 1 |
-| **TOTAL** | **47** | **44** | **0** | **0** | **3** |
+| **Phase 8** | 2 | 2 | 0 | 0 | 0 |
+| **Phase 9** | 17 | 0 | 0 | 0 | 0 |
+| **TOTAL** | **64** | **47** | **0** | **0** | **1** |
 
 ---
 
@@ -1399,9 +1400,128 @@ Test integrazione USDA. Logica valida ma usa vecchio adapter/prompt.
 
 ---
 
-**Ultimo aggiornamento:** 29 Ottobre 2025
-**Prossimo task:** P3.6 Docker Compose | New features
-**Current Progress:** 47/47 tasks completed (100%)
+## 🆕 Phase 9: Nutritional Profile Domain (New Feature)
+
+### Strategy: Iterative MVP → ML → LLM
+
+**Approach B (RECOMMENDED)**: Build core functionality first, then add ML enhancements incrementally.
+
+**Goal:** Implement personalized nutritional profile with BMR/TDEE calculation, macronutrient distribution, progress tracking, and optional ML forecasting.
+
+---
+
+### Step 1: Core MVP (25-30h, ~1 week)
+
+**Deliverables:**
+- ✅ Domain core (entities, value objects, ports)
+- ✅ Calculation services (BMR, TDEE, macros)
+- ✅ Application layer (CQRS commands/queries)
+- ✅ GraphQL API (mutations + queries)
+- ✅ MongoDB persistence
+- ❌ NO ML (Kalman/Prophet) - Step 2
+- ❌ NO LLM feedback - Step 3
+
+| ID | Task | Description | Reference Doc | Expected Result | Status | Notes |
+|----|------|-------------|---------------|-----------------|--------|-------|
+| **P9.1** | **Setup Dependencies** | Add core dependencies (no ML yet) | `profilo-nutrizionale.md` | numpy installed | 🔵 NOT STARTED | Only numpy (~15MB) |
+| P9.1.1 | Update pyproject.toml | Add `numpy>=1.26.0` to dependencies | - | pyproject.toml updated | 🔵 NOT STARTED | Lightweight, no ML libs |
+| P9.1.2 | Install dependencies | Run `uv sync` | - | Dependencies installed | 🔵 NOT STARTED | - |
+| P9.1.3 | Test imports | Verify `import numpy` works | - | No import errors | 🔵 NOT STARTED | - |
+| **P9.2** | **Domain Core** | Implement entities, value objects, events, ports | `profilo-nutrizionale.md` § Domain Layer | Domain core complete | 🔵 NOT STARTED | 6-8h |
+| P9.2.1 | Value objects | UserData, Goal, ActivityLevel, MacroSplit, BMR, TDEE | - | 6 value objects with validation | 🔵 NOT STARTED | Pydantic models |
+| P9.2.2 | Entities | NutritionalProfile (aggregate), ProgressRecord | - | 2 entities with business logic | 🔵 NOT STARTED | NutritionalProfile is aggregate root |
+| P9.2.3 | Domain events | ProfileCreated, ProfileUpdated, ProgressRecorded | - | 3 events implemented | 🔵 NOT STARTED | Domain event pattern |
+| P9.2.4 | Exceptions | ProfileDomainError hierarchy | - | Custom exceptions | 🔵 NOT STARTED | InvalidGoalError, etc. |
+| P9.2.5 | Ports | IProfileRepository, IBMRCalculator, ITDEECalculator, IMacroCalculator | - | 4 port interfaces | 🔵 NOT STARTED | Hexagonal architecture |
+| P9.2.6 | Factory | NutritionalProfileFactory | - | Factory pattern | 🔵 NOT STARTED | create_from_user_data() |
+| P9.2.7 | Unit tests | Test value objects + entities + factory | - | >90% coverage | 🔵 NOT STARTED | TDD approach |
+| **P9.3** | **Calculation Services** | Implement BMR, TDEE, Macro services | `profilo-nutrizionale.md` § Formule di calcolo | Services with unit tests | 🔵 NOT STARTED | 4-6h |
+| P9.3.1 | BMRService | Mifflin-St Jeor formula (M/F variants) | `profilo-nutrizionale.md` § BMR | BMR calculation service | 🔵 NOT STARTED | domain/nutritional_profile/calculation/bmr_service.py |
+| P9.3.2 | TDEEService | BMR × PAL multiplier | `profilo-nutrizionale.md` § TDEE | TDEE calculation service | 🔵 NOT STARTED | 5 activity levels (1.2-1.9) |
+| P9.3.3 | MacroService | Protein/carbs/fat distribution by goal | `profilo-nutrizionale.md` § Distribuzione macronutrienti | Macro calculation service | 🔵 NOT STARTED | Cut/maintain/bulk strategies |
+| P9.3.4 | Unit tests | Test formulas with known inputs/outputs | - | Deterministic tests, 100% coverage | 🔵 NOT STARTED | No mocking, pure functions |
+| **P9.4** | **Application Layer** | Implement commands, queries, orchestrators | - | CQRS application layer | 🔵 NOT STARTED | 8-10h |
+| P9.4.1 | CreateProfileCommand | Command + handler for profile creation | - | CreateProfileCommand + Handler | 🔵 NOT STARTED | application/nutritional_profile/commands/ |
+| P9.4.2 | UpdateProfileCommand | Command + handler for profile updates | - | UpdateProfileCommand + Handler | 🔵 NOT STARTED | Handle goal changes |
+| P9.4.3 | RecordProgressCommand | Command + handler for weight/progress updates | - | RecordProgressCommand + Handler | 🔵 NOT STARTED | Track biometric data |
+| P9.4.4 | GetProfileQuery | Query + handler for profile retrieval | - | GetProfileQuery + Handler | 🔵 NOT STARTED | application/nutritional_profile/queries/ |
+| P9.4.5 | CalculateProgressQuery | Query + handler for progress score | - | CalculateProgressQuery + Handler | 🔵 NOT STARTED | No ML, basic delta calculation |
+| P9.4.6 | ProfileOrchestrator | Coordinate calculation services | - | Orchestrator for BMR→TDEE→Macros flow | 🔵 NOT STARTED | application/nutritional_profile/orchestrators/ |
+| P9.4.7 | Unit tests | Test commands, queries, orchestrators | - | >90% coverage | 🔵 NOT STARTED | Mock repositories |
+| **P9.5** | **Infrastructure Layer** | Implement repository + calculation adapters | - | Infrastructure adapters | 🔵 NOT STARTED | 6-8h |
+| P9.5.1 | MongoProfileRepository | MongoDB persistence for profiles | - | IProfileRepository implementation | 🔵 NOT STARTED | infrastructure/persistence/mongo_profile_repository.py |
+| P9.5.2 | BMRCalculatorAdapter | Adapter for BMRService | - | IBMRCalculator implementation | 🔵 NOT STARTED | Wrap domain service |
+| P9.5.3 | TDEECalculatorAdapter | Adapter for TDEEService | - | ITDEECalculator implementation | 🔵 NOT STARTED | Wrap domain service |
+| P9.5.4 | MacroCalculatorAdapter | Adapter for MacroService | - | IMacroCalculator implementation | 🔵 NOT STARTED | Wrap domain service |
+| P9.5.5 | Integration tests | Test repository with MongoDB | - | Repository tests with real DB | 🔵 NOT STARTED | Use test database |
+| **P9.6** | **GraphQL Layer** | Implement schema, types, resolvers | - | GraphQL API complete | 🔵 NOT STARTED | 6-8h |
+| P9.6.1 | Strawberry types | NutritionalProfileType, UserDataInput, MacroSplitType, ProgressRecordType | - | GraphQL types | 🔵 NOT STARTED | graphql/types_nutritional_profile.py |
+| P9.6.2 | Mutations | createNutritionalProfile, updateNutritionalProfile, recordProgress | - | 3 mutations | 🔵 NOT STARTED | graphql/nutritional_profile_resolver.py |
+| P9.6.3 | Queries | nutritionalProfile, progressScore | - | 2 queries | 🔵 NOT STARTED | No forecast yet (Step 2) |
+| P9.6.4 | Schema integration | Add to main schema | - | Schema exports new types | 🔵 NOT STARTED | Update schema.graphql |
+| P9.6.5 | E2E tests | Test complete workflows via GraphQL | - | E2E test suite | 🔵 NOT STARTED | Create → Update → Query → Progress |
+| **P9.7** | **Testing & Quality** | Comprehensive testing + documentation | - | >90% coverage | 🔵 NOT STARTED | 4-6h |
+| P9.7.1 | Unit test coverage | Ensure >90% coverage on domain + application | - | Coverage report >90% | 🔵 NOT STARTED | pytest --cov |
+| P9.7.2 | Integration tests | Test cross-domain integration | - | Integration with meal/activity | 🔵 NOT STARTED | Query consumed calories from meals |
+| P9.7.3 | E2E script | Add nutritional profile tests to scripts | - | test_nutritional_profile.sh | 🔵 NOT STARTED | Similar to test_meal_persistence.sh |
+| P9.7.4 | Documentation | Document architecture + API examples | - | nutritional-profile-domain.md | 🔵 NOT STARTED | backend/docs/REFACTOR/ |
+| P9.7.5 | Commit MVP | Commit complete MVP implementation | - | Git commit + push | 🔵 NOT STARTED | feat(nutrition): add nutritional profile MVP |
+
+**Milestone P9 Step 1:** ✅ Core MVP ready for production (no ML dependencies)
+
+---
+
+### Step 2: ML Enhancement (15-20h, optional)
+
+**Goal:** Add adaptive TDEE and weight forecasting with ML.
+
+**Dependencies:** `statsmodels>=0.14.0`, `scipy>=1.11.0`, `pandas>=2.2.0` (total ~50MB)
+
+| ID | Task | Description | Expected Result | Status | Notes |
+|----|------|-------------|-----------------|--------|-------|
+| **P9.8** | **ML Dependencies** | Add statsmodels + scipy + pandas | Dependencies installed | ⏸️ DEFERRED | Step 2 (after MVP) |
+| **P9.9** | **Kalman TDEE Service** | Implement adaptive TDEE with Kalman filter | KalmanTDEEService implemented | ⏸️ DEFERRED | domain/nutritional_profile/ml/kalman_tdee.py |
+| **P9.10** | **Weight Forecast Service** | Implement Prophet-based weight forecasting | WeightForecastService implemented | ⏸️ DEFERRED | OR use statsmodels ARIMA (lighter) |
+| **P9.11** | **ML Infrastructure** | Adapters for Kalman + Forecast | Infrastructure adapters | ⏸️ DEFERRED | infrastructure/ml/ |
+| **P9.12** | **Forecast Query** | Add forecastWeight GraphQL query | Query + resolver | ⏸️ DEFERRED | 30-day forecast with confidence intervals |
+| **P9.13** | **Weekly ML Pipeline** | Automated weekly TDEE recalculation | Background job | ⏸️ DEFERRED | Cron or Celery task |
+| **P9.14** | **ML Tests** | Integration tests with synthetic data | Test suite | ⏸️ DEFERRED | Mock time series data |
+
+**Milestone P9 Step 2:** ✅ ML-powered TDEE adaptation + weight forecasting
+
+---
+
+### Step 3: LLM Feedback (10-15h, optional)
+
+**Goal:** Add motivational feedback via OpenAI LLM.
+
+**Dependencies:** Already available (OpenAI 2.5.0+)
+
+| ID | Task | Description | Expected Result | Status | Notes |
+|----|------|-------------|-----------------|--------|-------|
+| **P9.15** | **LLM Feedback Service** | Generate motivational feedback via OpenAI | LLMFeedbackService implemented | ⏸️ DEFERRED | domain/nutritional_profile/ml/llm_feedback.py |
+| **P9.16** | **Feedback Generator** | Infrastructure adapter for OpenAI | FeedbackGenerator adapter | ⏸️ DEFERRED | Reuse infrastructure/ai/openai/client.py |
+| **P9.17** | **Feedback Query** | Add weeklyFeedback GraphQL query | Query + resolver | ⏸️ DEFERRED | Personalized tips + motivation |
+| **P9.18** | **Prompt Engineering** | Optimize prompt for feedback quality | System prompt | ⏸️ DEFERRED | <1024 tokens (avoid caching cost) |
+| **P9.19** | **Cost Optimization** | Add caching + rate limiting | Cost controls | ⏸️ DEFERRED | Weekly cache, max 1 call/day per user |
+| **P9.20** | **LLM Tests** | Test feedback generation with mock responses | Test suite | ⏸️ DEFERRED | Mock OpenAI API |
+
+**Milestone P9 Step 3:** ✅ LLM-powered motivational feedback system
+
+---
+
+**Phase 9 Summary:**
+- **Step 1 (MVP)**: 17 tasks, 25-30h, NO ML dependencies → Production ready
+- **Step 2 (ML)**: 7 tasks, 15-20h, statsmodels/scipy/pandas (~50MB) → Adaptive TDEE + forecasting
+- **Step 3 (LLM)**: 6 tasks, 10-15h, uses existing OpenAI → Motivational feedback
+
+**Total (Full Implementation)**: 30 tasks, 50-65h over 2-3 weeks
+
+---
+
+**Ultimo aggiornamento:** 30 Ottobre 2025
+**Prossimo task:** P9.1 Setup Dependencies (Core MVP) | P3.6 Docker Compose
+**Current Progress:** 47/64 tasks completed (73.4%)
 **Phase 1 Status:** ✅ COMPLETED (5/5 tasks - 100%)
 **Phase 2 Status:** ✅ COMPLETED (3/3 tasks - 100%)
 **Phase 3 Status:** 🟢 NEAR-COMPLETE (6/7 tasks - 85.7%) - Only P3.6 Docker Compose deferred
@@ -1411,4 +1531,7 @@ Test integrazione USDA. Logica valida ma usa vecchio adapter/prompt.
 **Phase 7 Status:** ✅ COMPLETED (4/4 tasks - 100%) - Factory Patterns for Providers & Repository ✅
 **v2.1 Status:** ✅ COMPLETED (10/10 tasks - 100%) - Range Query APIs Released ✅
 **Phase 8 Status:** ✅ COMPLETED (2/2 tasks - 100%) - Legacy Cleanup Complete (~6100 lines removed) ✅
+**Phase 9 Status:** 🔵 NOT STARTED (0/17 MVP tasks - 0%) - Nutritional Profile MVP
+**Phase 9 Step 2:** ⏸️ DEFERRED (0/7 ML tasks) - Adaptive TDEE + Forecasting
+**Phase 9 Step 3:** ⏸️ DEFERRED (0/6 LLM tasks) - Motivational Feedback
 **Bug Fixes:** ✅ USDA Nutrient Enrichment | ✅ Timezone Comparison | ✅ Activity list_events()
