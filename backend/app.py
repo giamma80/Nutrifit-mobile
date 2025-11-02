@@ -837,6 +837,11 @@ graphql_app: Final[GraphQLRouter[Any, Any]] = GraphQLRouter(
 )
 app.include_router(graphql_app, prefix="/graphql")
 
+# REST API: Image Upload endpoint
+from api.upload import router as upload_router  # noqa: E402
+
+app.include_router(upload_router)
+
 
 # ============================================
 # API Documentation Endpoints
