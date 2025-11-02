@@ -20,6 +20,8 @@ from graphql.types_nutritional_profile import (
     SexEnum,
     ActivityLevelEnum,
     GoalEnum,
+    WeightForecastType,
+    WeightPredictionPointType,
 )
 from domain.nutritional_profile.core.value_objects.profile_id import ProfileId
 
@@ -272,4 +274,107 @@ class NutritionalProfileQueries:
             days_macros_on_track=days_macros,
             total_days=total_days,
             adherence_rate=adherence,
+        )
+
+    @strawberry.field
+    async def forecast_weight(
+        self,
+        info: strawberry.Info,
+        profile_id: str,
+        days_ahead: int = 30,
+        confidence_level: float = 0.95,
+    ) -> "WeightForecastType":  # type: ignore
+        """Generate weight forecast using ML time series analysis.
+        
+        Uses historical progress data to predict future weight trajectory
+        with confidence intervals. Automatically selects the best model
+        (ARIMA, Exponential Smoothing, Linear Regression) based on
+        available data.
+        
+        Args:
+            profile_id: Profile UUID
+            days_ahead: Number of days to forecast (default 30, max 90)
+            confidence_level: Confidence level 0.0-1.0 (default 0.95)
+            
+        Returns:
+            WeightForecastType with predictions and confidence intervals
+            
+        Example query:
+            query {
+              forecastWeight(profileId: "uuid", daysAhead: 30) {
+                profileId
+                generatedAt
+                modelUsed
+                confidenceLevel
+                dataPointsUsed
+                predictions {
+                  date
+                  predictedWeight
+                  lowerBound
+                  upperBound
+                }
+              }
+            }
+        """
+        from datetime import datetime
+        from infrastructure.ml_adapters import WeightForecastAdapter
+        
+        context = info.context
+        repository = context.get("profile_repository")
+
+        if not repository:
+            raise Exception("Missing profile_repository in GraphQL context")
+        
+        # Validate inputs
+        if days_ahead < 1 or days_ahead > 90:
+            raise ValueError("days_ahead must be between 1 and 90")
+        if not 0 < confidence_level < 1:
+            raise ValueError("confidence_level must be between 0 and 1")
+
+        # Get profile
+        profile = await repository.find_by_id(
+            ProfileId.from_string(profile_id)
+        )
+        if not profile:
+            raise Exception(f"Profile {profile_id} not found")
+
+        # Get progress history (need at least 2 points for forecast)
+        progress_records = profile.progress_history
+        if len(progress_records) < 2:
+            raise Exception(
+                f"Insufficient data for forecast: need at least 2 progress "
+                f"records, found {len(progress_records)}"
+            )
+
+        # Generate forecast using ML adapter
+        forecast_adapter = WeightForecastAdapter()
+        forecast = forecast_adapter.forecast_from_progress(
+            progress_records=progress_records,
+            days_ahead=days_ahead,
+            confidence_level=confidence_level,
+        )
+
+        # Convert to GraphQL types
+        predictions = [
+            WeightPredictionPointType(
+                date=forecast_date,
+                predicted_weight=pred,
+                lower_bound=lower,
+                upper_bound=upper,
+            )
+            for forecast_date, pred, lower, upper in zip(
+                forecast.dates,
+                forecast.predictions,
+                forecast.lower_bound,
+                forecast.upper_bound,
+            )
+        ]
+
+        return WeightForecastType(
+            profile_id=profile_id,
+            generated_at=datetime.utcnow(),
+            predictions=predictions,
+            model_used=forecast.model_used,
+            confidence_level=forecast.confidence_level,
+            data_points_used=len(progress_records),
         )

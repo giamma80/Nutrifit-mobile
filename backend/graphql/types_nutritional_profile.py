@@ -24,11 +24,14 @@ __all__ = [
     "ProgressRecordType",
     "NutritionalProfileType",
     "ProgressStatisticsType",
+    "WeightForecastType",
+    "WeightPredictionPointType",
     # Input types
     "UserDataInput",
     "CreateProfileInput",
     "UpdateProfileInput",
     "RecordProgressInput",
+    "WeightForecastInput",
 ]
 
 
@@ -297,3 +300,39 @@ class RecordProgressInput:
     calories_burned_bmr: Optional[float] = None  # kcal (BMR component)
     calories_burned_active: Optional[float] = None  # kcal (activity)
     notes: Optional[str] = None
+
+
+@strawberry.input
+class WeightForecastInput:
+    """Input for generating weight forecast."""
+
+    profile_id: str
+    days_ahead: int = 30  # Number of days to forecast (default 30)
+    confidence_level: float = 0.95  # Confidence level (0.0-1.0)
+
+
+# ============================================
+# ML OUTPUT TYPES
+# ============================================
+
+
+@strawberry.type
+class WeightPredictionPointType:
+    """Single weight prediction point with confidence interval."""
+
+    date: date
+    predicted_weight: float  # kg
+    lower_bound: float  # kg (confidence interval lower)
+    upper_bound: float  # kg (confidence interval upper)
+
+
+@strawberry.type
+class WeightForecastType:
+    """Weight forecast with predictions and confidence intervals."""
+
+    profile_id: str
+    generated_at: datetime
+    predictions: List[WeightPredictionPointType]
+    model_used: str  # Model name (ARIMA, ExponentialSmoothing, etc.)
+    confidence_level: float  # Confidence level used
+    data_points_used: int  # Number of historical data points
