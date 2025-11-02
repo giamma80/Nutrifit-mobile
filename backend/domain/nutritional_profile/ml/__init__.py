@@ -1,10 +1,9 @@
-"""ML services for nutritional profile domain.
-
-This module provides machine learning-powered features:
-- Kalman TDEE: Adaptive Total Daily Energy Expenditure tracking
-- Weight Forecasting: Predictive weight trajectory modeling
-"""
+"""ML-enhanced services for nutritional profile."""
 
 from domain.nutritional_profile.ml.kalman_tdee import KalmanTDEEService
+from domain.nutritional_profile.ml.weight_forecast import (
+    WeightForecastService,
+    WeightForecast,
+)
 
-__all__ = ["KalmanTDEEService"]
+__all__ = ["KalmanTDEEService", "WeightForecastService", "WeightForecast"]
