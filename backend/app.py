@@ -34,13 +34,22 @@ from graphql.resolvers.meal.aggregate_queries import AggregateQueries
 from graphql.resolvers.meal.mutations import MealMutations
 from graphql.resolvers.activity.queries import ActivityQueries
 from graphql.resolvers.activity.mutations import ActivityMutations
+from graphql.resolvers.nutritional_profile import (
+    NutritionalProfileQueries,
+    NutritionalProfileMutations,
+)
 from graphql.context import create_context
 from infrastructure.persistence.factory import get_meal_repository
+from infrastructure.persistence.nutritional_profile_factory import (
+    get_profile_repository,
+)
 from infrastructure.events.in_memory_bus import InMemoryEventBus
 from infrastructure.cache.in_memory_idempotency_cache import (
     InMemoryIdempotencyCache,
 )
-from application.meal.orchestrators.photo_orchestrator import PhotoOrchestrator
+from application.meal.orchestrators.photo_orchestrator import (
+    MealAnalysisOrchestrator,
+)
 from application.meal.orchestrators.barcode_orchestrator import BarcodeOrchestrator
 from domain.meal.core.factories.meal_factory import MealFactory
 from infrastructure.meal.providers.factory import (
@@ -54,6 +63,11 @@ from infrastructure.meal.providers.factory import (
 from domain.meal.recognition.services.recognition_service import FoodRecognitionService
 from domain.meal.barcode.services.barcode_service import BarcodeService
 from domain.meal.nutrition.services.enrichment_service import NutritionEnrichmentService
+from infrastructure.nutritional_profile.adapters import (
+    BMRCalculatorAdapter,
+    TDEECalculatorAdapter,
+    MacroCalculatorAdapter,
+)
 
 # from graphql.types_ai import AnalyzeMealPhotoInput  # Replaced
 from graphql.types_activity_health import (
@@ -268,6 +282,21 @@ class Query:
         """
         return ActivityQueries()
 
+    @strawberry.field(description="Nutritional profile queries")  # type: ignore[misc]
+    def nutritional_profile(self) -> NutritionalProfileQueries:
+        """Nutritional profile queries (CQRS).
+
+        Example:
+            query {
+              nutritionalProfile {
+                nutritionalProfile(userId: "user123") { caloriesTarget }
+                progressScore(profileId: "...", startDate: "2024-01-01",
+                              endDate: "2024-01-31") { weightDelta }
+              }
+            }
+        """
+        return NutritionalProfileQueries()
+
     # ============================================
     # Legacy Resolvers (MOVED TO AGGREGATES)
     # ============================================
@@ -470,6 +499,20 @@ class Mutation:
         """
         return ActivityMutations()
 
+    @strawberry.field(description="Nutritional profile mutations")  # type: ignore[misc]
+    def nutritional_profile(self) -> NutritionalProfileMutations:
+        """Nutritional profile mutations (CQRS commands).
+
+        Example:
+            mutation {
+              nutritionalProfile {
+                createNutritionalProfile(input: {...}) { profileId }
+                recordProgress(input: {...}) { date weight }
+              }
+            }
+        """
+        return NutritionalProfileMutations()
+
     @strawberry.mutation(  # type: ignore[misc]
         description="Sincronizza snapshot cumulativi attività"
     )
@@ -642,7 +685,7 @@ async def lifespan(_: FastAPI) -> Any:  # pragma: no cover osservabilità
         _barcode_service = BarcodeService(_barcode_provider)
 
         # Ricostruisci orchestrator con servizi aggiornati
-        _photo_orchestrator = PhotoOrchestrator(
+        _photo_orchestrator = MealAnalysisOrchestrator(
             recognition_service=_recognition_service,
             nutrition_service=_nutrition_service,
             meal_factory=_meal_factory,
@@ -711,11 +754,18 @@ async def version() -> dict[str, str]:
 # Repository (environment-based selection via factory)
 # Environment variable controls repository selection:
 # - MEAL_REPOSITORY: "inmemory" (default) | "mongodb" (P7.1)
+# - PROFILE_REPOSITORY: "inmemory" (default) | "mongodb" (P7.1)
 _meal_repository = get_meal_repository()
+_profile_repository = get_profile_repository()
 
 _event_bus = InMemoryEventBus()
 _idempotency_cache = InMemoryIdempotencyCache()
 _meal_factory = MealFactory()
+
+# Nutritional Profile adapters (Hexagonal Architecture)
+_bmr_calculator = BMRCalculatorAdapter()
+_tdee_calculator = TDEECalculatorAdapter()
+_macro_calculator = MacroCalculatorAdapter()
 
 # Create providers (environment-based selection via factory)
 # Environment variables control provider selection:
@@ -736,7 +786,7 @@ _nutrition_service = NutritionEnrichmentService(
 _barcode_service = BarcodeService(_barcode_provider)
 
 # Create orchestrators
-_photo_orchestrator = PhotoOrchestrator(
+_photo_orchestrator = MealAnalysisOrchestrator(
     recognition_service=_recognition_service,
     nutrition_service=_nutrition_service,
     meal_factory=_meal_factory,
@@ -745,6 +795,17 @@ _barcode_orchestrator = BarcodeOrchestrator(
     barcode_service=_barcode_service,
     nutrition_service=_nutrition_service,
     meal_factory=_meal_factory,
+)
+
+# Nutritional Profile orchestrator
+from application.nutritional_profile.orchestrators.profile_orchestrator import (  # noqa: E501, E402
+    ProfileOrchestrator,
+)
+
+_profile_orchestrator = ProfileOrchestrator(
+    bmr_service=_bmr_calculator,  # type: ignore
+    tdee_service=_tdee_calculator,  # type: ignore
+    macro_service=_macro_calculator,  # type: ignore
 )
 
 
@@ -758,13 +819,16 @@ def get_graphql_context() -> Any:
     """
     return create_context(
         meal_repository=_meal_repository,
+        profile_repository=_profile_repository,
         event_bus=_event_bus,
         idempotency_cache=_idempotency_cache,
-        photo_orchestrator=_photo_orchestrator,
+        meal_orchestrator=_photo_orchestrator,  # Supports both photo and text
+        photo_orchestrator=_photo_orchestrator,  # Backward compatibility
         barcode_orchestrator=_barcode_orchestrator,
-        recognition_service=_recognition_service,  # ✅ Fixed: was passing provider
-        enrichment_service=_nutrition_service,  # ✅ BUG #1 FIXED: era _nutrition_provider
-        barcode_service=_barcode_service,  # Use service not provider
+        profile_orchestrator=_profile_orchestrator,
+        recognition_service=_recognition_service,
+        enrichment_service=_nutrition_service,
+        barcode_service=_barcode_service,
     )
 
 

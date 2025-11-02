@@ -270,7 +270,8 @@ Targets disponibili:
   format            Black format
   lint              Flake8 + mypy
   typecheck         Solo mypy (type checking completo)
-  test              Pytest
+  test              Pytest (skippa integration_real)
+  test-integration  Pytest + integration_real (OpenAI API, consuma crediti)
   schema-export     Esporta SDL GraphQL (aggiorna file versionato)
   schema-check      Verifica drift schema (fail se differente)
   schema-guard      Verifica presenza duplicati e sync canonico/mirror schema
@@ -329,11 +330,18 @@ EOF
     ;;
 
   test)
-    header "Tests"; uv run pytest -q
+    header "Tests"; uv run pytest -q -m "not integration_real"
     ;;
 
   test-unit)
-    header "Unit Tests (stub providers)"; uv run pytest -q -m "not e2e"
+    header "Unit Tests (stub providers)"; uv run pytest -q -m "not e2e and not integration_real"
+    ;;
+
+  test-integration)
+    header "Integration Tests (includes OpenAI real API)"
+    info "Running all tests including integration_real (OpenAI API calls)"
+    info "Note: This will consume OpenAI API credits"
+    uv run pytest -v --tb=short
     ;;
 
   test-e2e)

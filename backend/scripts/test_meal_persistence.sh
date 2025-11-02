@@ -444,6 +444,66 @@ echo -e "${GREEN}✅ Barcode meal confirmed${NC}"
 echo ""
 
 # ============================================
+# STEP 8.5: Test Text Description Workflow
+# ============================================
+
+echo -e "${CYAN}📝 Step 8.5: Test Text Description Workflow${NC}"
+echo -e "${BLUE}-------------------------------------------${NC}"
+
+TEXT_DESCRIPTION="150g di pasta al pomodoro con basilico"
+
+ANALYZE_TEXT_RESPONSE=$(curl -s -X POST "${GRAPHQL_ENDPOINT}" \
+    -H "Content-Type: application/json" \
+    -d "{
+        \"query\": \"mutation AnalyzeText(\$input: AnalyzeMealTextInput!) { meals { analyzeMealText(input: \$input) { ... on MealAnalysisSuccess { analysisId meal { id dishName entries { id name quantityG } totalCalories } } ... on MealAnalysisError { message code } } } }\",
+        \"variables\": {
+            \"input\": {
+                \"userId\": \"${USER_ID}\",
+                \"textDescription\": \"${TEXT_DESCRIPTION}\",
+                \"mealType\": \"DINNER\"
+            }
+        }
+    }")
+
+if echo "$ANALYZE_TEXT_RESPONSE" | grep -q '"errors"'; then
+    echo -e "${RED}❌ Error analyzing text description${NC}"
+    echo "$ANALYZE_TEXT_RESPONSE" | jq '.'
+    exit 1
+fi
+
+MEAL_ID_3=$(echo "$ANALYZE_TEXT_RESPONSE" | jq -r '.data.meals.analyzeMealText.meal.id')
+DISH_NAME_3=$(echo "$ANALYZE_TEXT_RESPONSE" | jq -r '.data.meals.analyzeMealText.meal.dishName')
+CALORIES_3=$(echo "$ANALYZE_TEXT_RESPONSE" | jq -r '.data.meals.analyzeMealText.meal.totalCalories')
+ENTRY_COUNT_3=$(echo "$ANALYZE_TEXT_RESPONSE" | jq -r '.data.meals.analyzeMealText.meal.entries | length')
+
+echo -e "${GREEN}✅ Text analyzed: ${DISH_NAME_3}${NC}"
+echo "  Meal ID: ${MEAL_ID_3}"
+echo "  Entries: ${ENTRY_COUNT_3}"
+echo "  Calories: ${CALORIES_3} kcal"
+echo "  Input: \"${TEXT_DESCRIPTION}\""
+echo ""
+
+# Confirm text meal
+ENTRY_IDS_3=$(echo "$ANALYZE_TEXT_RESPONSE" | jq -r '.data.meals.analyzeMealText.meal.entries[].id')
+CONFIRMED_ENTRY_IDS_3=$(echo "$ENTRY_IDS_3" | jq -R . | jq -s .)
+
+CONFIRM_RESPONSE_3=$(curl -s -X POST "${GRAPHQL_ENDPOINT}" \
+    -H "Content-Type: application/json" \
+    -d "{
+        \"query\": \"mutation ConfirmAnalysis(\$input: ConfirmAnalysisInput!) { meals { confirmMealAnalysis(input: \$input) { ... on ConfirmAnalysisSuccess { confirmedCount } ... on ConfirmAnalysisError { message code } } } }\",
+        \"variables\": {
+            \"input\": {
+                \"mealId\": \"${MEAL_ID_3}\",
+                \"userId\": \"${USER_ID}\",
+                \"confirmedEntryIds\": ${CONFIRMED_ENTRY_IDS_3}
+            }
+        }
+    }")
+
+echo -e "${GREEN}✅ Text meal confirmed${NC}"
+echo ""
+
+# ============================================
 # STEP 9: Final State Check
 # ============================================
 
@@ -483,6 +543,7 @@ echo ""
 echo "Created meals:"
 echo "  1. ${MEAL_ID_1} (Photo - ${DISH_NAME_1}) - ${CALORIES_1} kcal"
 echo "  2. ${MEAL_ID_2} (Barcode - ${DISH_NAME_2}) - ${CALORIES_2} kcal"
+echo "  3. ${MEAL_ID_3} (Text - ${DISH_NAME_3}) - ${CALORIES_3} kcal"
 echo ""
 echo "Persistence verified:"
 echo "  ✅ Meals created in database"
@@ -535,10 +596,10 @@ else
 fi
 
 # Validate meal count matches created meals
-if [ "$RANGE_DAY_MEAL_COUNT" -ge 2 ]; then
-    echo -e "  ${GREEN}✅ Found at least 2 meals (our created meals)${NC}"
+if [ "$RANGE_DAY_MEAL_COUNT" -ge 3 ]; then
+    echo -e "  ${GREEN}✅ Found at least 3 meals (our created meals)${NC}"
 else
-    echo -e "  ${YELLOW}⚠️  Expected at least 2 meals, got ${RANGE_DAY_MEAL_COUNT}${NC}"
+    echo -e "  ${YELLOW}⚠️  Expected at least 3 meals, got ${RANGE_DAY_MEAL_COUNT}${NC}"
 fi
 
 # Show breakdown by period

@@ -1,6 +1,15 @@
 # Profilo nutrizionale personalizzato: calcolo e implementazione tecnica
 
-Il profilo nutrizionale personalizzato si basa sui dati dell’utente (peso, altezza, età, sesso, livello di attività) e sull’obiettivo desiderato (definizione “cut”, mantenimento “maintain”, massa “bulk”). Il processo fondamentale è: (1) stimare il metabolismo basale (BMR) con la formula di Mifflin-St Jeor; (2) moltiplicare il BMR per un fattore di attività (PAL) per ottenere il fabbisogno calorico giornaliero (TDEE); (3) applicare un adeguato deficit o surplus calorico in base all’obiettivo (es. riduzione di ~300–500 kcal/giorno per il “cut”); (4) distribuire le calorie nei macronutrienti (proteine, carboidrati, grassi) secondo raccomandazioni nutrizionali.
+**Version:** 2.0  
+**Date:** 31 Ottobre 2025  
+**Status:** ✅ MVP Implemented (Phase 9.1-9.4 Complete)
+
+Il profilo nutrizionale personalizzato si basa sui dati dell'utente (peso, altezza, età, sesso, livello di attività) e sull'obiettivo desiderato (definizione "cut", mantenimento "maintain", massa "bulk"). Il processo fondamentale è: (1) stimare il metabolismo basale (BMR) con la formula di Mifflin-St Jeor; (2) moltiplicare il BMR per un fattore di attività (PAL) per ottenere il fabbisogno calorico giornaliero (TDEE); (3) applicare un adeguato deficit o surplus calorico in base all'obiettivo (es. riduzione di ~300–500 kcal/giorno per il "cut"); (4) distribuire le calorie nei macronutrienti (proteine, carboidrati, grassi) secondo raccomandazioni nutrizionali.
+
+**✨ Novità Implementate:**
+- ✅ **Dynamic Deficit Tracking**: Tracking del deficit calorico reale (consumato - bruciato) invece di target statico
+- ✅ **Macro Consumption Tracking**: Monitoraggio giornaliero di proteine, carboidrati e grassi consumati
+- ✅ **Progress Analytics**: Metriche avanzate per aderenza al piano nutrizionale
 
 ## Formule di calcolo
 
@@ -110,11 +119,71 @@ class NutritionalProfile(BaseModel):
 class ProgressRecord(BaseModel):
     date: date
     weight: float
-    tdee: float
     consumed_calories: Optional[float] = None
+    
+    # ✨ NEW: Dynamic Deficit Tracking
+    calories_burned_bmr: Optional[float] = None
+    calories_burned_active: Optional[float] = None
+    
+    # ✨ NEW: Macro Consumption Tracking  
+    consumed_protein_g: Optional[float] = None
+    consumed_carbs_g: Optional[float] = None
+    consumed_fat_g: Optional[float] = None
+    
+    notes: Optional[str] = None
 ```
 
 Questo modello è compatibile con framework GraphQL come **Strawberry** e si integra facilmente con query e mutation: calcolo profilo, aggiornamento storico, suggerimenti personalizzati.
+
+---
+
+## ✨ Enhanced Features Implementate (Phase 9.4)
+
+### 1. Dynamic Deficit Tracking System
+
+**Philosophy**: L'obiettivo è mantenere un **deficit/surplus calorico costante**, non un target calorico statico.
+
+**Campi in ProgressRecord:**
+- `calories_burned_bmr`: Metabolismo basale giornaliero
+- `calories_burned_active`: Calorie da attività fisica
+- `calorie_balance` (property): consumed - burned
+
+**Validation:**
+```python
+def is_deficit_on_track(target_deficit: float, tolerance_kcal: float = 50.0) -> bool:
+    """Verifica se il balance reale è vicino al target deficit"""
+    # Example: target=-500 (CUT), actual=-480 → True (entro 50 kcal)
+```
+
+**Analytics:**
+```python
+def days_deficit_on_track(start_date, end_date, tolerance=50) -> int:
+    """Conta giorni con deficit on track"""
+
+def average_deficit(start_date, end_date) -> float:
+    """Media del balance giornaliero"""
+```
+
+### 2. Macro Consumption Tracking
+
+**Campi in ProgressRecord:**
+- `consumed_protein_g`: Proteine consumate (g)
+- `consumed_carbs_g`: Carboidrati consumati (g)  
+- `consumed_fat_g`: Grassi consumati (g)
+
+**Methods:**
+```python
+def update_consumed_macros(protein_g, carbs_g, fat_g):
+    """Auto-calcola calories: (P×4 + C×4 + F×9)"""
+
+def are_macros_on_track(target_p, target_c, target_f, tolerance=10.0) -> bool:
+    """Verifica se tutti i macro sono entro tolleranza"""
+
+def macro_protein_delta(target) -> float:
+    """consumed - target"""
+```
+
+**Test Coverage:** 162 tests passing (84 domain + 78 application)
 
 
 -------
@@ -207,12 +276,208 @@ Fornisci:
 
 
 
-## api graphql: implementazione del domain nutritional_profile
+## API GraphQL: Implementazione del Domain nutritional_profile
 
-è necessario implementare a questo punto un nuovo domain nutritional_profile che esponga le seguenti funzionalità GraphQL:
+### 🎯 Status: MVP In Progress (58.8% Complete)
 
-*  una mutation che prende in ingresso le informazioni utente e crea il profilo nutrizionale
-* una mutation che fa l'eventuale update in caso di richiesta di modifica 
-* una query che recupera le informazioni
-* una query che effettua un forecast per raggiungere l'obiettivo
-* una query che riceve in ingresso i dati biometrici aggiornati e la data, e risponde con uno score rispetto al punto di partenza e allo stato di avanzamento
+**Completato (Phase 9.1-9.4):**
+- ✅ Dependencies Setup (numpy 2.3.4)
+- ✅ Domain Core (value objects, entities, events, exceptions, ports, factory)
+- ✅ Calculation Services (BMR, TDEE, Macro)
+- ✅ Application Layer (commands, queries, orchestrators)
+- ✅ Enhanced Features (dynamic deficit + macro tracking)
+
+**Pending (Phase 9.5-9.7):**
+- 🔵 Infrastructure Layer (MongoDB repository + adapters)
+- 🔵 GraphQL Layer (types, mutations, queries)
+- 🔵 Testing & Quality (E2E tests + documentation)
+
+### GraphQL API Specification
+
+Le seguenti funzionalità GraphQL saranno esposte una volta completato Phase 9.6:
+
+#### Mutations
+
+**1. createNutritionalProfile**
+```graphql
+mutation CreateNutritionalProfile($input: CreateProfileInput!) {
+  createNutritionalProfile(input: $input) {
+    profile {
+      profileId
+      userId
+      goal
+      bmr
+      tdee
+      caloriesTarget
+      macroSplit {
+        proteinG
+        carbsG
+        fatG
+      }
+      createdAt
+    }
+  }
+}
+
+input CreateProfileInput {
+  userId: String!
+  userData: UserDataInput!
+  goal: Goal!
+  initialWeight: Float!
+  initialDate: Date
+}
+
+input UserDataInput {
+  weight: Float!
+  height: Float!
+  age: Int!
+  sex: Sex!
+  activityLevel: ActivityLevel!
+}
+
+enum Goal { CUT, MAINTAIN, BULK }
+enum Sex { M, F }
+enum ActivityLevel { SEDENTARY, LIGHT, MODERATE, ACTIVE, VERY_ACTIVE }
+```
+
+**2. updateNutritionalProfile**
+```graphql
+mutation UpdateNutritionalProfile($input: UpdateProfileInput!) {
+  updateNutritionalProfile(input: $input) {
+    profile {
+      profileId
+      # ... same fields as create
+      updatedAt
+    }
+  }
+}
+
+input UpdateProfileInput {
+  profileId: ID!
+  userData: UserDataInput
+  goal: Goal
+}
+```
+
+**3. recordProgress**
+```graphql
+mutation RecordProgress($input: RecordProgressInput!) {
+  recordProgress(input: $input) {
+    progressRecord {
+      date
+      weight
+      consumedCalories
+      consumedProteinG    # ✨ NEW
+      consumedCarbsG      # ✨ NEW
+      consumedFatG        # ✨ NEW
+      caloriesBurnedBmr   # ✨ NEW
+      caloriesBurnedActive # ✨ NEW
+      calorieBalance      # ✨ NEW (computed)
+      notes
+    }
+    weightDelta
+    daysTracked
+  }
+}
+
+input RecordProgressInput {
+  profileId: ID!
+  measurementDate: Date!
+  weight: Float!
+  consumedCalories: Float
+  consumedProteinG: Float    # ✨ NEW
+  consumedCarbsG: Float      # ✨ NEW
+  consumedFatG: Float        # ✨ NEW
+  caloriesBurnedBmr: Float   # ✨ NEW
+  caloriesBurnedActive: Float # ✨ NEW
+  notes: String
+}
+```
+
+#### Queries
+
+**1. nutritionalProfile**
+```graphql
+query GetNutritionalProfile($profileId: ID, $userId: String) {
+  nutritionalProfile(profileId: $profileId, userId: $userId) {
+    profileId
+    userId
+    goal
+    bmr
+    tdee
+    caloriesTarget
+    macroSplit {
+      proteinG
+      carbsG
+      fatG
+    }
+    progressHistory {
+      date
+      weight
+      consumedCalories
+      consumedProteinG    # ✨ NEW
+      consumedCarbsG      # ✨ NEW
+      consumedFatG        # ✨ NEW
+      caloriesBurnedTotal # ✨ NEW
+      calorieBalance      # ✨ NEW
+    }
+    createdAt
+    updatedAt
+  }
+}
+```
+
+**2. progressScore**
+```graphql
+query CalculateProgressScore($input: ProgressScoreInput!) {
+  progressScore(input: $input) {
+    weightDelta
+    targetWeightDelta
+    averageDailyCalories
+    daysOnTrack          # Legacy (TDEE validation)
+    daysDeficitOnTrack   # ✨ NEW (deficit validation)
+    averageDeficit       # ✨ NEW
+    totalMeasurements
+    adherenceRate
+  }
+}
+
+input ProgressScoreInput {
+  profileId: ID!
+  startDate: Date!
+  endDate: Date!
+}
+```
+
+**3. forecastWeight** (Phase 9 Step 2 - ML Enhancement, DEFERRED)
+```graphql
+query ForecastWeight($profileId: ID!, $days: Int!) {
+  forecastWeight(profileId: $profileId, days: $days) {
+    forecastDates
+    forecastWeights
+    confidenceIntervalLower
+    confidenceIntervalUpper
+    estimatedTdee  # Kalman filter estimate
+  }
+}
+```
+
+### Implementation Status
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| Domain Core | ✅ COMPLETED | 84 tests, ~90% coverage |
+| Calculation Services | ✅ COMPLETED | 30 tests, 100% coverage |
+| Application Layer | ✅ COMPLETED | 78 tests, ~85% coverage |
+| Dynamic Deficit Tracking | ✅ COMPLETED | 20 tests |
+| Macro Consumption Tracking | ✅ COMPLETED | 13 tests |
+| Infrastructure Layer | 🔵 PENDING | MongoDB repository + adapters |
+| GraphQL Types | 🔵 PENDING | Strawberry types |
+| GraphQL Mutations | 🔵 PENDING | 3 mutations |
+| GraphQL Queries | 🔵 PENDING | 2 queries (3rd deferred) |
+| E2E Tests | 🔵 PENDING | test_nutritional_profile.sh |
+| ML Enhancement (Kalman/Prophet) | ⏸️ DEFERRED | Phase 9 Step 2 |
+| LLM Feedback | ⏸️ DEFERRED | Phase 9 Step 3 |
+
+**Total Progress:** 58.8% (10/17 MVP tasks)  
+**Estimated Remaining Time:** 18-24h (Infrastructure + GraphQL + Testing)

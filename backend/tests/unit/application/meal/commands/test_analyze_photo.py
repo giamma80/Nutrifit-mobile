@@ -44,12 +44,14 @@ def handler(mock_orchestrator, mock_repository, mock_event_bus, mock_idempotency
 
 @pytest.fixture
 def sample_analyzed_meal():
+    """Create a mock meal with proper average_confidence method."""
     meal = MagicMock(spec=Meal)
     meal.id = uuid4()
     meal.user_id = "user123"
     meal.entries = [MagicMock(), MagicMock()]  # 2 entries
     meal.total_calories = 500
-    meal.average_confidence = MagicMock(return_value=0.85)
+    # average_confidence is a method that returns float
+    meal.average_confidence.return_value = 0.85
     return meal
 
 
@@ -68,14 +70,14 @@ class TestAnalyzeMealPhotoCommandHandler:
             meal_type="LUNCH",
         )
 
-        mock_orchestrator.analyze.return_value = sample_analyzed_meal
+        mock_orchestrator.analyze_from_photo.return_value = sample_analyzed_meal
 
         result = await handler.handle(command)
 
         assert result == sample_analyzed_meal
 
         # Verify orchestrator called correctly
-        mock_orchestrator.analyze.assert_called_once_with(
+        mock_orchestrator.analyze_from_photo.assert_called_once_with(
             user_id="user123",
             photo_url="https://example.com/pasta.jpg",
             dish_hint="pasta",
@@ -104,12 +106,12 @@ class TestAnalyzeMealPhotoCommandHandler:
             user_id="user123", photo_url="https://example.com/food.jpg"
         )
 
-        mock_orchestrator.analyze.return_value = sample_analyzed_meal
+        mock_orchestrator.analyze_from_photo.return_value = sample_analyzed_meal
 
         await handler.handle(command)
 
         # Verify defaults used
-        mock_orchestrator.analyze.assert_called_once_with(
+        mock_orchestrator.analyze_from_photo.assert_called_once_with(
             user_id="user123",
             photo_url="https://example.com/food.jpg",
             dish_hint=None,
@@ -137,7 +139,7 @@ class TestAnalyzeMealPhotoCommandHandler:
 
         # Cache miss
         mock_idempotency_cache.get.return_value = None
-        mock_orchestrator.analyze.return_value = sample_analyzed_meal
+        mock_orchestrator.analyze_from_photo.return_value = sample_analyzed_meal
 
         result = await handler.handle(command)
 
@@ -147,7 +149,7 @@ class TestAnalyzeMealPhotoCommandHandler:
         mock_idempotency_cache.get.assert_called_once_with("idem-key-123")
 
         # Verify analysis happened (cache miss)
-        mock_orchestrator.analyze.assert_called_once()
+        mock_orchestrator.analyze_from_photo.assert_called_once()
         mock_repository.save.assert_called_once()
 
         # Verify result was cached
@@ -188,7 +190,7 @@ class TestAnalyzeMealPhotoCommandHandler:
         mock_repository.get_by_id.assert_called_once_with(cached_meal_id, "user123")
 
         # Verify analysis NOT executed (idempotency)
-        mock_orchestrator.analyze.assert_not_called()
+        mock_orchestrator.analyze_from_photo.assert_not_called()
         mock_repository.save.assert_not_called()
 
         # Verify result NOT cached again
@@ -196,7 +198,11 @@ class TestAnalyzeMealPhotoCommandHandler:
 
     @pytest.mark.asyncio
     async def test_analyze_photo_no_idempotency_key(
-        self, handler, mock_orchestrator, mock_idempotency_cache, sample_analyzed_meal
+        self,
+        handler,
+        mock_orchestrator,
+        mock_idempotency_cache,
+        sample_analyzed_meal,
     ):
         """Test photo analysis without idempotency key."""
         command = AnalyzeMealPhotoCommand(
@@ -206,7 +212,7 @@ class TestAnalyzeMealPhotoCommandHandler:
             # No idempotency_key
         )
 
-        mock_orchestrator.analyze.return_value = sample_analyzed_meal
+        mock_orchestrator.analyze_from_photo.return_value = sample_analyzed_meal
 
         result = await handler.handle(command)
 
@@ -216,7 +222,7 @@ class TestAnalyzeMealPhotoCommandHandler:
         mock_idempotency_cache.get.assert_not_called()
 
         # Verify analysis happened
-        mock_orchestrator.analyze.assert_called_once()
+        mock_orchestrator.analyze_from_photo.assert_called_once()
 
         # Verify result was NOT cached
         mock_idempotency_cache.set.assert_not_called()

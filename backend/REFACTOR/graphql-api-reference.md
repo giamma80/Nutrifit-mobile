@@ -7,6 +7,7 @@ Documentazione completa delle query e mutation disponibili nell'API GraphQL di N
 - [Struttura dell'API](#struttura-dellapi)
 - [Namespace: Meals](#namespace-meals)
 - [Namespace: Activity](#namespace-activity)
+- [Namespace: Nutritional Profile](#namespace-nutritional-profile)
 - [Root Mutations](#root-mutations)
 - [Utilities](#utilities)
 
@@ -22,17 +23,19 @@ type Query {
   health: String!
   
   # Namespace domains
-  atomic: AtomicQueries!        # Query atomiche meal
-  meals: AggregateQueries!      # Query aggregate meal
-  activity: ActivityQueries!    # Query activity
+  atomic: AtomicQueries!                    # Query atomiche meal
+  meals: AggregateQueries!                  # Query aggregate meal
+  activity: ActivityQueries!                # Query activity
+  nutritionalProfile: NutritionalProfileQueries!  # Query profilo nutrizionale
   
-  cacheStats: CacheStats!       # Utility
+  cacheStats: CacheStats!                   # Utility
 }
 
 type Mutation {
-  meals: MealMutations!         # Mutations meal
-  activity: ActivityMutations!  # Mutations activity
-  syncHealthTotals(...)         # Mutation root (legacy)
+  meals: MealMutations!                     # Mutations meal
+  activity: ActivityMutations!              # Mutations activity
+  nutritionalProfile: NutritionalProfileMutations!  # Mutations profilo
+  syncHealthTotals(...)                     # Mutation root (legacy)
 }
 ```
 
@@ -608,6 +611,160 @@ mutation {
 
 ---
 
+#### `meals.analyzeMealText`
+
+Analizza un meal da descrizione testuale con AI per riconoscimento e arricchimento nutrizionale.
+
+**Uso**:
+```graphql
+mutation {
+  meals {
+    analyzeMealText(
+      input: {
+        userId: "user123"
+        textDescription: "150g di pasta al pomodoro con basilico"
+        timestamp: "2025-10-28T12:30:00Z"
+        mealType: LUNCH
+        idempotencyKey: "meal-text-001"
+      }
+    ) {
+      ... on MealAnalysisSuccess {
+        analysisId
+        meal {
+          id
+          dishName
+          confidence
+          entries {
+            name
+            displayName
+            quantityG
+            calories
+            protein
+            carbs
+            fat
+          }
+          totalCalories
+          totalProtein
+          source  # "DESCRIPTION"
+        }
+      }
+      ... on MealAnalysisError {
+        code
+        message
+      }
+    }
+  }
+}
+```
+
+**Parametri**:
+- `input.userId` (String!): ID utente
+- `input.textDescription` (String!): Descrizione testuale del meal (es. "2 uova strapazzate con toast")
+- `input.timestamp` (DateTime!): Timestamp del meal
+- `input.mealType` (MealType!): Tipo meal (BREAKFAST, LUNCH, DINNER, SNACK)
+- `input.idempotencyKey` (String, opzionale): Chiave per deduplicazione
+
+**Ritorna**: Union type `MealAnalysisSuccess | MealAnalysisError`
+- `MealAnalysisSuccess`: Analisi completata con successo
+- `MealAnalysisError`: Errore durante l'analisi
+
+**Comportamento**:
+1. **Riconoscimento AI**: Usa GPT-4o per identificare cibi e quantità dalla descrizione testuale
+2. **Arricchimento nutrizionale**: Per ogni cibo riconosciuto, recupera dati nutrizionali da USDA
+3. **Creazione meal**: Crea meal con source="DESCRIPTION" in stato PENDING
+4. **Idempotenza**: Cache di 1 ora per evitare rianalisi duplicate
+
+**Source value**: Il campo `source` del meal sarà impostato a `"DESCRIPTION"` (non "TEXT")
+
+**Note**: 
+- Il meal viene creato in stato PENDING, richiede conferma con `confirmMealAnalysis`
+- L'AI può stimare quantità se non specificate (es. "una mela" → ~182g)
+- Supporta descrizioni complesse con più ingredienti (es. "pasta con pomodoro e basilico" → 3 entries)
+- Idempotency key opzionale: se omessa, viene auto-generata da payload
+
+**Esempi di input supportati**:
+```text
+# Con quantità esplicite
+"150g di pasta al pomodoro con basilico"
+→ Pasta (150g), Sugo di pomodoro (80g), Basilico (5g)
+
+# Con quantità implicite
+"2 uova strapazzate con 2 fette di pane tostato"
+→ Uova (100g, 2 large), Pane tostato (60g, 2 slices)
+
+# Descrizione minima
+"una mela"
+→ Mela (182g, 1 medium apple)
+
+# Meal complessi
+"risotto ai funghi porcini con grana padano"
+→ Riso arborio (80g), Funghi porcini (50g), Grana Padano (20g), Brodo (200ml)
+```
+
+**Differenze con altre analyze mutations**:
+- **vs `analyzeMealPhoto`**: `analyzeMealText` non richiede immagine, usa solo descrizione testuale
+- **vs `analyzeMealBarcode`**: `analyzeMealText` riconosce più alimenti da testo libero, non singolo prodotto
+- **Vantaggio chiave**: Veloce e conveniente per meal semplici o quando non è possibile scattare foto
+
+**Casi d'uso**:
+- Quick logging di meal semplici ("colazione standard: latte e cereali")
+- Retroactive logging di meal passati
+- Meal consumati fuori casa dove fotografare è scomodo
+- Import da diario alimentare scritto
+- Voice-to-text integration (utente detta meal, app converte e analizza)
+
+**Workflow tipico**:
+```graphql
+# Step 1: Analizza testo
+mutation {
+  meals {
+    analyzeMealText(
+      input: {
+        userId: "user123"
+        textDescription: "colazione con 2 uova strapazzate e 2 fette di pane tostato"
+        timestamp: "2025-10-28T08:00:00Z"
+        mealType: BREAKFAST
+      }
+    ) {
+      ... on MealAnalysisSuccess {
+        meal {
+          id
+          entries {
+            id
+            name
+            quantityG
+            calories
+          }
+          totalCalories
+        }
+      }
+    }
+  }
+}
+
+# Step 2: Review entries (UI mostra preview)
+# User può accettare/rifiutare singoli entries
+
+# Step 3: Conferma meal
+mutation {
+  meals {
+    confirmMealAnalysis(
+      input: {
+        mealId: "..."
+        userId: "user123"
+        confirmedEntryIds: ["entry-1", "entry-2"]  # Esclude "butter" se non desiderato
+      }
+    ) {
+      ... on ConfirmAnalysisSuccess {
+        meal { id totalCalories }
+      }
+    }
+  }
+}
+```
+
+---
+
 #### `meals.updateMeal`
 
 Aggiorna un meal esistente (tipo, timestamp, note).
@@ -1002,6 +1159,489 @@ mutation {
 
 ---
 
+## Namespace: Nutritional Profile
+
+### Query: `nutritionalProfile`
+
+Query per gestione profilo nutrizionale, calcoli BMR/TDEE e tracking progresso.
+
+#### `nutritionalProfile.nutritionalProfile`
+
+Recupera il profilo nutrizionale di un utente.
+
+**Uso**:
+```graphql
+query {
+  nutritionalProfile {
+    nutritionalProfile(userId: "user123") {
+      profileId
+      userId
+      goal
+      userData {
+        weight
+        height
+        age
+        sex
+        activityLevel
+      }
+      bmr {
+        value
+      }
+      tdee {
+        value
+        activityLevel
+      }
+      caloriesTarget
+      macroSplit {
+        proteinG
+        carbsG
+        fatG
+      }
+      progressHistory {
+        date
+        weight
+        consumedCalories
+        consumedProteinG
+        consumedCarbsG
+        consumedFatG
+        caloriesBurnedBmr
+        caloriesBurnedActive
+        notes
+      }
+      createdAt
+      updatedAt
+    }
+  }
+}
+```
+
+**Parametri**:
+- `profileId` (String, opzionale): ID del profilo
+- `userId` (String, opzionale): ID utente
+
+**Nota**: Deve essere fornito `profileId` O `userId` (almeno uno dei due)
+
+**Ritorna**: `NutritionalProfileType` o `null` se non trovato
+
+**Campi Ritornati**:
+- `profileId`: UUID del profilo
+- `userId`: ID utente proprietario
+- `goal`: Obiettivo (CUT, MAINTAIN, BULK)
+- `userData`: Dati biometrici e attività
+  - `weight`: Peso in kg
+  - `height`: Altezza in cm
+  - `age`: Età in anni
+  - `sex`: Sesso biologico (M/F)
+  - `activityLevel`: Livello attività (SEDENTARY, LIGHT, MODERATE, ACTIVE, VERY_ACTIVE)
+- `bmr`: Metabolismo Basale (kcal/giorno a riposo)
+- `tdee`: Dispendio Energetico Totale Giornaliero (kcal/giorno con attività)
+- `caloriesTarget`: Calorie target giornaliere (aggiustate per obiettivo)
+- `macroSplit`: Distribuzione macronutrienti in grammi
+  - `proteinG`: Proteine giornaliere target
+  - `carbsG`: Carboidrati giornalieri target
+  - `fatG`: Grassi giornalieri target
+- `progressHistory`: Storico registrazioni progresso
+- `createdAt`: Data creazione profilo
+- `updatedAt`: Data ultimo aggiornamento
+
+**Calcoli Automatici**:
+- **BMR** (Basal Metabolic Rate): Calcolato con formula Mifflin-St Jeor
+  - Maschi: `10 * weight + 6.25 * height - 5 * age + 5`
+  - Femmine: `10 * weight + 6.25 * height - 5 * age - 161`
+- **TDEE** (Total Daily Energy Expenditure): `BMR * activity_multiplier`
+  - SEDENTARY: 1.2
+  - LIGHT: 1.375
+  - MODERATE: 1.55
+  - ACTIVE: 1.725
+  - VERY_ACTIVE: 1.9
+- **Calorie Target**: Aggiustato per obiettivo
+  - CUT: `TDEE - 500` (deficit per perdita peso)
+  - MAINTAIN: `TDEE` (mantenimento)
+  - BULK: `TDEE + 300` (surplus per massa muscolare)
+- **Macro Split**: Personalizzato per obiettivo
+  - CUT: Alto proteine (2.2g/kg), carboidrati moderati, grassi bassi
+  - MAINTAIN: Proteine moderate (1.8g/kg), carboidrati alti, grassi moderati
+  - BULK: Proteine alte (2.0g/kg), carboidrati molto alti, grassi moderati
+
+**Quando usarla**:
+- Dashboard profilo utente
+- Visualizzazione obiettivi nutrizionali
+- Tracking progresso giornaliero
+- Ricalcolo metriche dopo aggiornamenti
+
+---
+
+#### `nutritionalProfile.progressScore`
+
+Calcola statistiche di progresso su un intervallo di date.
+
+**Uso**:
+```graphql
+query {
+  nutritionalProfile {
+    progressScore(
+      userId: "user123"
+      startDate: "2025-10-21"
+      endDate: "2025-10-27"
+    ) {
+      startDate
+      endDate
+      weightDelta
+      avgDailyCalories
+      avgCaloriesBurned
+      avgDeficit
+      daysDeficitOnTrack
+      daysMacrosOnTrack
+      totalDays
+      adherenceRate
+    }
+  }
+}
+```
+
+**Parametri**:
+- `userId` (String!): ID utente
+- `startDate` (Date!): Data inizio periodo (formato: YYYY-MM-DD)
+- `endDate` (Date!): Data fine periodo (formato: YYYY-MM-DD)
+
+**Ritorna**: `ProgressStatisticsType` o `null` se profilo non trovato
+
+**Campi Ritornati**:
+- `startDate`: Data inizio analisi
+- `endDate`: Data fine analisi
+- `weightDelta`: Variazione peso in kg (negativo = perdita, positivo = aumento)
+- `avgDailyCalories`: Media calorie consumate giornaliere
+- `avgCaloriesBurned`: Media calorie bruciate giornaliere (BMR + attività)
+- `avgDeficit`: Media deficit/surplus calorico giornaliero (negativo = deficit)
+- `daysDeficitOnTrack`: Giorni in cui deficit/surplus era nel range target (±200 kcal)
+- `daysMacrosOnTrack`: Giorni con macro aderenti al target (±10g per macro)
+- `totalDays`: Giorni totali con dati registrati nel periodo
+- `adherenceRate`: Percentuale aderenza complessiva (0.0-1.0)
+
+**Calcoli**:
+- **Weight Delta**: `peso_finale - peso_iniziale` (dai progressHistory nel periodo)
+- **Avg Daily Calories**: Media delle `consumedCalories` registrate
+- **Avg Deficit**: Media di `(consumedCalories - (caloriesBurnedBmr + caloriesBurnedActive))`
+- **Days On Track**: Conta giorni dove il deficit effettivo è entro ±200 kcal dal target
+- **Macros On Track**: Conta giorni dove P/C/F sono entro ±10g dai target
+- **Adherence Rate**: `min(daysDeficitOnTrack, daysMacrosOnTrack) / totalDays`
+
+**Casi d'uso**:
+- Report settimanale progressi
+- Calcolo aderenza a piano nutrizionale
+- Validazione efficacia strategia (deficit reale vs atteso)
+- Dashboard "This Week" con metriche aggregate
+
+**Differenze con altre query**:
+- **vs `nutritionalProfile`**: Questa query ritorna AGGREGATI su range, mentre `nutritionalProfile` ritorna dati grezzi completi
+- **vs `meals.summaryRange`**: `progressScore` include anche dati peso/deficit/aderenza, non solo nutrizione
+- **Vantaggio**: Combina dati profilo + progress tracking + validazione aderenza in una query
+
+**Esempio pratico - Report settimanale**:
+```graphql
+query WeeklyProgress {
+  nutritionalProfile {
+    progressScore(
+      userId: "user123"
+      startDate: "2025-10-21"
+      endDate: "2025-10-27"
+    ) {
+      weightDelta          # "Lost 0.8 kg this week"
+      avgDailyCalories     # "Avg: 1,850 kcal/day"
+      avgDeficit           # "Avg deficit: -450 kcal/day"
+      adherenceRate        # "Adherence: 85%"
+      daysDeficitOnTrack   # "6/7 days on track"
+    }
+  }
+}
+```
+
+---
+
+### Mutations: `nutritionalProfile`
+
+#### `nutritionalProfile.createNutritionalProfile`
+
+Crea un nuovo profilo nutrizionale per un utente.
+
+**Uso**:
+```graphql
+mutation {
+  nutritionalProfile {
+    createNutritionalProfile(
+      input: {
+        userId: "user123"
+        userData: {
+          weight: 85.0
+          height: 180.0
+          age: 30
+          sex: M
+          activityLevel: MODERATE
+        }
+        goal: CUT
+        initialWeight: 85.0
+        initialDate: "2025-10-28"
+      }
+    ) {
+      profileId
+      userId
+      goal
+      bmr { value }
+      tdee { value }
+      caloriesTarget
+      macroSplit {
+        proteinG
+        carbsG
+        fatG
+      }
+      progressHistory {
+        date
+        weight
+      }
+    }
+  }
+}
+```
+
+**Parametri**:
+- `input.userId` (String!): ID utente
+- `input.userData` (UserDataInput!): Dati biometrici e attività
+  - `weight` (Float!): Peso attuale in kg (range: 30-300)
+  - `height` (Float!): Altezza in cm (range: 100-250)
+  - `age` (Int!): Età in anni (range: 18-120)
+  - `sex` (SexEnum!): Sesso biologico (M o F)
+  - `activityLevel` (ActivityLevelEnum!): Livello attività fisica
+- `input.goal` (GoalEnum!): Obiettivo nutrizionale (CUT, MAINTAIN, BULK)
+- `input.initialWeight` (Float!): Peso iniziale per tracking progresso
+- `input.initialDate` (Date, opzionale): Data inizio tracking (default: oggi)
+
+**Ritorna**: `NutritionalProfileType` - Profilo completo con calcoli BMR/TDEE/macros
+
+**Validazioni**:
+- Un utente può avere solo un profilo attivo (vincolo unicità su `user_id`)
+- Se esiste già un profilo, la mutation fallisce
+- Tutti i valori biometrici devono essere nei range consentiti
+
+**Comportamento**:
+1. Calcola BMR con formula Mifflin-St Jeor
+2. Calcola TDEE moltiplicando BMR per activity multiplier
+3. Calcola calorie target aggiustando TDEE per goal
+4. Calcola macro split ottimale per goal
+5. Crea primo record in progressHistory con peso iniziale
+6. Ritorna profilo completo
+
+**Quando usarla**:
+- Onboarding nuovo utente
+- Setup iniziale profilo fitness
+- Prima configurazione obiettivi nutrizionali
+
+---
+
+#### `nutritionalProfile.updateNutritionalProfile`
+
+Aggiorna un profilo esistente (goal o dati biometrici).
+
+**Uso**:
+```graphql
+mutation {
+  nutritionalProfile {
+    updateNutritionalProfile(
+      input: {
+        profileId: "profile-uuid-123"
+        goal: MAINTAIN
+      }
+    ) {
+      profileId
+      goal
+      caloriesTarget
+      macroSplit {
+        proteinG
+        carbsG
+        fatG
+      }
+      updatedAt
+    }
+  }
+}
+```
+
+**Parametri**:
+- `input.profileId` (String!): UUID del profilo da aggiornare
+- `input.userData` (UserDataInput, opzionale): Nuovi dati biometrici
+  - Se fornito, ricalcola BMR/TDEE/target con nuovi valori
+- `input.goal` (GoalEnum, opzionale): Nuovo obiettivo (CUT, MAINTAIN, BULK)
+  - Se cambiato, ricalcola calorie target e macro split
+
+**Ritorna**: `NutritionalProfileType` - Profilo aggiornato con nuovi calcoli
+
+**Comportamento**:
+- Se cambi `goal`: Ricalcola `caloriesTarget` e `macroSplit` mantenendo stesso BMR/TDEE
+- Se cambi `userData`: Ricalcola BMR, TDEE, caloriesTarget e macroSplit da zero
+- Se cambi entrambi: Ricalcola tutto con nuovi dati
+- Aggiorna `updatedAt` timestamp
+
+**Quando usarla**:
+- Cambio obiettivo (da cut a maintain, da bulk a cut, ecc.)
+- Aggiornamento peso dopo periodo di tracking
+- Modifica livello attività (es. inizio nuovo programma allenamento)
+- Ricalcolo dopo milestone raggiunta
+
+**Esempio pratico - Cambio goal dopo target raggiunto**:
+```graphql
+mutation SwitchToMaintenance {
+  nutritionalProfile {
+    updateNutritionalProfile(
+      input: {
+        profileId: "abc-123"
+        userData: {
+          weight: 78.0      # Nuovo peso dopo cut
+          height: 180.0
+          age: 30
+          sex: M
+          activityLevel: MODERATE
+        }
+        goal: MAINTAIN      # Passa da CUT a MAINTAIN
+      }
+    ) {
+      caloriesTarget      # Aumentato da 2100 a 2600 (esempio)
+      macroSplit {
+        proteinG          # Ridotto da 190g a 150g
+        carbsG            # Aumentato da 220g a 320g
+        fatG              # Aumentato da 60g a 80g
+      }
+    }
+  }
+}
+```
+
+---
+
+#### `nutritionalProfile.recordProgress`
+
+Registra progresso giornaliero (peso, calorie, macros).
+
+**Uso**:
+```graphql
+mutation {
+  nutritionalProfile {
+    recordProgress(
+      input: {
+        profileId: "profile-uuid-123"
+        date: "2025-10-28"
+        weight: 84.5
+        consumedCalories: 2100
+        consumedProteinG: 180
+        consumedCarbsG: 230
+        consumedFatG: 65
+        caloriesBurnedActive: 450
+        notes: "Allenamento intenso"
+      }
+    ) {
+      date
+      weight
+      consumedCalories
+      consumedProteinG
+      consumedCarbsG
+      consumedFatG
+      caloriesBurnedBmr
+      caloriesBurnedActive
+      notes
+    }
+  }
+}
+```
+
+**Parametri**:
+- `input.profileId` (String!): UUID del profilo
+- `input.date` (Date!): Data registrazione (formato: YYYY-MM-DD)
+- `input.weight` (Float!): Peso del giorno in kg
+- `input.consumedCalories` (Float, opzionale): Calorie totali consumate
+- `input.consumedProteinG` (Float, opzionale): Proteine consumate in grammi
+- `input.consumedCarbsG` (Float, opzionale): Carboidrati consumati in grammi
+- `input.consumedFatG` (Float, opzionale): Grassi consumati in grammi
+- `input.caloriesBurnedBmr` (Float, opzionale): Calorie bruciate a riposo (auto-filled se null)
+- `input.caloriesBurnedActive` (Float, opzionale): Calorie bruciate da attività
+- `input.notes` (String, opzionale): Note giornata
+
+**Ritorna**: `ProgressRecordType` - Record registrato
+
+**Comportamento**:
+- Se esiste già un record per stessa data: **UPDATE** (sovrascrive)
+- Se `caloriesBurnedBmr` è null: Usa automaticamente BMR del profilo
+- Tutti i campi nutrizionali sono opzionali (permette tracking parziale)
+- Record viene aggiunto a `progressHistory` del profilo
+
+**Validazioni**:
+- `date` deve essere una data valida (non futura)
+- `weight` deve essere ragionevole (30-300 kg)
+- Valori nutrizionali devono essere non negativi se forniti
+
+**Quando usarla**:
+- Check-in giornaliero peso
+- Log dati nutrizionali fine giornata
+- Registrazione calorie attività da wearable
+- Tracking aderenza piano
+
+**Workflow tipico**:
+```graphql
+# Ogni mattina: registra peso
+mutation MorningWeighIn {
+  nutritionalProfile {
+    recordProgress(
+      input: {
+        profileId: "abc-123"
+        date: "2025-10-28"
+        weight: 84.5
+      }
+    ) {
+      date
+      weight
+    }
+  }
+}
+
+# Fine giornata: aggiungi dati nutrizionali
+mutation EveningUpdate {
+  nutritionalProfile {
+    recordProgress(
+      input: {
+        profileId: "abc-123"
+        date: "2025-10-28"
+        weight: 84.5
+        consumedCalories: 2100
+        consumedProteinG: 180
+        consumedCarbsG: 230
+        consumedFatG: 65
+        caloriesBurnedActive: 450
+      }
+    ) {
+      date
+      weight
+      consumedCalories
+    }
+  }
+}
+```
+
+**Integrazione cross-domain**:
+```typescript
+// Esempio: Popola automaticamente da meal domain
+const dailySummary = await meals.dailySummary({ userId, date });
+
+await nutritionalProfile.recordProgress({
+  profileId,
+  date,
+  weight: userInput.weight,
+  consumedCalories: dailySummary.totalCalories,
+  consumedProteinG: dailySummary.totalProtein,
+  consumedCarbsG: dailySummary.totalCarbs,
+  consumedFatG: dailySummary.totalFat,
+  caloriesBurnedActive: activityData.totalCaloriesOut
+});
+```
+
+---
+
 ## Root Mutations
 
 ### `syncHealthTotals`
@@ -1125,6 +1765,69 @@ query {
 ## Best Practices
 
 ### Scelta della Query Giusta
+
+#### Namespace Nutritional Profile - Quando usare quale query?
+
+| Query | Scopo | Ritorna | Caso d'uso tipico |
+|-------|-------|---------|-------------------|
+| `nutritionalProfile` | Profilo completo con dati grezzi | Profilo + progressHistory | Dashboard profilo, edit settings, view history |
+| `progressScore` | Statistiche aggregate su range | Metriche aderenza + peso | Report settimanale, validazione piano, trend analysis |
+
+**Regola pratica**:
+- Serve **dati completi** del profilo? → `nutritionalProfile` (settings, targets, history raw)
+- Serve **report aggregato** con aderenza? → `progressScore` (weekly stats, compliance)
+
+**Workflow consigliato**:
+```typescript
+// Dashboard profilo: Usa nutritionalProfile per dati completi
+const profile = await query.nutritionalProfile.nutritionalProfile({ userId });
+// Display: goal, targets, BMR/TDEE, macro split, raw history
+
+// Report settimanale: Usa progressScore per aggregati
+const weeklyStats = await query.nutritionalProfile.progressScore({
+  userId,
+  startDate: startOfWeek(),
+  endDate: endOfWeek()
+});
+// Display: weight delta, avg calories, adherence rate
+
+// Combined dashboard: 1 query con entrambi
+query WeeklyDashboard {
+  profile: nutritionalProfile { nutritionalProfile(userId: "user123") {...} }
+  stats: nutritionalProfile { progressScore(userId: "user123", ...) {...} }
+}
+```
+
+**Integrazione cross-domain**:
+```typescript
+// Pattern: Popola automaticamente progressRecord da altri domini
+async function dailyCheckIn(userId: string, weight: number, date: string) {
+  // 1. Fetch meal totals
+  const meals = await query.meals.dailySummary({ userId, date });
+  
+  // 2. Fetch activity totals
+  const activity = await query.activity.aggregateRange({
+    userId,
+    startDate: date,
+    endDate: date,
+    groupBy: 'DAY'
+  });
+  
+  // 3. Record in profile (single source of truth)
+  await mutation.nutritionalProfile.recordProgress({
+    profileId,
+    date,
+    weight,
+    consumedCalories: meals.totalCalories,
+    consumedProteinG: meals.totalProtein,
+    consumedCarbsG: meals.totalCarbs,
+    consumedFatG: meals.totalFat,
+    caloriesBurnedActive: activity.total.totalCaloriesOut
+  });
+}
+```
+
+---
 
 #### Namespace Meals - Quando usare quale query?
 
@@ -1315,6 +2018,7 @@ mutation {
       photoUrl: "https://..."
       timestamp: "2025-10-28T12:30:00Z"
       mealType: LUNCH
+      dishHint: "Pranzo in ufficio"
     }) {
       ... on MealAnalysisSuccess {
         analysisId
@@ -1348,7 +2052,137 @@ mutation {
 
 ---
 
-### 2. Sincronizzazione attività periodica
+### 2. Analisi meal da testo
+
+```graphql
+# Step 1: Analizza descrizione testuale
+mutation {
+  meals {
+    analyzeMealText(input: {
+      userId: "user123"
+      textDescription: "150g di pasta al pomodoro con basilico"
+      timestamp: "2025-10-28T12:30:00Z"
+      mealType: LUNCH
+      idempotencyKey: "lunch-oct28"
+    }) {
+      ... on MealAnalysisSuccess {
+        analysisId
+        meal {
+          id
+          dishName
+          entries {
+            id
+            name
+            displayName
+            quantityG
+            calories
+            protein
+          }
+          totalCalories
+          source  # "DESCRIPTION"
+        }
+      }
+      ... on MealAnalysisError {
+        code
+        message
+      }
+    }
+  }
+}
+
+# Step 2: Conferma analisi (opzionale: rifiuta alcuni entries)
+mutation {
+  meals {
+    confirmMealAnalysis(input: {
+      mealId: "..."
+      userId: "user123"
+      confirmedEntryIds: ["entry-1", "entry-2"]  # Esclude entry-3 se non desiderato
+    }) {
+      ... on ConfirmAnalysisSuccess {
+        meal {
+          id
+          totalCalories  # Ricalcolato senza entry rifiutato
+        }
+        confirmedCount
+        rejectedCount
+      }
+    }
+  }
+}
+```
+
+**Esempi di descrizioni supportate**:
+```text
+# Con quantità esplicite
+"150g di pasta al pomodoro con basilico"
+→ 3 entries: Pasta (150g), Sugo (80g), Basilico (5g)
+
+# Con quantità implicite
+"2 uova strapazzate con toast"
+→ 3 entries: Eggs (100g), Toast (30g), Butter (5g)
+
+# Descrizione minima
+"una mela"
+→ 1 entry: Apple (182g, AI estimated)
+
+# Meal complessi
+"colazione con yogurt greco, muesli e frutti di bosco"
+→ 4 entries: Greek yogurt (150g), Muesli (40g), Blueberries (50g), Strawberries (50g)
+```
+
+---
+
+### 3. Analisi meal da barcode
+
+```graphql
+# Step 1: Analizza prodotto da barcode
+mutation {
+  meals {
+    analyzeMealBarcode(input: {
+      userId: "user123"
+      barcode: "8001505005707"
+      quantityG: 100
+      timestamp: "2025-10-28T15:00:00Z"
+      mealType: SNACK
+    }) {
+      ... on MealAnalysisSuccess {
+        analysisId
+        meal {
+          id
+          dishName
+          entries {
+            name
+            barcode
+            quantityG
+            calories
+            protein
+          }
+          totalCalories
+        }
+      }
+    }
+  }
+}
+
+# Step 2: Conferma analisi
+mutation {
+  meals {
+    confirmMealAnalysis(input: {
+      mealId: "..."
+      userId: "user123"
+      confirmedEntryIds: ["entry-1"]
+    }) {
+      ... on ConfirmAnalysisSuccess {
+        meal { id totalCalories }
+      }
+    }
+  }
+}
+```
+
+---
+
+### 4. Sincronizzazione attività periodica
 
 ```graphql
 # Ogni ora, invia totale cumulativo
@@ -1372,7 +2206,7 @@ mutation {
 
 ---
 
-### 3. Dashboard giornaliero
+### 5. Dashboard giornaliero
 
 ```graphql
 query {
@@ -1412,7 +2246,7 @@ query {
 
 ---
 
-### 4. Dashboard settimanale con trend
+### 6. Dashboard settimanale con trend
 
 ```graphql
 query WeeklyDashboard {
@@ -1492,7 +2326,7 @@ const activityChartData = data.activity.aggregateRange.periods.map(p => ({
 
 ---
 
-### 5. Report mensile con confronto
+### 7. Report mensile con confronto
 
 ```graphql
 query MonthlyReport {
@@ -1582,7 +2416,7 @@ const weeklyTrend = data.thisMonth.periods.map(p => ({
 
 ---
 
-### 6. Goal tracking con progress
+### 8. Goal tracking con progress
 
 ```graphql
 query GoalTracking {
@@ -1666,6 +2500,232 @@ const caloriesProgress = (avgDailyCalories / DAILY_CALORIES_TARGET) * 100;
 
 ---
 
+### 9. Setup e tracking profilo nutrizionale completo
+
+```graphql
+# Step 1: Onboarding - Crea profilo iniziale
+mutation CreateProfile {
+  nutritionalProfile {
+    createNutritionalProfile(
+      input: {
+        userId: "user123"
+        userData: {
+          weight: 85.0
+          height: 180.0
+          age: 30
+          sex: M
+          activityLevel: MODERATE
+        }
+        goal: CUT
+        initialWeight: 85.0
+        initialDate: "2025-10-21"
+      }
+    ) {
+      profileId
+      bmr { value }          # 1830 kcal/day
+      tdee { value }         # 2836 kcal/day
+      caloriesTarget         # 2336 kcal/day (deficit 500)
+      macroSplit {
+        proteinG             # 187g (high protein for cut)
+        carbsG               # 251g
+        fatG                 # 65g
+      }
+    }
+  }
+}
+
+# Step 2: Check-in giornaliero (mattina)
+mutation DailyWeighIn {
+  nutritionalProfile {
+    recordProgress(
+      input: {
+        profileId: "abc-123"
+        date: "2025-10-28"
+        weight: 84.2
+      }
+    ) {
+      date
+      weight
+    }
+  }
+}
+
+# Step 3: Fine giornata - Log dati completi
+mutation EndOfDayLog {
+  # Prima: ottieni totali dal meal domain
+  meals {
+    dailySummary(userId: "user123", date: "2025-10-28T00:00:00Z") {
+      totalCalories
+      totalProtein
+      totalCarbs
+      totalFat
+    }
+  }
+  
+  # Poi: registra nel profilo con dati activity
+  nutritionalProfile {
+    recordProgress(
+      input: {
+        profileId: "abc-123"
+        date: "2025-10-28"
+        weight: 84.2
+        consumedCalories: 2100        # Da meals.dailySummary
+        consumedProteinG: 180
+        consumedCarbsG: 230
+        consumedFatG: 65
+        caloriesBurnedActive: 450     # Da activity domain
+        notes: "Great training session"
+      }
+    ) {
+      date
+      weight
+      consumedCalories
+    }
+  }
+}
+
+# Step 4: Report settimanale con aderenza
+query WeeklyProgressReport {
+  nutritionalProfile {
+    # Profilo attuale
+    nutritionalProfile(userId: "user123") {
+      goal
+      caloriesTarget
+      macroSplit {
+        proteinG
+        carbsG
+        fatG
+      }
+      progressHistory {
+        date
+        weight
+        consumedCalories
+      }
+    }
+    
+    # Statistiche settimana
+    progressScore(
+      userId: "user123"
+      startDate: "2025-10-21"
+      endDate: "2025-10-27"
+    ) {
+      weightDelta           # -0.8 kg (good progress)
+      avgDailyCalories      # 2150 kcal (vs target 2336)
+      avgDeficit            # -450 kcal (vs target -500)
+      daysDeficitOnTrack    # 6/7 days within ±200 kcal
+      daysMacrosOnTrack     # 5/7 days with macros ±10g
+      adherenceRate         # 0.71 (71% adherence)
+    }
+  }
+}
+
+# Step 5: Cambio goal dopo milestone
+mutation SwitchToMaintain {
+  nutritionalProfile {
+    updateNutritionalProfile(
+      input: {
+        profileId: "abc-123"
+        userData: {
+          weight: 80.0        # Nuovo peso raggiunto
+          height: 180.0
+          age: 30
+          sex: M
+          activityLevel: MODERATE
+        }
+        goal: MAINTAIN        # Da CUT a MAINTAIN
+      }
+    ) {
+      goal
+      caloriesTarget        # Aumentato a 2750 (da 2300)
+      macroSplit {
+        proteinG            # 150g (ridotto da 187g)
+        carbsG              # 330g (aumentato da 251g)
+        fatG                # 90g (aumentato da 65g)
+      }
+    }
+  }
+}
+```
+
+**Implementazione UI - Dashboard Profilo**:
+```typescript
+// Component: NutritionProfileDashboard.tsx
+const { data } = useQuery(NUTRITION_PROFILE_QUERY);
+
+const profile = data.nutritionalProfile.nutritionalProfile;
+const weeklyStats = data.nutritionalProfile.progressScore;
+
+<ProfileCard>
+  <Section title="Current Goal">
+    <GoalBadge goal={profile.goal} />  {/* CUT */}
+    <Stat label="Daily Target" value={`${profile.caloriesTarget} kcal`} />
+  </Section>
+  
+  <Section title="Macro Targets">
+    <MacroRing 
+      protein={profile.macroSplit.proteinG}
+      carbs={profile.macroSplit.carbsG}
+      fat={profile.macroSplit.fatG}
+    />
+  </Section>
+  
+  <Section title="This Week">
+    <Stat 
+      label="Weight Change" 
+      value={`${weeklyStats.weightDelta.toFixed(1)} kg`}
+      trend={weeklyStats.weightDelta < 0 ? 'down' : 'up'}
+    />
+    <Stat 
+      label="Adherence" 
+      value={`${(weeklyStats.adherenceRate * 100).toFixed(0)}%`}
+      status={weeklyStats.adherenceRate > 0.7 ? 'good' : 'warning'}
+    />
+    <Stat 
+      label="Days On Track" 
+      value={`${weeklyStats.daysDeficitOnTrack}/${weeklyStats.totalDays}`}
+    />
+  </Section>
+  
+  <Section title="Progress Chart">
+    <WeightChart data={profile.progressHistory} />
+  </Section>
+</ProfileCard>
+
+// Daily check-in flow
+const handleDailyCheckIn = async (weight: number) => {
+  // 1. Record weight
+  await recordProgress({
+    profileId: profile.profileId,
+    date: today,
+    weight
+  });
+  
+  // 2. Fetch meal totals
+  const mealData = await getDailySummary({ userId, date: today });
+  
+  // 3. Fetch activity totals
+  const activityData = await getActivityAggregate({ 
+    userId, 
+    startDate: today, 
+    endDate: today 
+  });
+  
+  // 4. Update with full data
+  await recordProgress({
+    profileId: profile.profileId,
+    date: today,
+    weight,
+    consumedCalories: mealData.totalCalories,
+    consumedProteinG: mealData.totalProtein,
+    consumedCarbsG: mealData.totalCarbs,
+    consumedFatG: mealData.totalFat,
+    caloriesBurnedActive: activityData.total.totalCaloriesOut
+  });
+};
+```
+
+---
+
 ## Note Architetturali
 
 ### Namespace Organization
@@ -1698,6 +2758,32 @@ Scegli in base alla granularità disponibile dai tuoi device/API.
 ---
 
 ## Changelog
+
+- **2025-11-02**: Nuova API per analisi meal da testo
+  - ✨ Aggiunta mutation `meals.analyzeMealText`: Analizza meal da descrizione testuale con AI
+  - 🤖 Riconoscimento AI con GPT-4o per identificare cibi e quantità da testo libero
+  - 🍝 Supporto descrizioni complesse con più ingredienti (es. "pasta al pomodoro con basilico" → 3 entries)
+  - 📏 Stima automatica quantità se non specificate (es. "una mela" → ~182g)
+  - 🔄 Idempotenza con cache 1 ora (chiave opzionale, auto-generata da payload)
+  - 📊 Source value: "DESCRIPTION" (consistente con domain event MealAnalyzed)
+  - 🎯 Casi d'uso: Quick logging, retroactive logging, meal fuori casa, voice-to-text
+  - 📝 Workflow completo: Analizza → Review entries → Conferma (come photo/barcode)
+  - ✅ 13 unit tests passing (command handler + orchestrator + backward compatibility)
+  - ✅ E2E test integrato in `test_meal_persistence.sh`
+  - ✅ API validata manualmente: descrizioni semplici/complesse, idempotenza, confirmation workflow
+
+- **2025-10-31**: Dominio Nutritional Profile completato (Phase 9.6)
+  - ✨ Aggiunto namespace `nutritionalProfile` con queries e mutations complete
+  - 📊 Query `nutritionalProfile`: Recupera profilo con BMR/TDEE/macro/progress history
+  - 📈 Query `progressScore`: Statistiche aggregate con aderenza su range date
+  - 🔧 Mutation `createNutritionalProfile`: Setup profilo con calcoli automatici BMR/TDEE
+  - 🔄 Mutation `updateNutritionalProfile`: Aggiorna goal o dati biometrici con ricalcolo
+  - 📝 Mutation `recordProgress`: Tracking giornaliero peso/calorie/macros
+  - 🧮 Calcoli automatici: Mifflin-St Jeor BMR, TDEE con activity multipliers, macro split per goal
+  - 🎯 Supporto 3 goals: CUT (deficit 500), MAINTAIN (TDEE), BULK (surplus 300)
+  - 📊 Progress tracking: Weight delta, avg deficit, aderenza calorie/macros
+  - 🔗 Integrazione cross-domain con meal e activity per calcolo deficit completo
+  - 📝 Documentazione completa con workflow e best practices
 
 - **2025-10-29**: Nuove query aggregate range
   - ✨ Aggiunta `meals.summaryRange`: Aggregati nutrizionali multi-giorno con grouping DAY/WEEK/MONTH

@@ -125,22 +125,22 @@ async def test_analyze_meal_photo_success(
     """Test analyzeMealPhoto mutation success path.
 
     Mock Strategy:
-    - orchestrator.analyze() → returns Meal (from photo analysis workflow)
+    - orchestrator.analyze_from_photo() → returns Meal (from photo workflow)
     - repository.save() → persists meal
     - event_bus.publish() → publishes MealAnalyzed event
     - idempotency_cache.get() → returns None (no cache hit)
     - idempotency_cache.set() → caches meal ID
 
     Maintenance Note:
-    - If AnalyzeMealPhotoCommandHandler workflow changes, update mocks accordingly
-    - The handler calls orchestrator.analyze() NOT orchestrator.handle()
+    - If AnalyzeMealPhotoCommandHandler workflow changes, update mocks
+    - The handler calls orchestrator.analyze_from_photo()
     """
     # Arrange
     from graphql.types_meal_mutations import AnalyzeMealPhotoInput, MealType
 
     # Mock orchestrator to return our sample meal
     orchestrator = mock_info.context.get("photo_orchestrator")
-    orchestrator.analyze.return_value = sample_meal
+    orchestrator.analyze_from_photo.return_value = sample_meal
 
     # Mock repository operations
     repository = mock_info.context.get("meal_repository")
@@ -175,7 +175,7 @@ async def test_analyze_meal_photo_success(
     assert result.meal.total_calories == 250
 
     # Verify orchestrator was called correctly
-    orchestrator.analyze.assert_called_once_with(
+    orchestrator.analyze_from_photo.assert_called_once_with(
         user_id="user123",
         photo_url="https://example.com/food.jpg",
         dish_hint="chicken and rice",
@@ -233,7 +233,7 @@ async def test_analyze_meal_photo_validation_error(
     """Test analyzeMealPhoto with orchestrator validation error.
 
     Mock Strategy:
-    - orchestrator.analyze() raises ValueError
+    - orchestrator.analyze_from_photo() raises ValueError
     - This triggers the except ValueError block in the resolver
 
     Maintenance Note:
@@ -245,7 +245,7 @@ async def test_analyze_meal_photo_validation_error(
 
     # Mock orchestrator to raise validation error
     orchestrator = mock_info.context.get("photo_orchestrator")
-    orchestrator.analyze.side_effect = ValueError("Invalid photo URL")
+    orchestrator.analyze_from_photo.side_effect = ValueError("Invalid photo URL")
 
     # Mock idempotency cache (no cache hit)
     idempotency_cache = mock_info.context.get("idempotency_cache")

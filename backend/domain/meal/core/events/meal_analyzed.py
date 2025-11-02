@@ -75,7 +75,7 @@ class MealAnalyzed(DomainEvent):
                 f"average_confidence must be between 0.0 and 1.0, " f"got {average_confidence}"
             )
 
-        if source not in ["PHOTO", "BARCODE", "DESCRIPTION"]:
+        if source not in ["PHOTO", "TEXT", "BARCODE", "DESCRIPTION"]:
             raise ValueError(f"Invalid source: {source}")
 
         return cls(

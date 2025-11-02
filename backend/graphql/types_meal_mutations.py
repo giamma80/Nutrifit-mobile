@@ -22,6 +22,7 @@ __all__ = [
     "MealType",
     # Input types
     "AnalyzeMealPhotoInput",
+    "AnalyzeMealTextInput",
     "AnalyzeMealBarcodeInput",
     "ConfirmAnalysisInput",
     "UpdateMealInput",
@@ -56,6 +57,17 @@ class AnalyzeMealPhotoInput:
     user_id: str
     photo_url: str
     dish_hint: Optional[str] = None
+    meal_type: MealType = MealType.LUNCH
+    timestamp: Optional[datetime] = None
+    idempotency_key: Optional[str] = None
+
+
+@strawberry.input
+class AnalyzeMealTextInput:
+    """Input for analyze meal text mutation."""
+
+    user_id: str
+    text_description: str
     meal_type: MealType = MealType.LUNCH
     timestamp: Optional[datetime] = None
     idempotency_key: Optional[str] = None

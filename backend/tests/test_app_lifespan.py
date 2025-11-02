@@ -129,9 +129,7 @@ class TestLifespanContextManager:
                 pass
 
             # Verify logging calls
-            assert (
-                mock_log.info.call_count >= 3
-            )  # adapter.selected, clients_ready, ready
+            assert mock_log.info.call_count >= 3  # adapter.selected, clients_ready, ready
 
     @pytest.mark.asyncio
     async def test_lifespan_cleanup_on_exception(

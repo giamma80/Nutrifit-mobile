@@ -2,6 +2,7 @@
 
 These resolvers execute CQRS commands using Command Handlers from P4.1:
 - analyzeMealPhoto: Analyze meal from photo
+- analyzeMealText: Analyze meal from text description
 - analyzeMealBarcode: Analyze meal from barcode
 - confirmMealAnalysis: Confirm analysis (2-step process)
 - updateMeal: Update existing meal
@@ -16,6 +17,10 @@ import strawberry
 from application.meal.commands.analyze_photo import (
     AnalyzeMealPhotoCommand,
     AnalyzeMealPhotoCommandHandler,
+)
+from application.meal.commands.analyze_text import (
+    AnalyzeMealTextCommand,
+    AnalyzeMealTextCommandHandler,
 )
 from application.meal.commands.analyze_barcode import (
     AnalyzeMealBarcodeCommand,
@@ -35,6 +40,7 @@ from application.meal.commands.delete_meal import (
 )
 from graphql.types_meal_mutations import (
     AnalyzeMealPhotoInput,
+    AnalyzeMealTextInput,
     AnalyzeMealBarcodeInput,
     ConfirmAnalysisInput,
     UpdateMealInput,
@@ -116,6 +122,84 @@ class MealMutations:
 
             # Execute command via handler
             handler = AnalyzeMealPhotoCommandHandler(
+                orchestrator=orchestrator,
+                repository=repository,
+                event_bus=event_bus,
+                idempotency_cache=idempotency_cache,
+            )
+
+            meal = await handler.handle(command)
+
+            # Map domain entity → GraphQL type
+            return MealAnalysisSuccess(
+                meal=map_meal_to_graphql(meal),
+                analysis_id=meal.analysis_id if hasattr(meal, "analysis_id") else None,
+            )
+
+        except ValueError as e:
+            return MealAnalysisError(message=str(e), code="VALIDATION_ERROR")
+        except Exception as e:
+            return MealAnalysisError(message=f"Analysis failed: {str(e)}", code="ANALYSIS_FAILED")
+
+    @strawberry.mutation
+    async def analyze_meal_text(
+        self, info: strawberry.types.Info, input: AnalyzeMealTextInput
+    ) -> Union[MealAnalysisSuccess, MealAnalysisError]:
+        """Analyze meal from text description.
+
+        Workflow:
+        1. Text → OpenAI recognition
+        2. Labels → USDA enrichment
+        3. Create Meal aggregate (PENDING state)
+        4. Publish MealAnalyzed event
+        5. Store in repository
+
+        Args:
+            info: Strawberry field info (injected)
+            input: AnalyzeMealTextInput
+
+        Returns:
+            MealAnalysisSuccess or MealAnalysisError
+
+        Example:
+            mutation {
+              analyzeMealText(input: {
+                userId: "user123"
+                textDescription: "150g pasta with tomato sauce"
+              }) {
+                ... on MealAnalysisSuccess {
+                  meal { id, entries { name, calories } }
+                }
+                ... on MealAnalysisError {
+                  message, code
+                }
+              }
+            }
+        """
+        context = info.context
+        orchestrator = context.get("meal_orchestrator")
+        repository = context.get("meal_repository")
+        event_bus = context.get("event_bus")
+        idempotency_cache = context.get("idempotency_cache")
+
+        if not all([orchestrator, repository, event_bus, idempotency_cache]):
+            return MealAnalysisError(
+                message="Required services not available in context",
+                code="SERVICE_UNAVAILABLE",
+            )
+
+        try:
+            # Map GraphQL input → Command
+            command = AnalyzeMealTextCommand(
+                user_id=input.user_id,
+                text_description=input.text_description,
+                meal_type=input.meal_type.value,
+                timestamp=input.timestamp or datetime.now(timezone.utc),
+                idempotency_key=input.idempotency_key,
+            )
+
+            # Execute command via handler
+            handler = AnalyzeMealTextCommandHandler(
                 orchestrator=orchestrator,
                 repository=repository,
                 event_bus=event_bus,

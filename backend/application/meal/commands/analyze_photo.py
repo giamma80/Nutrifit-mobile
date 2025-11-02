@@ -133,7 +133,7 @@ class AnalyzeMealPhotoCommandHandler:
                 )
 
         # 1. Orchestrate analysis workflow (recognition + enrichment)
-        meal = await self._orchestrator.analyze(
+        meal = await self._orchestrator.analyze_from_photo(
             user_id=command.user_id,
             photo_url=command.photo_url,
             dish_hint=command.dish_hint,
