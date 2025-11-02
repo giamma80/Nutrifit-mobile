@@ -7,29 +7,34 @@ for AI assistants to help users track nutrition and analyze meals.
 
 IMPORTANT FOR AI ASSISTANTS:
 ==========================
-This server provides 14 tools organized in 4 categories:
+This server provides 15 tools organized in 5 categories:
+
+📤 IMAGE UPLOAD (REQUIRED when user shares image file):
+1. upload_meal_image(user_id, image_data, filename) - Upload to storage
+   ⚠️ MUST use this FIRST if user provides image (not URL)
+   Returns URL for use in analyze_meal_photo
 
 📍 ATOMIC OPERATIONS (building blocks):
-1. search_food_by_barcode(barcode) - Product lookup
-2. recognize_food(photo_url|text, dish_hint) - AI food recognition
-3. enrich_nutrients(label, quantity_g) - USDA nutrition data
+2. search_food_by_barcode(barcode) - Product lookup
+3. recognize_food(photo_url|text, dish_hint) - AI food recognition
+4. enrich_nutrients(label, quantity_g) - USDA nutrition data
 
 🍽️ MEAL ANALYSIS (end-to-end workflows):
-4. analyze_meal_photo(user_id, photo_url, meal_type) - Complete photo→meal
-5. analyze_meal_text(user_id, text_description, meal_type) - Text description→meal
-6. analyze_meal_barcode(user_id, barcode, quantity_g, meal_type) - Barcode→meal
-7. confirm_meal_analysis(meal_id, user_id, confirmed_entry_ids) - Confirm/reject
+5. analyze_meal_photo(user_id, photo_url, meal_type) - Complete photo→meal
+6. analyze_meal_text(user_id, text_description, meal_type) - Text description→meal
+7. analyze_meal_barcode(user_id, barcode, quantity_g, meal_type) - Barcode→meal
+8. confirm_meal_analysis(meal_id, user_id, confirmed_entry_ids) - Confirm/reject
 
 📊 MEAL QUERIES:
-8. get_meal(meal_id, user_id) - Single meal details
-9. get_meal_history(user_id, start_date, end_date, ...) - Paginated history
-10. search_meals(user_id, query_text) - Full-text search
-11. get_daily_summary(user_id, date) - Single day totals
-12. get_summary_range(user_id, start_date, end_date, group_by) - Multi-day
+9. get_meal(meal_id, user_id) - Single meal details
+10. get_meal_history(user_id, start_date, end_date, ...) - History
+11. search_meals(user_id, query_text) - Full-text search
+12. get_daily_summary(user_id, date) - Single day totals
+13. get_summary_range(user_id, start_date, end_date, group_by) - Multi-day
 
 ✏️ MEAL MANAGEMENT:
-13. update_meal(meal_id, user_id, meal_type?, timestamp?) - Update metadata
-14. delete_meal(meal_id, user_id) - Delete meal
+14. update_meal(meal_id, user_id, meal_type?, timestamp?) - Update
+15. delete_meal(meal_id, user_id) - Delete meal
 
 CRITICAL ENUM VALUES (from GraphQL schema):
 - meal_type: "BREAKFAST", "LUNCH", "DINNER", "SNACK" (uppercase)
@@ -45,7 +50,7 @@ PARAMETER NAMING (snake_case in MCP → camelCase in GraphQL):
 - dish_hint → dishHint
 
 WORKFLOW BEST PRACTICES:
-1. Photo meal: analyze_meal_photo → confirm_meal_analysis
+1. Photo meal: upload_meal_image → analyze_meal_photo → confirm
 2. Text meal: analyze_meal_text → confirm_meal_analysis
 3. Barcode meal: analyze_meal_barcode → confirm_meal_analysis
 4. Manual entry: recognize_food + enrich_nutrients (separate steps)
@@ -66,7 +71,7 @@ import asyncio
 import datetime
 import json
 import os
-from typing import Any
+from typing import Any, Optional
 
 import httpx
 from mcp.server import Server
@@ -74,8 +79,9 @@ from mcp.types import Tool, TextContent, ImageContent, EmbeddedResource
 from pydantic import BaseModel, Field
 
 
-# GraphQL endpoint configuration
+# API endpoint configuration
 GRAPHQL_ENDPOINT = "http://localhost:8080/graphql"
+REST_API_ENDPOINT = "http://localhost:8080/api/v1"
 DEFAULT_TIMEOUT = 30.0
 
 
@@ -121,6 +127,45 @@ gql_client = GraphQLClient()
 async def list_tools() -> list[Tool]:
     """List all available tools in the Meal MCP."""
     return [
+        Tool(
+            name="upload_meal_image",
+            description=(
+                "⚠️ REQUIRED FIRST STEP when user provides an image file!\n\n"
+                "Upload a meal image to secure storage and get a public URL.\n"
+                "This tool MUST be called BEFORE analyze_meal_photo if the user "
+                "shares an image directly (not a URL).\n\n"
+                "What it does:\n"
+                "1. Takes base64-encoded image data from user's file\n"
+                "2. Uploads to Supabase Storage (auto-converts to JPEG)\n"
+                "3. Returns a public URL\n"
+                "4. Use that URL in analyze_meal_photo's photo_url parameter\n\n"
+                "DO NOT try to encode images yourself - use this tool instead!"
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "user_id": {
+                        "type": "string",
+                        "description": "User ID for organizing images",
+                    },
+                    "image_data": {
+                        "type": "string",
+                        "description": (
+                            "Base64-encoded image data. "
+                            "Get this from the user's image file attachment."
+                        ),
+                    },
+                    "filename": {
+                        "type": "string",
+                        "description": (
+                            "Original filename with extension "
+                            "(e.g., 'meal.jpg', 'dinner.png')"
+                        ),
+                    },
+                },
+                "required": ["user_id", "image_data", "filename"],
+            },
+        ),
         Tool(
             name="search_food_by_barcode",
             description=(
@@ -193,16 +238,28 @@ async def list_tools() -> list[Tool]:
         Tool(
             name="analyze_meal_photo",
             description=(
-                "Analyze a meal photo end-to-end: recognize foods + enrich nutrients + create meal entry. "
-                "Returns complete meal with entries in PENDING state (requires confirmation). "
-                "Use this as the primary tool when user uploads a meal photo.\n\n"
-                "⚠️ meal_type must be: 'BREAKFAST', 'LUNCH', 'DINNER', or 'SNACK' (uppercase)"
+                "Analyze a meal photo: AI recognizes foods + enriches with "
+                "USDA nutrients + creates meal entry.\n\n"
+                "📌 IMPORTANT: This tool requires a photo_url parameter.\n"
+                "If user provides an image file (not a URL), you MUST:\n"
+                "1. First call upload_meal_image to upload the image\n"
+                "2. Then use the returned URL here in photo_url\n\n"
+                "Returns complete meal with entries in PENDING state "
+                "(requires confirmation via confirm_meal_analysis).\n\n"
+                "⚠️ meal_type: 'BREAKFAST', 'LUNCH', 'DINNER', or 'SNACK'"
             ),
             inputSchema={
                 "type": "object",
                 "properties": {
                     "user_id": {"type": "string", "description": "User ID"},
-                    "photo_url": {"type": "string", "description": "URL of meal photo"},
+                    "photo_url": {
+                        "type": "string",
+                        "description": (
+                            "Public URL of the meal photo. "
+                            "If you don't have a URL yet, use upload_meal_image "
+                            "first to get one."
+                        ),
+                    },
                     "dish_hint": {
                         "type": "string",
                         "description": "Optional hint about the dish",
@@ -468,7 +525,34 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent]:
     """Execute a tool and return the result."""
 
     try:
-        if name == "search_food_by_barcode":
+        if name == "upload_meal_image":
+            import base64
+            
+            # Decode base64 image data
+            image_data = base64.b64decode(arguments["image_data"])
+            
+            # Prepare multipart form data
+            files = {
+                "file": (arguments["filename"], image_data, "image/jpeg")
+            }
+            
+            # Upload to REST API
+            user_id = arguments['user_id']
+            upload_url = f"{REST_API_ENDPOINT}/upload-image/{user_id}"
+            
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                response = await client.post(upload_url, files=files)
+                response.raise_for_status()
+                upload_result = response.json()
+            
+            return [
+                TextContent(
+                    type="text",
+                    text=json.dumps(upload_result, indent=2),
+                )
+            ]
+
+        elif name == "search_food_by_barcode":
             query = """
             query SearchBarcode($barcode: String!) {
               atomic {

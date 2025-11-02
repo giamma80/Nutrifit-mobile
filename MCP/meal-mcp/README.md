@@ -6,7 +6,10 @@ Model Context Protocol server for the Nutrifit Meal Domain.
 
 This MCP exposes comprehensive meal tracking and nutrition analysis capabilities:
 
-### 🔍 **Food Discovery (Atomic Operations)**
+### � **Image Upload**
+- `upload_meal_image` - Upload image to Supabase Storage (returns URL for analyze_meal_photo)
+
+### �🔍 **Food Discovery (Atomic Operations)**
 - `search_food_by_barcode` - Lookup products by barcode (OpenFoodFacts)
 - `recognize_food` - AI vision food recognition from photos/text
 - `enrich_nutrients` - Get detailed nutrition from USDA database
@@ -61,10 +64,12 @@ Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_
 
 ## Example Workflows
 
-### Analyze a meal photo
+### Analyze a meal photo (with image upload)
 ```
 User: "I just ate this meal [photo]"
-Claude uses: analyze_meal_photo
+Claude uses: upload_meal_image (with image data)
+→ Returns: {"url": "https://...supabase.co/.../user123/20251102_abc_meal.jpg"}
+Claude uses: analyze_meal_photo (with photo_url from upload)
 → Returns detected foods with nutrition
 Claude: "I detected: chicken breast (150g, 250 kcal), rice (100g, 130 kcal)..."
 
