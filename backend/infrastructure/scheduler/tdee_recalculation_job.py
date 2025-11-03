@@ -79,8 +79,7 @@ class TDEERecalculationJob:
                 except Exception as e:
                     error_count += 1
                     logger.error(
-                        f"Failed to update TDEE for profile "
-                        f"{profile.profile_id.value}: {e}",
+                        f"Failed to update TDEE for profile " f"{profile.profile_id.value}: {e}",
                         exc_info=True,
                     )
 
@@ -143,8 +142,7 @@ class TDEERecalculationJob:
         dates = [r.date for r in recent_records]
         weights = [r.weight for r in recent_records]
         calories = [
-            r.consumed_calories if r.consumed_calories is not None else 0.0
-            for r in recent_records
+            r.consumed_calories if r.consumed_calories is not None else 0.0 for r in recent_records
         ]
 
         # Update TDEE using batch method
@@ -153,18 +151,13 @@ class TDEERecalculationJob:
         for i in range(len(dates)):
             if i > 0:
                 prev_weight = weights[i - 1]
-                self.adaptive_tdee_service.update(
-                    weights[i], prev_weight, calories[i]
-                )
+                self.adaptive_tdee_service.update(weights[i], prev_weight, calories[i])
 
         # Get updated estimate
         tdee_estimate = self.adaptive_tdee_service.get_current_estimate()
 
         if tdee_estimate is None:
-            logger.warning(
-                f"No TDEE estimate for profile "
-                f"{profile.profile_id.value}"
-            )
+            logger.warning(f"No TDEE estimate for profile " f"{profile.profile_id.value}")
             return
 
         # Update profile's calculated TDEE (if we want to store it)
@@ -180,9 +173,7 @@ class TDEERecalculationJob:
         # profile.update_adaptive_tdee(tdee_estimate)
         # await self.profile_repository.save(profile)
 
-    def _get_recent_progress_records(
-        self, profile: NutritionalProfile
-    ) -> List[ProgressRecord]:
+    def _get_recent_progress_records(self, profile: NutritionalProfile) -> List[ProgressRecord]:
         """
         Get progress records within lookback window.
 
@@ -194,14 +185,11 @@ class TDEERecalculationJob:
         """
         cutoff_date = datetime.now() - timedelta(days=self.lookback_days)
 
-        cutoff_datetime = datetime.combine(
-            cutoff_date.date(), datetime.min.time()
-        )
+        cutoff_datetime = datetime.combine(cutoff_date.date(), datetime.min.time())
         recent = [
             record
             for record in profile.progress_history
-            if datetime.combine(record.date, datetime.min.time())
-            >= cutoff_datetime
+            if datetime.combine(record.date, datetime.min.time()) >= cutoff_datetime
         ]
 
         # Sort by date ascending

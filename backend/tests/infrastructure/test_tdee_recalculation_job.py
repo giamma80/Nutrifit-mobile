@@ -111,9 +111,7 @@ class TestTDEERecalculationJobInitialization:
         assert job.lookback_days == 14
         assert job.min_records == 3
 
-    def test_init_with_custom_params(
-        self, mock_repository, mock_tdee_service
-    ):
+    def test_init_with_custom_params(self, mock_repository, mock_tdee_service):
         """Test initialization with custom parameters."""
         job = TDEERecalculationJob(
             profile_repository=mock_repository,
@@ -139,9 +137,7 @@ class TestTDEERecalculationJobExecution:
         # (actual implementation would query repository)
 
     @pytest.mark.asyncio
-    async def test_update_profile_tdee_success(
-        self, tdee_job, sample_profile, mock_tdee_service
-    ):
+    async def test_update_profile_tdee_success(self, tdee_job, sample_profile, mock_tdee_service):
         """Test successful TDEE update for single profile."""
         await tdee_job._update_profile_tdee(sample_profile)
 
@@ -207,9 +203,7 @@ class TestTDEERecalculationJobHelpers:
         dates = [r.date for r in recent]
         assert dates == sorted(dates)
 
-    def test_get_recent_progress_filters_old_records(
-        self, tdee_job, sample_profile
-    ):
+    def test_get_recent_progress_filters_old_records(self, tdee_job, sample_profile):
         """Test old records are filtered out."""
         # Add old record (30 days ago)
         old_record = ProgressRecord(
@@ -226,8 +220,7 @@ class TestTDEERecalculationJobHelpers:
         # Should exclude old record (only 10 recent ones)
         assert len(recent) == 10
         assert all(
-            (datetime.now() - datetime.combine(r.date, datetime.min.time()))
-            <= timedelta(days=14)
+            (datetime.now() - datetime.combine(r.date, datetime.min.time())) <= timedelta(days=14)
             for r in recent
         )
 

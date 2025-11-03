@@ -83,10 +83,7 @@ class SchedulerManager:
             replace_existing=True,
         )
 
-        logger.info(
-            f"TDEE recalculation job registered with cron: "
-            f"{cron_expression}"
-        )
+        logger.info(f"TDEE recalculation job registered with cron: " f"{cron_expression}")
 
     def start(self) -> None:
         """Start scheduler (begin executing jobs)."""

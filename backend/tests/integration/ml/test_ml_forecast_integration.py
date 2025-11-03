@@ -114,9 +114,7 @@ class TestWeightForecastIntegration:
         assert last_pred < current_weight
 
         # Confidence bounds should be valid
-        assert (
-            forecast.lower_bound[0] < first_pred < forecast.upper_bound[0]
-        )
+        assert forecast.lower_bound[0] < first_pred < forecast.upper_bound[0]
 
     def test_forecast_with_minimal_data(self, profile_with_progress):
         """Test forecast with only 7 days of data."""
@@ -125,9 +123,7 @@ class TestWeightForecastIntegration:
 
         adapter = WeightForecastAdapter()
 
-        forecast = adapter.forecast_from_progress(
-            limited_progress, days_ahead=14
-        )
+        forecast = adapter.forecast_from_progress(limited_progress, days_ahead=14)
 
         # Should use simple model for short history
         assert forecast.model_used in ["LinearRegression", "SimpleTrend"]
@@ -172,16 +168,12 @@ class TestWeightForecastIntegration:
         with pytest.raises(ValueError, match="at least 2 data points"):
             adapter.forecast_from_progress(single_record, days_ahead=30)
 
-    def test_forecast_invalid_days_ahead_raises_error(
-        self, profile_with_progress
-    ):
+    def test_forecast_invalid_days_ahead_raises_error(self, profile_with_progress):
         """Test forecast fails with invalid days_ahead."""
         adapter = WeightForecastAdapter()
 
         with pytest.raises(ValueError, match="must be positive"):
-            adapter.forecast_from_progress(
-                profile_with_progress.progress_history, days_ahead=0
-            )
+            adapter.forecast_from_progress(profile_with_progress.progress_history, days_ahead=0)
 
         # Note: Upper limit validation happens in GraphQL layer (90 days)
         # Service itself allows any positive value

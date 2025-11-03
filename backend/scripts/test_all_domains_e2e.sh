@@ -4,10 +4,11 @@
 # Nutrifit E2E Integration Test Suite
 # ============================================
 # 
-# Runs comprehensive end-to-end tests across all three domains:
+# Runs comprehensive end-to-end tests across all domains:
 # 1. Meal Domain - Food recognition, barcode scanning, nutrition tracking
 # 2. Activity Domain - Health data sync, activity tracking, calorie expenditure
 # 3. Nutritional Profile Domain - Profile management, progress tracking, goal management
+# 4. ML Enhancements - Weight forecasting, time series analysis, adaptive TDEE
 #
 # Uses a single user ID across all domains to simulate a realistic
 # user journey and validate cross-domain data integration.
@@ -60,11 +61,12 @@ echo -e "${CYAN}This test suite will:${NC}"
 echo "  1. Create a nutritional profile (CUT goal)"
 echo "  2. Log meals throughout the day"
 echo "  3. Sync activity data from workouts"
-echo "  4. Validate cross-domain calorie tracking"
-echo "  5. Track progress over multiple days"
-echo "  6. Update profile goals and metrics"
+echo "  4. Test ML weight forecasting with time series models"
+echo "  5. Validate cross-domain calorie tracking"
+echo "  6. Track progress over multiple days"
+echo "  7. Update profile goals and metrics"
 echo ""
-echo -e "${YELLOW}⏱️  Estimated time: 3-5 minutes${NC}"
+echo -e "${YELLOW}⏱️  Estimated time: 4-6 minutes${NC}"
 echo ""
 read -p "Press Enter to start the test suite..." -r
 echo ""
@@ -141,6 +143,32 @@ if [ $ACTIVITY_EXIT_CODE -eq 0 ]; then
     echo ""
 else
     echo -e "${RED}❌ Phase 3 failed with exit code ${ACTIVITY_EXIT_CODE}${NC}"
+    exit 1
+fi
+
+# Small pause between phases
+sleep 2
+
+# ============================================
+# Phase 4: ML Enhancements (Weight Forecasting)
+# ============================================
+
+echo -e "${BLUE}================================================${NC}"
+echo -e "${CYAN}🔮 Phase 4: ML Enhancements (Weight Forecasting)${NC}"
+echo -e "${BLUE}================================================${NC}"
+echo ""
+echo "Testing ML-powered weight forecasting and adaptive TDEE..."
+echo ""
+
+"${SCRIPT_DIR}/test_ml_workflow.sh" "$BASE_URL" "$USER_ID"
+
+ML_EXIT_CODE=$?
+
+if [ $ML_EXIT_CODE -eq 0 ]; then
+    echo -e "${GREEN}✅ Phase 4 completed successfully!${NC}"
+    echo ""
+else
+    echo -e "${RED}❌ Phase 4 failed with exit code ${ML_EXIT_CODE}${NC}"
     exit 1
 fi
 
@@ -258,13 +286,15 @@ echo -e "${CYAN}✅ Verified:${NC}"
 echo "  ✅ Nutritional Profile: Profile creation, progress tracking, goal changes"
 echo "  ✅ Meal Domain: Food logging, nutrition calculation, daily summaries"
 echo "  ✅ Activity Domain: Activity sync, calorie tracking, aggregations"
+echo "  ✅ ML Enhancements: Weight forecasting, time series models, confidence intervals"
 echo "  ✅ Cross-Domain: Energy balance, data consistency, integration"
 echo ""
 echo -e "${CYAN}📊 Test Coverage:${NC}"
-echo "  • 3 domains tested"
+echo "  • 4 domains tested"
 echo "  • ${PROFILE_RECORDS} days of progress data"
 echo "  • ${MEAL_COUNT} meals logged"
 echo "  • ${ACTIVITY_EVENTS} activity events"
+echo "  • ML forecasting validated"
 echo "  • Cross-domain validation completed"
 echo ""
 echo -e "${GREEN}🎉 E2E test suite completed successfully!${NC}"

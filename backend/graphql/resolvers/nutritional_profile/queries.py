@@ -285,20 +285,20 @@ class NutritionalProfileQueries:
         confidence_level: float = 0.95,
     ) -> "WeightForecastType":  # type: ignore
         """Generate weight forecast using ML time series analysis.
-        
+
         Uses historical progress data to predict future weight trajectory
         with confidence intervals. Automatically selects the best model
         (ARIMA, Exponential Smoothing, Linear Regression) based on
         available data.
-        
+
         Args:
             profile_id: Profile UUID
             days_ahead: Number of days to forecast (default 30, max 90)
             confidence_level: Confidence level 0.0-1.0 (default 0.95)
-            
+
         Returns:
             WeightForecastType with predictions and confidence intervals
-            
+
         Example query:
             query {
               forecastWeight(profileId: "uuid", daysAhead: 30) {
@@ -318,13 +318,13 @@ class NutritionalProfileQueries:
         """
         from datetime import datetime
         from infrastructure.ml_adapters import WeightForecastAdapter
-        
+
         context = info.context
         repository = context.get("profile_repository")
 
         if not repository:
             raise Exception("Missing profile_repository in GraphQL context")
-        
+
         # Validate inputs
         if days_ahead < 1 or days_ahead > 90:
             raise ValueError("days_ahead must be between 1 and 90")
@@ -332,9 +332,7 @@ class NutritionalProfileQueries:
             raise ValueError("confidence_level must be between 0 and 1")
 
         # Get profile
-        profile = await repository.find_by_id(
-            ProfileId.from_string(profile_id)
-        )
+        profile = await repository.find_by_id(ProfileId.from_string(profile_id))
         if not profile:
             raise Exception(f"Profile {profile_id} not found")
 
