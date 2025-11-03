@@ -141,9 +141,10 @@ class TestTDEERecalculationJobExecution:
         """Test successful TDEE update for single profile."""
         await tdee_job._update_profile_tdee(sample_profile)
 
-        # Should call TDEE service update for each record pair
-        # (9 updates for 10 records)
-        assert mock_tdee_service.update.call_count == 9
+        # Should call batch update with progress records
+        mock_tdee_service.update_batch.assert_called_once()
+        batch_records = mock_tdee_service.update_batch.call_args[0][0]
+        assert len(batch_records) == 10
 
         # Should get final estimate
         mock_tdee_service.get_current_estimate.assert_called_once()
@@ -159,7 +160,7 @@ class TestTDEERecalculationJobExecution:
         await tdee_job._update_profile_tdee(sample_profile)
 
         # Should not call service
-        mock_tdee_service.update.assert_not_called()
+        mock_tdee_service.update_batch.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_update_profile_handles_none_calories(
@@ -172,8 +173,8 @@ class TestTDEERecalculationJobExecution:
 
         await tdee_job._update_profile_tdee(sample_profile)
 
-        # Should still process with 0.0 for None values
-        assert mock_tdee_service.update.call_count == 9
+        # Should still process all records
+        mock_tdee_service.update_batch.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_update_profile_handles_none_estimate(
@@ -268,8 +269,10 @@ class TestTDEERecalculationJobEdgeCases:
 
         await tdee_job._update_profile_tdee(sample_profile)
 
-        # Should process (2 updates for 3 records)
-        assert mock_tdee_service.update.call_count == 2
+        # Should process with batch update
+        mock_tdee_service.update_batch.assert_called_once()
+        batch_records = mock_tdee_service.update_batch.call_args[0][0]
+        assert len(batch_records) == 3
 
     def test_get_recent_progress_empty_history(self, tdee_job, sample_profile):
         """Test profile with no progress history."""

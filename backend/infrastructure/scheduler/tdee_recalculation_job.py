@@ -138,27 +138,21 @@ class TDEERecalculationJob:
             )
             return
 
-        # Extract data for Kalman update
-        dates = [r.date for r in recent_records]
-        weights = [r.weight for r in recent_records]
-        calories = [
-            r.consumed_calories if r.consumed_calories is not None else 0.0 for r in recent_records
-        ]
-
         # Update TDEE using batch method
-        # Note: update_batch in KalmanTDEEAdapter expects ProgressRecord list
-        # But the service expects separate lists. We use the service directly:
-        for i in range(len(dates)):
-            if i > 0:
-                prev_weight = weights[i - 1]
-                self.adaptive_tdee_service.update(weights[i], prev_weight, calories[i])
+        self.adaptive_tdee_service.update_batch(recent_records)
 
-        # Get updated estimate
-        tdee_estimate = self.adaptive_tdee_service.get_current_estimate()
+        # Get updated estimate with uncertainty
+        estimate_result = self.adaptive_tdee_service.get_current_estimate()
 
-        if tdee_estimate is None:
+        if estimate_result is None:
             logger.warning(f"No TDEE estimate for profile " f"{profile.profile_id.value}")
             return
+
+        # Handle both tuple (tdee, std) and single float returns
+        if isinstance(estimate_result, tuple):
+            tdee_estimate, _ = estimate_result
+        else:
+            tdee_estimate = estimate_result
 
         # Update profile's calculated TDEE (if we want to store it)
         # This would require adding a field to store Kalman TDEE

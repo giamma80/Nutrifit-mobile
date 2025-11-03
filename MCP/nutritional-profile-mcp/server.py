@@ -408,6 +408,72 @@ Integration with other domains:
                 "required": ["profileId", "date", "weight"],
             },
         ),
+        Tool(
+            name="forecast_weight",
+            description="""
+🤖 ML-POWERED: Generate future weight predictions using time series models.
+
+Advanced forecasting with 4 adaptive models:
+- SimpleTrend (<7 data points): Linear extrapolation
+- LinearRegression (7-13 points): OLS with prediction intervals
+- ExponentialSmoothing (14-29 points): Holt's method
+- ARIMA(1,1,1) (30+ points): Full time series modeling
+
+Returns:
+- Model used (automatic selection based on data)
+- Confidence level (68%, 95%, or 99%)
+- Data points used (number of progress records)
+- Trend analysis:
+  * Direction: "decreasing", "increasing", or "stable"
+  * Magnitude: Change in kg (first to last prediction)
+  * Stable threshold: ±0.5 kg
+- Daily predictions with confidence intervals:
+  * Predicted weight
+  * Lower bound (confidence interval)
+  * Upper bound (confidence interval)
+
+Trend insights:
+- "decreasing": Weight loss trend (CUT goal on track)
+- "stable": Plateau detected (consider calorie adjustment)
+- "increasing": Weight gain trend (BULK goal or review deficit)
+
+Use cases:
+- Goal prediction: "When will I reach target weight?"
+- Progress validation: "Am I on the right track?"
+- Plateau detection: "Why isn't my weight changing?"
+- Motivation: Visualize future progress
+
+Requirements:
+- Minimum 2 progress records in profile
+- Records must have chronological dates
+- All weights must be positive
+
+Performance: 30-170ms response time
+""",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "profileId": {
+                        "type": "string",
+                        "description": "Profile ID"
+                    },
+                    "daysAhead": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 90,
+                        "default": 30,
+                        "description": "Number of days to forecast (1-90, default: 30)"
+                    },
+                    "confidenceLevel": {
+                        "type": "number",
+                        "enum": [0.68, 0.95, 0.99],
+                        "default": 0.95,
+                        "description": "Confidence level for intervals (0.68=1σ, 0.95=2σ, 0.99=3σ)"
+                    },
+                },
+                "required": ["profileId"],
+            },
+        ),
     ]
 
 
@@ -713,6 +779,118 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent]:
             TextContent(
                 type="text",
                 text=json.dumps(progress, indent=2),
+            )
+        ]
+
+    elif name == "forecast_weight":
+        profile_id = arguments.get("profileId")
+        days_ahead = arguments.get("daysAhead", 30)
+        confidence_level = arguments.get("confidenceLevel", 0.95)
+
+        query = """
+        query ForecastWeight($profileId: ID!, $daysAhead: Int!, $confidenceLevel: Float!) {
+            nutritionalProfile(id: $profileId) {
+                id
+                forecastWeight(daysAhead: $daysAhead, confidenceLevel: $confidenceLevel) {
+                    modelUsed
+                    confidenceLevel
+                    dataPointsUsed
+                    trendDirection
+                    trendMagnitude
+                    predictions {
+                        date
+                        predictedWeight
+                        lowerBound
+                        upperBound
+                    }
+                }
+            }
+        }
+        """
+
+        variables = {
+            "profileId": profile_id,
+            "daysAhead": days_ahead,
+            "confidenceLevel": confidence_level,
+        }
+
+        result = await gql_client.execute(query, variables)
+
+        profile = result.get("nutritionalProfile")
+
+        if not profile:
+            raise ValueError(f"Profile not found: {profile_id}")
+
+        forecast = profile.get("forecastWeight")
+
+        if not forecast:
+            raise ValueError("No forecast data available (insufficient progress records)")
+
+        # Trend interpretation
+        trend_emoji = {
+            "decreasing": "📉",
+            "stable": "➡️",
+            "increasing": "📈"
+        }
+
+        trend_desc = {
+            "decreasing": "Weight loss trend - on track for CUT goal",
+            "stable": "Plateau detected - consider adjusting calorie intake",
+            "increasing": "Weight gain trend - check if intentional (BULK)"
+        }
+
+        direction = forecast["trendDirection"]
+        magnitude = forecast["trendMagnitude"]
+
+        # Format predictions table
+        predictions_text = "\n".join([
+            f"  Day {i+1:2d} ({p['date']}): "
+            f"{p['predictedWeight']:.2f} kg "
+            f"[{p['lowerBound']:.2f} - {p['upperBound']:.2f}]"
+            for i, p in enumerate(forecast["predictions"][:7])  # Show first week
+        ])
+
+        if len(forecast["predictions"]) > 7:
+            predictions_text += f"\n  ... ({len(forecast['predictions']) - 7} more days)"
+
+        # Format the response
+        response = f"""
+🤖 ML Weight Forecast
+
+📊 Model Analysis:
+- Algorithm: {forecast['modelUsed']}
+- Data points: {forecast['dataPointsUsed']} progress records
+- Confidence: {int(forecast['confidenceLevel']*100)}%
+
+{trend_emoji[direction]} Trend Analysis:
+- Direction: {direction.upper()}
+- Magnitude: {magnitude:+.2f} kg over {days_ahead} days
+- Insight: {trend_desc[direction]}
+
+📅 Predictions (first week):
+{predictions_text}
+
+💡 Interpretation:
+- Predicted Weight: Most likely weight for each day
+- Confidence Interval: Range where actual weight will likely fall
+- Model Selection: Automatic based on data availability
+
+{"⚠️ Note: Plateau detected. Consider:" if direction == "stable" else ""}
+{"  - Review calorie intake vs TDEE" if direction == "stable" else ""}
+{"  - Adjust macro distribution" if direction == "stable" else ""}
+{"  - Check activity levels" if direction == "stable" else ""}
+
+Use this forecast to:
+- Set realistic expectations
+- Validate goal timeline
+- Detect plateaus early
+- Adjust strategy proactively
+"""
+
+        return [
+            TextContent(
+                type="text",
+                text=response,
             )
         ]
 

@@ -370,6 +370,7 @@ type NutritionalProfileMutations {
 type NutritionalProfileQueries {
   nutritionalProfile(profileId: String = null, userId: String = null): NutritionalProfileType
   progressScore(userId: String!, startDate: Date!, endDate: Date!): ProgressStatisticsType
+  forecastWeight(profileId: String!, daysAhead: Int! = 30, confidenceLevel: Float! = 0.95): WeightForecastType!
 }
 
 type NutritionalProfileType {
@@ -536,4 +537,22 @@ type UserDataType {
   age: Int!
   sex: SexEnum!
   activityLevel: ActivityLevelEnum!
+}
+
+type WeightForecastType {
+  profileId: String!
+  generatedAt: DateTime!
+  predictions: [WeightPredictionPointType!]!
+  modelUsed: String!
+  confidenceLevel: Float!
+  dataPointsUsed: Int!
+  trendDirection: String!
+  trendMagnitude: Float!
+}
+
+type WeightPredictionPointType {
+  date: Date!
+  predictedWeight: Float!
+  lowerBound: Float!
+  upperBound: Float!
 }

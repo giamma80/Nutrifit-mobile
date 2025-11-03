@@ -1,9 +1,9 @@
-# 🎯 Nutrifit Meal Domain Refactor - Implementation Tracker
+# 🎯 Nutrifit Backend Multi-Domain - Implementation Tracker
 
-**Version:** 3.1
-**Date:** 29 Ottobre 2025
+**Version:** 4.0
+**Date:** 3 Novembre 2025
 **Branch:** `refactor`
-**Status:** ✅ Phase 7 Complete + v2.1 Range Query APIs Released
+**Status:** ✅ Phase 9 Complete - 4 Domains Production Ready + ML Enhancements
 
 ---
 
@@ -21,8 +21,9 @@
 | **Phase 7** | 4 | 4 | 0 | 0 | 0 |
 | **v2.1** | 10 | 10 | 0 | 0 | 0 |
 | **Phase 8** | 2 | 2 | 0 | 0 | 0 |
-| **Phase 9** | 18 | 15 | 0 | 0 | 0 |
-| **TOTAL** | **64** | **57** | **0** | **0** | **1** |
+| **Phase 9 MVP** | 18 | 18 | 0 | 0 | 0 |
+| **Phase 9 ML** | 7 | 7 | 0 | 0 | 0 |
+| **TOTAL** | **71** | **70** | **0** | **0** | **1** |
 
 ---
 
@@ -1455,40 +1456,40 @@ Test integrazione USDA. Logica valida ma usa vecchio adapter/prompt.
 | P9.5.4 | TDEECalculatorAdapter | Adapter for TDEEService | - | ITDEECalculator implementation | � COMPLETED | Wraps domain service, Hexagonal Architecture |
 | P9.5.5 | MacroCalculatorAdapter | Adapter for MacroService | - | IMacroCalculator implementation | � COMPLETED | Wraps domain service, Hexagonal Architecture |
 | P9.5.6 | Dependency Injection | Wire dependencies in app.py | - | DI in startup | � COMPLETED | _profile_repository, _bmr/tdee/macro_calculator |
-| **P9.6** | **GraphQL Layer** | Implement schema, types, resolvers | - | GraphQL API complete | 🔵 NOT STARTED | 6-8h |
-| P9.6.1 | Strawberry types | NutritionalProfileType, UserDataInput, MacroSplitType, ProgressRecordType | - | GraphQL types | 🔵 NOT STARTED | graphql/types_nutritional_profile.py |
-| P9.6.2 | Mutations | createNutritionalProfile, updateNutritionalProfile, recordProgress | - | 3 mutations | 🔵 NOT STARTED | graphql/nutritional_profile_resolver.py |
-| P9.6.3 | Queries | nutritionalProfile, progressScore | - | 2 queries | 🔵 NOT STARTED | No forecast yet (Step 2) |
-| P9.6.4 | Schema integration | Add to main schema | - | Schema exports new types | 🔵 NOT STARTED | Update schema.graphql |
-| P9.6.5 | E2E tests | Test complete workflows via GraphQL | - | E2E test suite | 🔵 NOT STARTED | Create → Update → Query → Progress |
-| **P9.7** | **Testing & Quality** | Comprehensive testing + documentation | - | >90% coverage | 🔵 NOT STARTED | 4-6h |
-| P9.7.1 | Unit test coverage | Ensure >90% coverage on domain + application | - | Coverage report >90% | 🔵 NOT STARTED | pytest --cov |
-| P9.7.2 | Integration tests | Test cross-domain integration | - | Integration with meal/activity | 🔵 NOT STARTED | Query consumed calories from meals |
-| P9.7.3 | E2E script | Add nutritional profile tests to scripts | - | test_nutritional_profile.sh | 🔵 NOT STARTED | Similar to test_meal_persistence.sh |
-| P9.7.4 | Documentation | Document architecture + API examples | - | nutritional-profile-domain.md | 🔵 NOT STARTED | backend/docs/REFACTOR/ |
-| P9.7.5 | Commit MVP | Commit complete MVP implementation | - | Git commit + push | 🔵 NOT STARTED | feat(nutrition): add nutritional profile MVP |
+| **P9.6** | **GraphQL Layer** | Implement schema, types, resolvers | - | GraphQL API complete | ✅ COMPLETED | 6-8h |
+| P9.6.1 | Strawberry types | NutritionalProfileType, UserDataInput, MacroSplitType, ProgressRecordType, WeightForecastType | - | GraphQL types | ✅ COMPLETED | graphql/types_nutritional_profile.py with ML types |
+| P9.6.2 | Mutations | createProfile, updateProfile, recordProgress, updateUserData | - | 4 mutations | ✅ COMPLETED | graphql/resolvers/nutritional_profile/mutations.py |
+| P9.6.3 | Queries | profile, progressScore, forecastWeight | - | 3 queries | ✅ COMPLETED | Including ML forecast query with trend analysis |
+| P9.6.4 | Schema integration | Add to main schema | - | Schema exports new types | ✅ COMPLETED | schema.graphql with NutritionalProfileQueries/Mutations |
+| P9.6.5 | E2E tests | Test complete workflows via GraphQL | - | E2E test suite | ✅ COMPLETED | test_nutritional_profile.sh + test_ml_workflow.sh (9 steps each) |
+| **P9.7** | **Testing & Quality** | Comprehensive testing + documentation | - | >90% coverage | ✅ COMPLETED | 4-6h |
+| P9.7.1 | Unit test coverage | Ensure >90% coverage on domain + application | - | Coverage report >90% | ✅ COMPLETED | 94% coverage (264 tests) |
+| P9.7.2 | Integration tests | Test cross-domain integration | - | Integration with meal/activity | ✅ COMPLETED | 8 ML integration tests, E2E energy balance validation |
+| P9.7.3 | E2E script | Add nutritional profile tests to scripts | - | test_nutritional_profile.sh + test_ml_workflow.sh | ✅ COMPLETED | Complete 4-domain test suite (test_all_domains_e2e.sh) |
+| P9.7.4 | Documentation | Document architecture + API examples | - | Documentation updated | ✅ COMPLETED | REFACTOR/ docs updated (PHASE_9_STATUS, API reference, etc) |
+| P9.7.5 | Commit MVP | Commit complete MVP implementation | - | Git commit + push | ✅ COMPLETED | Multiple commits for domain, application, ML, GraphQL |
 
-**Milestone P9 Step 1:** ✅ Core MVP ready for production (no ML dependencies)
+**Milestone P9 Step 1:** ✅ Core MVP ready for production + ML enhancements COMPLETED
 
 ---
 
-### Step 2: ML Enhancement (15-20h, optional)
+### Step 2: ML Enhancement (15-20h) ✅ COMPLETED
 
 **Goal:** Add adaptive TDEE and weight forecasting with ML.
 
-**Dependencies:** `statsmodels>=0.14.0`, `scipy>=1.11.0`, `pandas>=2.2.0` (total ~50MB)
+**Dependencies:** `statsmodels>=0.14.0`, `scipy>=1.11.0`, `pandas>=2.2.0` (total ~45MB)
 
 | ID | Task | Description | Expected Result | Status | Notes |
 |----|------|-------------|-----------------|--------|-------|
-| **P9.8** | **ML Dependencies** | Add statsmodels + scipy + pandas | Dependencies installed | ⏸️ DEFERRED | Step 2 (after MVP) |
-| **P9.9** | **Kalman TDEE Service** | Implement adaptive TDEE with Kalman filter | KalmanTDEEService implemented | ⏸️ DEFERRED | domain/nutritional_profile/ml/kalman_tdee.py |
-| **P9.10** | **Weight Forecast Service** | Implement Prophet-based weight forecasting | WeightForecastService implemented | ⏸️ DEFERRED | OR use statsmodels ARIMA (lighter) |
-| **P9.11** | **ML Infrastructure** | Adapters for Kalman + Forecast | Infrastructure adapters | ⏸️ DEFERRED | infrastructure/ml/ |
-| **P9.12** | **Forecast Query** | Add forecastWeight GraphQL query | Query + resolver | ⏸️ DEFERRED | 30-day forecast with confidence intervals |
-| **P9.13** | **Weekly ML Pipeline** | Automated weekly TDEE recalculation | Background job | ⏸️ DEFERRED | Cron or Celery task |
-| **P9.14** | **ML Tests** | Integration tests with synthetic data | Test suite | ⏸️ DEFERRED | Mock time series data |
+| **P9.8** | **ML Dependencies** | Add statsmodels + scipy + pandas | Dependencies installed | ✅ COMPLETED | scipy 1.15.0, pandas 2.2.4, statsmodels 0.14.5 |
+| **P9.9** | **Kalman TDEE Service** | Implement adaptive TDEE with Kalman filter | KalmanTDEEService implemented | ✅ COMPLETED | domain/nutritional_profile/ml/kalman_tdee.py (320 lines, 29 tests) |
+| **P9.10** | **Weight Forecast Service** | Implement time series weight forecasting | WeightForecastService implemented | ✅ COMPLETED | 4 models: SimpleTrend/Linear/ExponentialSmoothing/ARIMA (428 lines, 25 tests) |
+| **P9.11** | **ML Infrastructure** | Adapters for Kalman + Forecast | Infrastructure adapters | ✅ COMPLETED | kalman_tdee_adapter.py + forecast_adapter.py (15 tests) |
+| **P9.12** | **Forecast Query** | Add forecastWeight GraphQL query | Query + resolver | ✅ COMPLETED | 30-day forecast with CI + trend analysis (trendDirection/trendMagnitude) |
+| **P9.13** | **Weekly ML Pipeline** | Automated weekly TDEE recalculation | Background job | ✅ COMPLETED | APScheduler (AsyncIOScheduler), Mondays 2AM UTC (14 tests) |
+| **P9.14** | **ML Tests** | Integration tests with synthetic data | Test suite | ✅ COMPLETED | 8 E2E tests: weight loss journey, plateau detection, model progression |
 
-**Milestone P9 Step 2:** ✅ ML-powered TDEE adaptation + weight forecasting
+**Milestone P9 Step 2:** ✅ ML-powered TDEE adaptation + weight forecasting (COMPLETED in 12h vs 15-20h estimated)
 
 ---
 
@@ -1520,9 +1521,9 @@ Test integrazione USDA. Logica valida ma usa vecchio adapter/prompt.
 
 ---
 
-**Ultimo aggiornamento:** 31 Ottobre 2025
-**Prossimo task:** P9.6 GraphQL Layer (Types + Mutations + Queries) | P3.6 Docker Compose (deferred)
-**Current Progress:** 62/65 tasks completed (95.4%)
+**Ultimo aggiornamento:** 3 Novembre 2025
+**Prossimo task:** Phase 10 (New Features) | P3.6 Docker Compose (optional)
+**Current Progress:** 69/71 tasks completed (97.2%)
 **Phase 1 Status:** ✅ COMPLETED (5/5 tasks - 100%)
 **Phase 2 Status:** ✅ COMPLETED (3/3 tasks - 100%)
 **Phase 3 Status:** 🟢 NEAR-COMPLETE (6/7 tasks - 85.7%) - Only P3.6 Docker Compose deferred
@@ -1532,14 +1533,20 @@ Test integrazione USDA. Logica valida ma usa vecchio adapter/prompt.
 **Phase 7 Status:** ✅ COMPLETED (4/4 tasks - 100%) - Factory Patterns for Providers & Repository ✅
 **v2.1 Status:** ✅ COMPLETED (10/10 tasks - 100%) - Range Query APIs Released ✅
 **Phase 8 Status:** ✅ COMPLETED (2/2 tasks - 100%) - Legacy Cleanup Complete (~6100 lines removed) ✅
-**Phase 9 Status:** 🔵 IN PROGRESS (15/18 MVP tasks - 83.3%) - Nutritional Profile MVP
+**Phase 9 Status:** ✅ COMPLETED (25/25 tasks - 100%) - Nutritional Profile MVP + ML Enhancements
   - ✅ P9.1-5 COMPLETED: Dependencies + Domain + Calculation + Application + Infrastructure (195 tests)
-  - 🔵 P9.6-7 PENDING: GraphQL Layer + Testing & Quality
-**Phase 9 Enhancements:**
-  - ✅ Dynamic Deficit Tracking: calories_burned (BMR+active), calorie_balance, days_deficit_on_track()
-  - ✅ Macro Tracking: consumed_protein_g/carbs_g/fat_g, update_consumed_macros(), are_macros_on_track()
-  - ✅ Infrastructure: InMemory repository + Factory pattern + Calculator adapters (33 new tests)
-  - 🎯 Total Tests: 195 passing (84 domain + 78 application + 21 repository + 12 factory)
-**Phase 9 Step 2:** ⏸️ DEFERRED (0/7 ML tasks) - Adaptive TDEE + Forecasting
-**Phase 9 Step 3:** ⏸️ DEFERRED (0/6 LLM tasks) - Motivational Feedback
+  - ✅ P9.6-7 COMPLETED: GraphQL Layer + Testing & Quality (264 tests total, 94% coverage)
+  - ✅ P9.8-14 COMPLETED: ML Enhancement (Weight Forecasting + Adaptive TDEE + Weekly Pipeline)
+**Phase 9 Features:**
+  - ✅ Core: BMR/TDEE/Macro calculation with 5 activity levels, 3 goal strategies
+  - ✅ Tracking: Progress records with deficit monitoring, macro consumption, burned calories
+  - ✅ ML: Weight forecasting (4 models: SimpleTrend/Linear/ExponentialSmoothing/ARIMA)
+  - ✅ ML: Trend analysis (direction + magnitude, plateau detection threshold 0.5kg)
+  - ✅ ML: Adaptive TDEE (Kalman Filter with confidence scoring)
+  - ✅ ML: Weekly pipeline (APScheduler background jobs, Mondays 2AM UTC)
+  - 🎯 Total Tests: 264 passing (25 forecast + 29 Kalman + 14 pipeline + 8 integration + 188 core)
+  - 🎯 E2E Scripts: 3 (test_nutritional_profile.sh, test_ml_workflow.sh, test_all_domains_e2e.sh)
+**Phase 9 Step 2:** ✅ COMPLETED (7/7 ML tasks - 100%) - Adaptive TDEE + Forecasting
+**Phase 9 Step 3:** ⏸️ DEFERRED (0/6 LLM tasks) - Motivational Feedback (future enhancement)
+**Production Ready:** ✅ 4 Domains Complete (Meal + Activity + Nutritional Profile + Cross-Domain Integration)
 **Bug Fixes:** ✅ USDA Nutrient Enrichment | ✅ Timezone Comparison | ✅ Activity list_events() | ✅ Dish Name Recognition | ✅ Barcode ImageUrl

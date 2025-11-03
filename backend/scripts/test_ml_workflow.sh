@@ -67,7 +67,7 @@ forecast_weight() {
     curl -s -X POST "${GRAPHQL_ENDPOINT}" \
         -H "Content-Type: application/json" \
         -d "{
-            \"query\": \"query ForecastWeight(\$profileId: String!, \$daysAhead: Int, \$confidenceLevel: Float) { nutritionalProfile { forecastWeight(profileId: \$profileId, daysAhead: \$daysAhead, confidenceLevel: \$confidenceLevel) { profileId generatedAt modelUsed confidenceLevel dataPointsUsed predictions { date predictedWeight lowerBound upperBound } } } }\",
+            \"query\": \"query ForecastWeight(\$profileId: String!, \$daysAhead: Int, \$confidenceLevel: Float) { nutritionalProfile { forecastWeight(profileId: \$profileId, daysAhead: \$daysAhead, confidenceLevel: \$confidenceLevel) { profileId generatedAt modelUsed confidenceLevel dataPointsUsed trendDirection trendMagnitude predictions { date predictedWeight lowerBound upperBound } } } }\",
             \"variables\": {
                 \"profileId\": \"${profile_id}\",
                 \"daysAhead\": ${days_ahead},
@@ -86,16 +86,19 @@ echo -e "${BLUE}-------------------------------------------${NC}"
 CREATE_PROFILE=$(curl -s -X POST "${GRAPHQL_ENDPOINT}" \
     -H "Content-Type: application/json" \
     -d "{
-        \"query\": \"mutation CreateProfile(\$input: CreateNutritionalProfileInput!) { nutritionalProfile { createNutritionalProfile(input: \$input) { profileId userId goal userData { weight height age sex activityLevel } bmr { value } tdee { value } caloriesTarget macroSplit { proteinG carbsG fatG } } } }\",
+        \"query\": \"mutation CreateProfile(\$input: CreateProfileInput!) { nutritionalProfile { createNutritionalProfile(input: \$input) { profileId userId goal userData { weight height age sex activityLevel } bmr { value } tdee { value } caloriesTarget macroSplit { proteinG carbsG fatG } } } }\",
         \"variables\": {
             \"input\": {
                 \"userId\": \"${USER_ID}\",
-                \"weight\": 85.0,
-                \"height\": 175.0,
-                \"age\": 35,
-                \"sex\": \"M\",
-                \"activityLevel\": \"MODERATE\",
-                \"goal\": \"CUT\"
+                \"userData\": {
+                    \"weight\": 85.0,
+                    \"height\": 175.0,
+                    \"age\": 35,
+                    \"sex\": \"M\",
+                    \"activityLevel\": \"MODERATE\"
+                },
+                \"goal\": \"CUT\",
+                \"initialWeight\": 85.0
             }
         }
     }")
@@ -157,10 +160,10 @@ for i in $(seq 0 29); do
     ADD_PROGRESS=$(curl -s -X POST "${GRAPHQL_ENDPOINT}" \
         -H "Content-Type: application/json" \
         -d "{
-            \"query\": \"mutation AddProgress(\$input: AddProgressRecordInput!) { nutritionalProfile { addProgressRecord(input: \$input) { recordId date weight consumedCalories } } }\",
+            \"query\": \"mutation RecordProgress(\$input: RecordProgressInput!) { nutritionalProfile { recordProgress(input: \$input) { date weight consumedCalories } } }\",
             \"variables\": {
                 \"input\": {
-                    \"userId\": \"${USER_ID}\",
+                    \"profileId\": \"${PROFILE_ID}\",
                     \"date\": \"${RECORD_DATE}\",
                     \"weight\": ${WEIGHT},
                     \"consumedCalories\": ${CONSUMED_CALORIES}
@@ -170,6 +173,9 @@ for i in $(seq 0 29); do
     
     if echo "$ADD_PROGRESS" | grep -q '"errors"'; then
         echo -e "${RED}❌ Error adding progress for day $i${NC}"
+        if [ $i -eq 0 ]; then
+            echo "$ADD_PROGRESS" | jq '.errors[0].message' 2>/dev/null || echo "$ADD_PROGRESS"
+        fi
         continue
     fi
     
@@ -246,6 +252,8 @@ FIRST_PREDICTION=$(echo "$FORECAST_30" | jq -r '.data.nutritionalProfile.forecas
 LAST_PREDICTION=$(echo "$FORECAST_30" | jq -r '.data.nutritionalProfile.forecastWeight.predictions[-1].predictedWeight')
 FIRST_LOWER=$(echo "$FORECAST_30" | jq -r '.data.nutritionalProfile.forecastWeight.predictions[0].lowerBound')
 FIRST_UPPER=$(echo "$FORECAST_30" | jq -r '.data.nutritionalProfile.forecastWeight.predictions[0].upperBound')
+TREND_DIRECTION=$(echo "$FORECAST_30" | jq -r '.data.nutritionalProfile.forecastWeight.trendDirection')
+TREND_MAGNITUDE=$(echo "$FORECAST_30" | jq -r '.data.nutritionalProfile.forecastWeight.trendMagnitude')
 
 echo -e "${GREEN}✅ Weight forecast generated successfully!${NC}"
 echo "  Model used: ${MODEL_USED}"
@@ -261,12 +269,18 @@ echo "  Day 30 prediction:"
 echo "    Weight: $(echo $LAST_PREDICTION | awk '{printf "%.1f", $1}') kg"
 echo ""
 
-# Verify trend is downward (CUT goal)
-WEIGHT_CHANGE=$(echo "$LAST_PREDICTION - $LATEST_WEIGHT" | bc -l)
-if (( $(echo "$WEIGHT_CHANGE < 0" | bc -l) )); then
-    echo -e "  ${GREEN}✅ Trend is downward ($(echo $WEIGHT_CHANGE | awk '{printf "%.1f", $1}') kg) - consistent with CUT goal${NC}"
+# Display trend analysis from ML model
+echo "  📊 Trend Analysis:"
+echo "    Direction: ${TREND_DIRECTION}"
+echo "    Magnitude: $(echo $TREND_MAGNITUDE | awk '{printf "%.2f", $1}') kg"
+
+# Verify trend consistency with goal
+if [ "$TREND_DIRECTION" = "decreasing" ]; then
+    echo -e "  ${GREEN}✅ Trend is ${TREND_DIRECTION} - consistent with CUT goal${NC}"
+elif [ "$TREND_DIRECTION" = "stable" ]; then
+    echo -e "  ${YELLOW}⚠️  Trend is ${TREND_DIRECTION} - may indicate plateau (consider adjusting calories)${NC}"
 else
-    echo -e "  ${YELLOW}⚠️  Trend is upward/flat ($(echo $WEIGHT_CHANGE | awk '{printf "%.1f", $1}') kg) - unexpected for CUT goal${NC}"
+    echo -e "  ${RED}❌ Trend is ${TREND_DIRECTION} - unexpected for CUT goal${NC}"
 fi
 echo ""
 
@@ -467,7 +481,7 @@ echo "  • Time series forecasting: ${MODEL_USED}"
 echo "  • Data points used: ${DATA_POINTS}"
 echo "  • Prediction accuracy: Within confidence bounds"
 echo "  • Response time: ${RESPONSE_TIME_MS} ms"
-echo "  • Trend analysis: $([ $(echo "$WEIGHT_CHANGE < 0" | bc -l) -eq 1 ] && echo "Downward (correct)" || echo "Upward/flat (check)")"
+echo "  • Trend analysis: ${TREND_DIRECTION} (${TREND_MAGNITUDE} kg)"
 echo ""
 echo -e "${GREEN}🎉 ML workflow test completed successfully!${NC}"
 echo ""

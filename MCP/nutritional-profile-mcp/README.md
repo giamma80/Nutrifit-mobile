@@ -13,6 +13,13 @@ Model Context Protocol server for the Nutrifit Nutritional Profile domain.
 - `get_progress_score` - Analyze progress over date range
 - `record_progress` - Log daily weight + calories + macros
 
+### 🤖 **ML Forecasting** (NEW in Phase 9)
+- `forecast_weight` - ML-powered weight predictions with trend analysis
+  - 4 adaptive models: SimpleTrend, LinearRegression, ExponentialSmoothing, ARIMA
+  - Trend detection: "decreasing", "stable", "increasing"
+  - Plateau detection: ±0.5 kg threshold
+  - Confidence intervals: 68%, 95%, 99%
+
 ## Installation
 
 ```bash
@@ -77,6 +84,23 @@ User: "Log today's progress: 83.5kg, ate 2,200 kcal, burned 450 kcal"
 Claude uses: record_progress
 → Calculates deficit: -450 kcal
 Claude: "Progress logged! You're 136 kcal under your target today."
+```
+
+### ML weight forecast (NEW)
+```
+User: "When will I reach my goal weight of 75kg?"
+Claude uses: forecast_weight (profileId: "...", daysAhead: 90)
+→ Model: ExponentialSmoothing (18 data points)
+→ Trend: decreasing (-4.2 kg over 90 days)
+→ Predicted day 60: 75.3 kg [73.8 - 76.8]
+Claude: "Based on ML analysis, you'll likely reach 75kg in about 60 days..."
+
+User: "Why isn't my weight changing?"
+Claude uses: forecast_weight (profileId: "...", daysAhead: 30)
+→ Model: LinearRegression (10 data points)
+→ Trend: stable (-0.3 kg over 30 days)
+→ Insight: "Plateau detected"
+Claude: "ML analysis shows a plateau. Consider adjusting calorie intake..."
 ```
 
 ## Key Calculations

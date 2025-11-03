@@ -1358,6 +1358,147 @@ query WeeklyProgress {
 
 ---
 
+#### `nutritionalProfile.forecastWeight` 🤖 ML-POWERED
+
+Genera previsioni di peso future usando modelli di machine learning su serie temporali.
+
+**Uso**:
+```graphql
+query {
+  nutritionalProfile {
+    forecastWeight(
+      profileId: "279ed963-39b3-477a-a12c-cd4703d8464c"
+      daysAhead: 30
+      confidenceLevel: 0.95
+    ) {
+      profileId
+      generatedAt
+      modelUsed
+      confidenceLevel
+      dataPointsUsed
+      trendDirection
+      trendMagnitude
+      predictions {
+        date
+        predictedWeight
+        lowerBound
+        upperBound
+      }
+    }
+  }
+}
+```
+
+**Parametri**:
+- `profileId` (String!): ID del profilo nutrizionale
+- `daysAhead` (Int, opzionale, default: 30): Giorni futuri da prevedere (1-90)
+- `confidenceLevel` (Float, opzionale, default: 0.95): Livello confidenza intervalli (0.68, 0.95, 0.99)
+
+**Ritorna**: `WeightForecastType` con previsioni e metadati
+
+**Campi Ritornati**:
+- `profileId`: ID profilo utilizzato
+- `generatedAt`: Timestamp generazione forecast
+- `modelUsed`: Modello ML utilizzato (SimpleTrend, LinearRegression, ExponentialSmoothing, ARIMA)
+- `confidenceLevel`: Livello confidenza intervalli (es: 0.95 = 95%)
+- `dataPointsUsed`: Numero record progresso utilizzati per training
+- `trendDirection`: Direzione trend previsto ("decreasing", "increasing", "stable")
+- `trendMagnitude`: Magnitudine variazione prevista in kg (negativo = perdita, positivo = aumento)
+- `predictions`: Array di previsioni giornaliere
+  - `date`: Data previsione
+  - `predictedWeight`: Peso previsto in kg
+  - `lowerBound`: Limite inferiore intervallo confidenza
+  - `upperBound`: Limite superiore intervallo confidenza
+
+**Selezione Automatica Modello** (data-driven):
+- **SimpleTrend** (<7 data points): Estrapolazione lineare con intervalli espansi
+- **LinearRegression** (7-13 points): Regressione lineare OLS con intervalli predizione
+- **ExponentialSmoothing** (14-29 points): Holt's method per trend + stagionalità
+- **ARIMA(1,1,1)** (30+ points): Modello time series completo con fallback
+
+**Trend Analysis** 🎯:
+- **Stable** (`|magnitude| < 0.5 kg`): Plateau rilevato
+  - Insight: Considera aggiustare calorie per rompere plateau
+- **Decreasing** (`magnitude < -0.5 kg`): Perdita peso prevista
+  - Insight: Trend coerente con obiettivo CUT
+- **Increasing** (`magnitude > 0.5 kg`): Aumento peso previsto
+  - Insight: Trend coerente con obiettivo BULK o verifica deficit
+
+**Requisiti Minimi**:
+- Almeno 2 record di progresso nel profilo
+- Record ordinati cronologicamente
+- Peso sempre positivo
+
+**Validazione**:
+- `daysAhead` deve essere tra 1 e 90
+- `confidenceLevel` deve essere 0.68, 0.95 o 0.99
+- Se dati insufficienti → errore esplicativo
+
+**Confidenza Intervalli**:
+- **95%**: Intervallo standard, 95% probabilità peso reale sia nell'intervallo
+- **68%**: Intervallo stretto, ~1 deviazione standard
+- **99%**: Intervallo largo, massima confidenza
+
+**Performance**:
+- Response time tipico: 30-170ms
+- Cache: Non implementata (calcoli veloci)
+- Background job: Nessuno (on-demand)
+
+**Casi d'uso**:
+- Dashboard "Goal Prediction": "You'll reach 75kg by 2025-12-15"
+- Motivazione utente: Visualizzare progresso futuro
+- Validazione piano: "At current rate, you'll lose 5kg in 60 days"
+- Plateau detection: "Weight stable for 14 days, consider calorie adjustment"
+
+**Esempio pratico - Previsione 2 settimane**:
+```graphql
+query ShortTermForecast {
+  nutritionalProfile {
+    forecastWeight(
+      profileId: "abc-123"
+      daysAhead: 14
+      confidenceLevel: 0.95
+    ) {
+      modelUsed              # "ExponentialSmoothing"
+      trendDirection         # "decreasing"
+      trendMagnitude         # -0.8 (kg)
+      predictions {
+        date                 # "2025-11-17"
+        predictedWeight      # 82.3
+        lowerBound           # 81.5
+        upperBound           # 83.1
+      }
+    }
+  }
+}
+```
+
+**Esempio pratico - Plateau Detection**:
+```graphql
+query CheckPlateau {
+  nutritionalProfile {
+    forecastWeight(profileId: "abc-123", daysAhead: 7) {
+      trendDirection         # "stable"
+      trendMagnitude         # 0.2 (kg, within threshold)
+      # UI: Show "⚠️ Weight plateau detected. Consider adjusting calories."
+    }
+  }
+}
+```
+
+**Differenze con altre query**:
+- **vs `progressScore`**: `forecastWeight` prevede FUTURO, `progressScore` analizza PASSATO
+- **vs `nutritionalProfile`**: `forecastWeight` usa ML per predizioni, `nutritionalProfile` mostra dati attuali
+- **Vantaggio**: Predizioni scientifiche con intervalli confidenza, non semplici trend lineari
+
+**Note ML**:
+- ARIMA può fallire convergenza → graceful fallback a ExponentialSmoothing
+- Intervalli confidenza si espandono nel tempo (maggiore incertezza)
+- Peso costante → SimpleTrend con previsioni stabili
+- Trend Detection considera solo primo e ultimo giorno previsioni (robust to noise)
+
+---
+
 ### Mutations: `nutritionalProfile`
 
 #### `nutritionalProfile.createNutritionalProfile`

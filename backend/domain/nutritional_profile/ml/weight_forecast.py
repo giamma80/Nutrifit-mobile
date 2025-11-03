@@ -59,6 +59,8 @@ class WeightForecast:
         upper_bound: Upper confidence bound (kg)
         model_used: Name of the model used for forecasting
         confidence_level: Confidence level used (0.0-1.0)
+        trend_direction: Overall trend ("decreasing", "increasing", "stable")
+        trend_magnitude: Magnitude of change (kg) from first to last prediction
     """
 
     dates: List[date]
@@ -67,6 +69,8 @@ class WeightForecast:
     upper_bound: List[float]
     model_used: str
     confidence_level: float
+    trend_direction: str = "stable"
+    trend_magnitude: float = 0.0
 
     def __post_init__(self) -> None:
         """Validate forecast data consistency."""
@@ -99,6 +103,36 @@ class WeightForecastService:
     # Default forecast parameters
     DEFAULT_CONFIDENCE_LEVEL = 0.95
     DEFAULT_FORECAST_DAYS = 30
+
+    # Threshold for considering weight change as "stable" (kg)
+    STABLE_THRESHOLD = 0.5
+
+    @staticmethod
+    def _calculate_trend(predictions: List[float]) -> tuple[str, float]:
+        """Calculate trend direction and magnitude from predictions.
+
+        Args:
+            predictions: List of predicted weights
+
+        Returns:
+            Tuple of (trend_direction, trend_magnitude)
+            - trend_direction: "decreasing", "increasing", or "stable"
+            - trend_magnitude: Change in kg from first to last prediction
+        """
+        if len(predictions) < 2:
+            return ("stable", 0.0)
+
+        magnitude = predictions[-1] - predictions[0]
+
+        # Classify based on threshold
+        if abs(magnitude) < WeightForecastService.STABLE_THRESHOLD:
+            direction = "stable"
+        elif magnitude < 0:
+            direction = "decreasing"
+        else:
+            direction = "increasing"
+
+        return (direction, magnitude)
 
     def forecast(
         self,
@@ -207,6 +241,9 @@ class WeightForecastService:
         last_date = dates[-1]
         future_dates = [last_date + timedelta(days=i + 1) for i in range(days_ahead)]
 
+        # Calculate trend
+        trend_direction, trend_magnitude = self._calculate_trend(predictions.tolist())
+
         return WeightForecast(
             dates=future_dates,
             predictions=predictions.tolist(),
@@ -214,6 +251,8 @@ class WeightForecastService:
             upper_bound=upper_bound,
             model_used="ARIMA(1,1,1)",
             confidence_level=confidence_level,
+            trend_direction=trend_direction,
+            trend_magnitude=trend_magnitude,
         )
 
     def _forecast_exponential_smoothing(
@@ -268,6 +307,9 @@ class WeightForecastService:
         last_date = dates[-1]
         future_dates = [last_date + timedelta(days=i + 1) for i in range(days_ahead)]
 
+        # Calculate trend
+        trend_direction, trend_magnitude = self._calculate_trend(predictions)
+
         return WeightForecast(
             dates=future_dates,
             predictions=predictions,
@@ -275,6 +317,8 @@ class WeightForecastService:
             upper_bound=upper_bound,
             model_used="ExponentialSmoothing",
             confidence_level=confidence_level,
+            trend_direction=trend_direction,
+            trend_magnitude=trend_magnitude,
         )
 
     def _forecast_linear(
@@ -323,6 +367,9 @@ class WeightForecastService:
         last_date = dates[-1]
         future_dates = [last_date + timedelta(days=i + 1) for i in range(days_ahead)]
 
+        # Calculate trend
+        trend_direction, trend_magnitude = self._calculate_trend(predictions.tolist())
+
         return WeightForecast(
             dates=future_dates,
             predictions=predictions.tolist(),
@@ -330,6 +377,8 @@ class WeightForecastService:
             upper_bound=upper_bound.tolist(),
             model_used="LinearRegression",
             confidence_level=confidence_level,
+            trend_direction=trend_direction,
+            trend_magnitude=trend_magnitude,
         )
 
     def _forecast_simple(
@@ -368,6 +417,9 @@ class WeightForecastService:
         last_date = dates[-1]
         future_dates = [last_date + timedelta(days=i + 1) for i in range(days_ahead)]
 
+        # Calculate trend
+        trend_direction, trend_magnitude = self._calculate_trend(predictions)
+
         return WeightForecast(
             dates=future_dates,
             predictions=predictions,
@@ -375,4 +427,6 @@ class WeightForecastService:
             upper_bound=upper_bound,
             model_used="SimpleTrend",
             confidence_level=confidence_level,
+            trend_direction=trend_direction,
+            trend_magnitude=trend_magnitude,
         )

@@ -283,7 +283,7 @@ class NutritionalProfileQueries:
         profile_id: str,
         days_ahead: int = 30,
         confidence_level: float = 0.95,
-    ) -> "WeightForecastType":  # type: ignore
+    ) -> WeightForecastType:
         """Generate weight forecast using ML time series analysis.
 
         Uses historical progress data to predict future weight trajectory
@@ -344,10 +344,13 @@ class NutritionalProfileQueries:
                 f"records, found {len(progress_records)}"
             )
 
+        # Sort progress records by date (ascending) for time series analysis
+        sorted_records = sorted(progress_records, key=lambda r: r.date)
+
         # Generate forecast using ML adapter
         forecast_adapter = WeightForecastAdapter()
         forecast = forecast_adapter.forecast_from_progress(
-            progress_records=progress_records,
+            progress_records=sorted_records,
             days_ahead=days_ahead,
             confidence_level=confidence_level,
         )
@@ -374,5 +377,7 @@ class NutritionalProfileQueries:
             predictions=predictions,
             model_used=forecast.model_used,
             confidence_level=forecast.confidence_level,
-            data_points_used=len(progress_records),
+            data_points_used=len(sorted_records),
+            trend_direction=forecast.trend_direction,
+            trend_magnitude=forecast.trend_magnitude,
         )

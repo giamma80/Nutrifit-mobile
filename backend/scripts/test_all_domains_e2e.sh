@@ -68,7 +68,7 @@ echo "  7. Update profile goals and metrics"
 echo ""
 echo -e "${YELLOW}⏱️  Estimated time: 4-6 minutes${NC}"
 echo ""
-read -p "Press Enter to start the test suite..." -r
+# read -p "Press Enter to start the test suite..." -r
 echo ""
 
 # ============================================

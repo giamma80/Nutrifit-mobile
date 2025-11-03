@@ -115,12 +115,12 @@ class SchedulerManager:
         self.scheduler.shutdown(wait=wait)
         logger.info(f"Scheduler shutdown (wait={wait})")
 
-    def get_jobs(self) -> list:
+    def get_jobs(self) -> list[dict[str, str]]:
         """
         Get list of scheduled jobs.
 
         Returns:
-            list: List of job information
+            list[dict[str, str]]: List of job information
         """
         if self.scheduler is None:
             return []

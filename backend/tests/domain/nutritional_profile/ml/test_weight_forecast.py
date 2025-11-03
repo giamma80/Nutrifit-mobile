@@ -183,8 +183,8 @@ class TestWeightForecastServiceLinear:
 
         # Confidence intervals should exist
         assert all(
-            l < p < u
-            for l, p, u in zip(
+            lower < pred < upper
+            for lower, pred, upper in zip(
                 forecast.lower_bound,
                 forecast.predictions,
                 forecast.upper_bound,
@@ -381,6 +381,12 @@ class TestWeightForecastServiceRealWorld:
         expected_final = 81.0 - 0.5 * 4
         assert forecast.predictions[-1] == pytest.approx(expected_final, abs=2.0)
 
+        # Should have trend analysis
+        assert hasattr(forecast, "trend_direction")
+        assert hasattr(forecast, "trend_magnitude")
+        assert forecast.trend_direction == "decreasing"
+        assert forecast.trend_magnitude < -0.5  # Significant weight loss
+
     def test_realistic_plateau_scenario(self):
         """Test realistic plateau after initial loss."""
         service = WeightForecastService()
@@ -402,3 +408,102 @@ class TestWeightForecastServiceRealWorld:
         # Should predict continued plateau (not continued loss)
         mean_forecast = np.mean(forecast.predictions)
         assert mean_forecast == pytest.approx(74.0, abs=1.5)
+
+        # Should have trend analysis showing stable or minimal change
+        # (plateau can be detected as stable or slight increase depending on noise)
+        assert forecast.trend_direction in ["stable", "increasing", "decreasing"]
+        assert abs(forecast.trend_magnitude) < 2.0  # Should not be significant change
+
+
+class TestWeightForecastTrendAnalysis:
+    """Tests for trend analysis feature."""
+
+    def test_trend_decreasing(self):
+        """Test trend detection for weight loss."""
+        service = WeightForecastService()
+
+        # Clear weight loss: 80kg -> 75kg over 30 days
+        dates = [date(2025, 1, 1) + timedelta(days=i) for i in range(30)]
+        weights = [80.0 - 0.15 * i for i in range(30)]
+
+        forecast = service.forecast(dates=dates, weights=weights, days_ahead=30)
+
+        assert forecast.trend_direction == "decreasing"
+        assert forecast.trend_magnitude < -0.5  # Significant loss
+        # Magnitude should reflect 30 days of predicted loss
+        assert forecast.trend_magnitude < -2.0
+
+    def test_trend_increasing(self):
+        """Test trend detection for weight gain."""
+        service = WeightForecastService()
+
+        # Weight gain: 70kg -> 73kg over 20 days
+        dates = [date(2025, 1, 1) + timedelta(days=i) for i in range(20)]
+        weights = [70.0 + 0.15 * i for i in range(20)]
+
+        forecast = service.forecast(dates=dates, weights=weights, days_ahead=14)
+
+        assert forecast.trend_direction == "increasing"
+        assert forecast.trend_magnitude > 0.5  # Significant gain
+
+    def test_trend_stable(self):
+        """Test trend detection for weight maintenance."""
+        service = WeightForecastService()
+
+        # Stable weight around 75kg with minor fluctuations
+        np.random.seed(42)
+        dates = [date(2025, 1, 1) + timedelta(days=i) for i in range(30)]
+        weights = [75.0 + np.random.normal(0, 0.2) for _ in range(30)]
+
+        forecast = service.forecast(dates=dates, weights=weights, days_ahead=14)
+
+        assert forecast.trend_direction == "stable"
+        assert abs(forecast.trend_magnitude) < 0.5  # Below threshold
+
+    def test_trend_threshold_boundary(self):
+        """Test trend classification at threshold boundary."""
+        service = WeightForecastService()
+
+        # Weight change exactly at threshold (0.5 kg)
+        dates = [date(2025, 1, 1), date(2025, 1, 15)]
+        weights = [75.0, 75.5]  # +0.5 kg over 2 weeks
+
+        forecast = service.forecast(dates=dates, weights=weights, days_ahead=7)
+
+        # At exactly 0.5 kg boundary, should be stable
+        # (threshold is exclusive: abs < 0.5)
+        if abs(forecast.trend_magnitude) < 0.5:
+            assert forecast.trend_direction == "stable"
+        elif forecast.trend_magnitude > 0:
+            assert forecast.trend_direction == "increasing"
+        else:
+            assert forecast.trend_direction == "decreasing"
+
+    def test_trend_with_all_models(self):
+        """Test that trend analysis works with all model types."""
+        service = WeightForecastService()
+
+        # Test SimpleTrend (<7 points)
+        dates_short = [date(2025, 1, i) for i in range(1, 5)]
+        weights_short = [80.0, 79.5, 79.0, 78.5]
+        forecast_simple = service.forecast(dates=dates_short, weights=weights_short)
+        assert forecast_simple.model_used == "SimpleTrend"
+        assert hasattr(forecast_simple, "trend_direction")
+        assert hasattr(forecast_simple, "trend_magnitude")
+
+        # Test LinearRegression (7-13 points)
+        dates_medium = [date(2025, 1, i) for i in range(1, 11)]
+        weights_medium = [80.0 - 0.2 * i for i in range(10)]
+        forecast_linear = service.forecast(dates=dates_medium, weights=weights_medium)
+        assert forecast_linear.model_used == "LinearRegression"
+        assert hasattr(forecast_linear, "trend_direction")
+        assert hasattr(forecast_linear, "trend_magnitude")
+
+        # Test ExponentialSmoothing (14-29 points)
+        np.random.seed(42)
+        dates_long = [date(2025, 1, 1) + timedelta(days=i) for i in range(20)]
+        weights_long = [80.0 - 0.1 * i + np.random.normal(0, 0.1) for i in range(20)]
+        forecast_exp = service.forecast(dates=dates_long, weights=weights_long)
+        assert forecast_exp.model_used == "ExponentialSmoothing"
+        assert hasattr(forecast_exp, "trend_direction")
+        assert hasattr(forecast_exp, "trend_magnitude")

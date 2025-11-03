@@ -161,8 +161,12 @@ class TestKalmanTDEEServiceUpdate:
 
         # Force large weight gain to drive TDEE down
         service.update(weight_kg=80.0, consumed_calories=500.0)
+        prev_weight = service.state.previous_weight
+        assert prev_weight is not None
         for _ in range(10):
-            service.update(weight_kg=service.state.previous_weight + 0.5, consumed_calories=500.0)
+            service.update(weight_kg=prev_weight + 0.5, consumed_calories=500.0)
+            prev_weight = service.state.previous_weight
+            assert prev_weight is not None
 
         # TDEE should be clamped at minimum
         assert service.state.tdee >= 500.0
@@ -173,8 +177,12 @@ class TestKalmanTDEEServiceUpdate:
 
         # Force large weight loss to drive TDEE up
         service.update(weight_kg=80.0, consumed_calories=9500.0)
+        prev_weight = service.state.previous_weight
+        assert prev_weight is not None
         for _ in range(10):
-            service.update(weight_kg=service.state.previous_weight - 0.5, consumed_calories=9500.0)
+            service.update(weight_kg=prev_weight - 0.5, consumed_calories=9500.0)
+            prev_weight = service.state.previous_weight
+            assert prev_weight is not None
 
         # TDEE should be clamped at maximum
         assert service.state.tdee <= 10000.0

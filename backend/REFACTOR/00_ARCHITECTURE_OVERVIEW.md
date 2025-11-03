@@ -1,8 +1,8 @@
-# 🏗️ Meal Domain - Architecture Overview
+# 🏗️ Nutrifit Backend - Architecture Overview
 
-**Data:** 29 Ottobre 2025  
-**Versione:** 2.1  
-**Status:** Architecture Definition
+**Data:** 3 Novembre 2025  
+**Versione:** 3.0  
+**Status:** Production Ready - 4 Domains Implemented
 
 ---
 
@@ -14,24 +14,26 @@
 4. [Technology Stack](#technology-stack)
 5. [Project Structure](#project-structure)
 6. [Integration Points](#integration-points)
+7. [Implemented Domains](#implemented-domains)
 
 ---
 
 ## 🎯 Vision & Goals
 
 ### Vision
-Costruire un sistema di meal tracking modulare, manutenibile e performante che supporti:
-- Analisi AI di foto pasto (OpenAI Vision)
-- Lookup barcode (OpenFoodFacts)
-- Descrizione testuale
-- Arricchimento nutrizionale (USDA)
+Costruire un sistema completo di fitness tracking modulare, manutenibile e performante con **4 domini core**:
+1. **Meal Domain**: AI-powered food tracking (OpenAI Vision, OpenFoodFacts, USDA)
+2. **Activity Domain**: Health data sync and calorie tracking
+3. **Nutritional Profile Domain**: Personalized BMR/TDEE/Macro calculation + ML forecasting
+4. **Goal Tracking**: Cross-domain analytics and progress monitoring
 
 ### Goals
-- ✅ **Manutenibilità**: Clean Architecture + DDD
-- ✅ **Performance**: Caching aggressivo, circuit breakers
-- ✅ **Innovazione**: Nuove capabilities senza breaking changes
-- ✅ **Testing**: >90% coverage, test pyramid
+- ✅ **Manutenibilità**: Clean Architecture + DDD per tutti i domini
+- ✅ **Performance**: Caching aggressivo, circuit breakers, async operations
+- ✅ **Innovazione**: ML-powered insights (weight forecasting, adaptive TDEE)
+- ✅ **Testing**: >90% coverage, complete E2E validation
 - ✅ **Disaccoppiamento**: Ports & Adapters per sostituibilità
+- ✅ **Scalabilità**: Multi-domain architecture pronta per microservices
 
 ---
 
@@ -451,23 +453,169 @@ type Mutation {
 
 ---
 
-## 📝 Recent Updates (v2.1 - 29 Oct 2025)
+## 🎯 Implemented Domains
 
-### New Range Query APIs
-- **`meals.summaryRange`**: Multi-day nutrition aggregates with flexible grouping (DAY/WEEK/MONTH)
-  - Returns wrapper type: `RangeSummaryResult { periods: [PeriodSummary!]!, total: PeriodSummary! }`
-  - Optimized for dashboard queries (1 query instead of N loops)
-  
-- **`activity.aggregateRange`**: Multi-day activity aggregates with flexible grouping
-  - Returns wrapper type: `ActivityRangeResult { periods: [ActivityPeriodSummary!]!, total: ActivityPeriodSummary! }`
-  - Supports DAY/WEEK/MONTH grouping for goal tracking and trend analysis
+### 1. 🍽️ Meal Domain (Phase 7)
+**Status**: ✅ Production Ready  
+**Purpose**: AI-powered food tracking and nutrition analysis
 
-### Architecture Enhancements
-- **Atomic Timezone Parser**: `parse_datetime_to_naive_utc()` helper for consistent timezone handling
-- **Shared Domain Types**: `GroupByPeriod` enum in `domain/shared/types.py`
-- **Repository Fixes**: Improved timezone comparison in meal/activity repositories
+**Core Features**:
+- Photo analysis (OpenAI Vision GPT-4o-mini)
+- Barcode scanning (OpenFoodFacts API)
+- Text description parsing
+- USDA nutrition enrichment
+- Daily/weekly/monthly summaries
+
+**Key Entities**:
+- `Meal` (aggregate root)
+- `MealEntry` (entity)
+- `NutrientProfile` (value object)
+
+**GraphQL API**:
+```graphql
+query {
+  meals {
+    meal(id: ID!, userId: ID!): Meal
+    mealHistory(...): MealConnection!
+    dailySummary(userId: ID!, date: Date!): NutritionSummary!
+    summaryRange(...): RangeSummaryResult!  # Multi-day aggregates
+  }
+}
+
+mutation {
+  analyzeMealPhoto(input: PhotoAnalysisInput!): MealAnalysis!
+  confirmMealAnalysis(analysisId: ID!, ...): Meal!
+}
+```
+
+**Test Coverage**: 95% (120+ tests)
 
 ---
 
-**Last Updated**: 29 Ottobre 2025  
-**Maintainer**: Development Team
+### 2. 🏃 Activity Domain (Phase 8)
+**Status**: ✅ Production Ready  
+**Purpose**: Health data synchronization and activity tracking
+
+**Core Features**:
+- Minute-by-minute activity events
+- Cumulative health totals (steps, calories, HR)
+- Delta calculation for sync optimization
+- Deduplication on (userId, timestamp)
+- Multi-day aggregates with flexible grouping
+
+**Key Entities**:
+- `ActivityEvent` (minute-level data)
+- `HealthTotalsDelta` (cumulative snapshots)
+
+**GraphQL API**:
+```graphql
+query {
+  activity {
+    entries(userId: ID!, ...): [ActivityEvent!]!
+    syncEntries(date: String!, ...): [HealthTotalsDelta!]!
+    aggregateRange(...): ActivityRangeResult!  # Multi-day aggregates
+  }
+}
+
+mutation {
+  syncActivityEvents(input: SyncActivityInput!): SyncResult!
+  syncHealthTotals(input: SyncHealthTotalsInput!): SyncHealthResult!
+}
+```
+
+**Test Coverage**: 92% (85+ tests)
+
+---
+
+### 3. 📊 Nutritional Profile Domain (Phase 9)
+**Status**: ✅ Production Ready + ML Enhanced  
+**Purpose**: Personalized nutrition calculation and progress tracking
+
+**Core Features**:
+- BMR calculation (Mifflin-St Jeor formula)
+- TDEE calculation (5 activity levels)
+- Goal-based macro splits (CUT/MAINTAIN/BULK)
+- Progress tracking with deficit/macro monitoring
+- **ML-Powered**:
+  - Weight forecasting (ARIMA, ExponentialSmoothing, LinearRegression)
+  - Trend analysis (direction + magnitude)
+  - Adaptive TDEE (Kalman Filter)
+  - Weekly automated recalculation
+
+**Key Entities**:
+- `NutritionalProfile` (aggregate root)
+- `ProgressRecord` (entity)
+- `UserData`, `Goal`, `MacroSplit` (value objects)
+
+**ML Services**:
+- `WeightForecastService`: 4 time series models
+- `KalmanTDEEService`: Adaptive TDEE estimation
+- `TDEERecalculationPipeline`: Weekly background job
+
+**GraphQL API**:
+```graphql
+query {
+  nutritionalProfile {
+    profile(profileId: String, userId: String): NutritionalProfileType
+    progressScore(profileId: String!, ...): ProgressScore!
+    forecastWeight(profileId: String!, ...): WeightForecastType!  # ML-powered
+  }
+}
+
+mutation {
+  createProfile(input: CreateProfileInput!): NutritionalProfileType!
+  updateProfile(input: UpdateProfileInput!): NutritionalProfileType!
+  recordProgress(input: RecordProgressInput!): ProgressRecordType!
+}
+```
+
+**Test Coverage**: 94% (264 tests including 74 ML tests)
+
+---
+
+### 4. 🎯 Cross-Domain Integration
+**Status**: ✅ Validated via E2E Tests  
+**Purpose**: Enable data flow between domains
+
+**Integration Points**:
+1. **Meal → Profile**: Daily calorie/macro consumption
+2. **Activity → Profile**: Active calories burned
+3. **Profile**: Calculates calorie balance (IN - OUT)
+
+**E2E Validation**:
+- `test_all_domains_e2e.sh`: Complete 4-domain workflow
+- Energy balance calculation: Meals (IN) vs Activity (OUT)
+- Progress tracking with real cross-domain data
+
+---
+
+## 📝 Recent Updates (v3.0 - 3 Nov 2025)
+
+### Major Features Added
+- **ML Weight Forecasting**: 4 adaptive time series models with automatic selection
+- **Trend Analysis**: Direction (decreasing/increasing/stable) + magnitude detection
+- **Adaptive TDEE**: Kalman Filter for metabolic adaptation tracking
+- **Weekly Pipeline**: Automated TDEE recalculation (APScheduler)
+- **Complete E2E Testing**: 4-domain integration validation
+
+### Architecture Enhancements
+- **ML Infrastructure**: scipy, pandas, statsmodels integration
+- **Background Jobs**: APScheduler for recurring tasks
+- **Trend Detection**: Plateau handling as actionable insight (0.5kg threshold)
+- **Repository Pattern**: Consistent factory pattern across all domains
+
+### API Enhancements
+- **`forecastWeight` query**: ML-powered weight predictions with confidence intervals
+- **Range queries**: Multi-day aggregates for meals and activity (DAY/WEEK/MONTH)
+- **Trend fields**: `trendDirection` and `trendMagnitude` in forecast response
+
+### Quality Improvements
+- **Test Coverage**: 94% overall (264 tests in nutritional profile domain)
+- **E2E Scripts**: 3 comprehensive test scripts (profile, ML, all-domains)
+- **Documentation**: Complete architecture and API reference
+
+---
+
+**Last Updated**: 3 Novembre 2025  
+**Maintainer**: Development Team  
+**Version**: 3.0 - Multi-Domain Production Ready

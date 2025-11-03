@@ -336,3 +336,5 @@ class WeightForecastType:
     model_used: str  # Model name (ARIMA, ExponentialSmoothing, etc.)
     confidence_level: float  # Confidence level used
     data_points_used: int  # Number of historical data points
+    trend_direction: str  # Overall trend: "decreasing", "increasing", "stable"
+    trend_magnitude: float  # Change in kg from first to last prediction
