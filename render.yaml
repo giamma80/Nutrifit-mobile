@@ -40,7 +40,7 @@ services:
       - key: ENVIRONMENT
         value: production
       - key: APP_VERSION
-        value: 0.6.2
+        value: 0.7.0
       - key: PORT
         value: "8000"
       - key: LOG_LEVEL

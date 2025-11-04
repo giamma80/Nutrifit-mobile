@@ -7,6 +7,18 @@ Formato ispirato a [Keep a Changelog](https://keepachangelog.com/it-IT/1.1.0/) e
 ## [Unreleased]
 
 ### Added
+- Complete DDD refactor with ML, Docker, and CQRS (v0.6.2) (#26)
+
+### Chore
+- bump actions/setup-node from 4 to 6 (#18)
+- bump actions/upload-artifact from 4 to 5 (#22)
+- bump strawberry-graphql from 0.283.3 to 0.284.1 in /backend (#21)
+- bump uvicorn from 0.37.0 to 0.38.0 in /backend (#19)
+
+## [0.7.0] - 2025-11-04
+
+
+### Added
 - add ML integration tests for end-to-end workflows
 - add ML workflow E2E test script
 - add Phase 9 - Nutritional Profile Domain (MVP + ML + LLM)
