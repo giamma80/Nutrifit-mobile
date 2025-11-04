@@ -844,18 +844,25 @@ async def debug_schema_info():
     """Debug endpoint to inspect the GraphQL schema."""
     import strawberry
     from strawberry.printer import print_schema
-    
+
     # Check if graphql_app has the schema
-    router_schema = graphql_app.schema if hasattr(graphql_app, 'schema') else None
-    
+    router_schema = graphql_app.schema if hasattr(graphql_app, "schema") else None
+
     return {
         "module_schema_has_mutation": schema.mutation_type is not None,
-        "router_schema_has_mutation": router_schema.mutation_type is not None if router_schema else "N/A",
+        "router_schema_has_mutation": (
+            router_schema.mutation_type is not None if router_schema else "N/A"
+        ),
         "schemas_are_same_object": schema is router_schema if router_schema else False,
         "mutation_type_name": schema.mutation_type.__name__ if schema.mutation_type else None,
-        "mutation_fields": [f.name for f in schema.mutation_type._type_definition.fields] if schema.mutation_type else [],
+        "mutation_fields": (
+            [f.name for f in schema.mutation_type._type_definition.fields]
+            if schema.mutation_type
+            else []
+        ),
         "schema_preview": print_schema(schema)[:500],
     }
+
 
 # REST API: Image Upload endpoint
 from api.upload import router as upload_router  # noqa: E402

@@ -65,7 +65,7 @@ jobs:
           if [ -f package.json ]; then npm ci; fi
       - name: Sync deps (backend)
         working-directory: backend
-        run: uv sync --all-extras --dev
+        run: uv sync --frozen --all-extras --dev
       - name: Run preflight (strict md)
         working-directory: backend
         env:
@@ -154,7 +154,7 @@ jobs:
           echo "${HOME}/.local/bin" >> $GITHUB_PATH
       - name: Sync deps
         working-directory: backend
-        run: uv sync --all-extras --dev
+        run: uv sync --frozen --all-extras --dev
       - name: Run maintenance-ci target
         working-directory: backend
         run: ./make.sh maintenance-ci
