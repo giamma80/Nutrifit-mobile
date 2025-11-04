@@ -33,25 +33,31 @@ RUN curl -LsSf https://astral.sh/uv/install.sh | sh \
 
 # uv ora è globale in /usr/local/bin (nessuna dipendenza su /root)
 
-# Copia solo il manifest principale (uv.lock non versionato al momento)
-COPY pyproject.toml ./
+# Copia manifest e lockfile per garantire versioni deterministiche
+COPY pyproject.toml uv.lock ./
 
 # Sync dipendenze (solo prod per immagine runtime finale)
-RUN uv sync --no-dev --all-extras
+# --frozen garantisce che usi esattamente le versioni nel lockfile
+RUN uv sync --frozen --no-dev --all-extras
 
-# Copia sorgenti
-# Copia codice applicativo principale (incluso cache.py richiesto da app.py)
-COPY app.py cache.py nutrients.py ./
-COPY openfoodfacts ./openfoodfacts
-COPY rules ./rules
-# Repository e schema GraphQL (metrics escluso: instrumentation opzionale non necessaria runtime)
-# NUOVO: repository (in-memory meal repo) e schema GraphQL + domain DDD + metrics
-COPY ai_models ./ai_models
-COPY inference ./inference
+# Copia sorgenti (struttura attuale multi-domain)
+COPY app.py cache.py ./
+
+# API layer
+COPY api ./api
+
+# Infrastructure layer
+COPY infrastructure ./infrastructure
 COPY repository ./repository
-COPY graphql ./graphql
+
+# Multi-domain architecture
+COPY application ./application
 COPY domain ./domain
+COPY graphql ./graphql
 COPY metrics ./metrics
+
+# Scripts (per init MongoDB se necessario)
+COPY scripts ./scripts
 
 # Utente non-root con home (necessario per cache uv)
 RUN useradd -u 1000 -m appuser \

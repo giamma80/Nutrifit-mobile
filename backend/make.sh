@@ -297,7 +297,7 @@ Targets disponibili:
                     (usa COMMIT_SCOPE=all per includere modifiche fuori da backend/)
   push              Preflight + push ramo
 
-  # Docker
+  # Docker (standalone)
   check-docker      Verifica disponibilità demone Docker
   docker-build      Build immagine locale (nutrifit-backend:<TAG> default dev) es: TAG=latest ./make.sh docker-build
   docker-run        Esegui container (porta 8000) con tag corrente (TAG=... opzionale)
@@ -306,6 +306,14 @@ Targets disponibili:
   docker-restart    Restart container
   docker-shell      Entra nel container con shell interattiva
   docker-test       Esegue test integrazione (curl health/version + GraphQL)
+
+  # Docker Compose (full stack)
+  docker-up         Avvia stack completo (MongoDB + Redis + Backend)
+  docker-down       Stop e rimuove stack completo
+  docker-ps         Mostra stato containers
+  docker-logs-all   Segui log di tutti i servizi
+  docker-mongo-shell Apri shell MongoDB
+  docker-redis-cli  Apri Redis CLI
 
   # Utility
   clean             Rimuovi .venv, __pycache__, pid
@@ -945,6 +953,66 @@ EOF
   typecheck)
     header "Type check (mypy)"
     uv run mypy .
+    ;;
+
+  # ========================================
+  # Docker Compose Targets
+  # ========================================
+
+  docker-up)
+    header "Docker Compose Up"
+    cd "$REPO_ROOT" || exit 1
+    if [ ! -f docker-compose.yml ]; then
+      err "File docker-compose.yml non trovato in $REPO_ROOT"
+      exit 1
+    fi
+    if [ ! -f backend/.env ]; then
+      warn "File backend/.env mancante. Copia da backend/.env.example"
+      err "Esegui: cd backend && cp .env.example .env"
+      exit 1
+    fi
+    info "Avvio stack: MongoDB + Backend"
+    info "Configurazione backend da: backend/.env"
+    info "Repository mode: $(grep '^MEAL_REPOSITORY=' backend/.env | cut -d'=' -f2 || echo 'unknown')"
+    docker-compose up -d
+    info "Stack avviato. Verifica con: ./make.sh docker-ps"
+    info "Backend: http://localhost:8000"
+    info "MongoDB: localhost:27017"
+    info "Vedi DOCKER.md per dettagli configurazione"
+    ;;
+
+  docker-down)
+    header "Docker Compose Down"
+    cd "$REPO_ROOT" || exit 1
+    info "Arresto e rimozione stack (volumes preservati)"
+    docker-compose down
+    info "Stack fermato. Per rimuovere anche i volumes: docker-compose down -v"
+    ;;
+
+  docker-ps)
+    header "Docker Compose Status"
+    cd "$REPO_ROOT" || exit 1
+    docker-compose ps
+    ;;
+
+  docker-logs-all)
+    header "Docker Compose Logs (Ctrl+C per uscire)"
+    cd "$REPO_ROOT" || exit 1
+    docker-compose logs -f
+    ;;
+
+  docker-mongo-shell)
+    header "MongoDB Shell"
+    cd "$REPO_ROOT" || exit 1
+    info "Connessione a MongoDB (user: nutrifit, db: nutrifit)"
+    docker-compose exec mongodb mongosh -u nutrifit -p nutrifit_dev_password --authenticationDatabase admin nutrifit
+    ;;
+
+  docker-redis-cli)
+    header "Redis CLI"
+    cd "$REPO_ROOT" || exit 1
+    info "Connessione a Redis (password: nutrifit_redis_password)"
+    docker-compose exec redis redis-cli -a nutrifit_redis_password
     ;;
 
   *)

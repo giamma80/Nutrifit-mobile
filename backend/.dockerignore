@@ -9,11 +9,37 @@ __pycache__
 *.dist-info
 build
 dist
-tests
 *.log
 *.sqlite3
 venv
 .venv
 node_modules
 Dockerfile*
+
+# Test files
+tests/
+pytest.ini
+.pytest_cache/
+coverage/
+.coverage
+htmlcov/
+
+# Documentation
 README.md
+docs/
+REFACTOR/
+*.md
+
+# Development tools
+.env.test
+.env.example
+.mypy_cache/
+.ruff_cache/
+make.sh
+Makefile
+.server.pid
+logs/
+
+# CI/CD
+.github/
+commitlint.config.cjs

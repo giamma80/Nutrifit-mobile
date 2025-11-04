@@ -25,3 +25,16 @@ schema-export:
 
 schema-check:
 	@$(SCRIPT) schema-check
+
+# Docker Compose shortcuts
+docker-up:
+	@$(SCRIPT) docker-up
+
+docker-down:
+	@$(SCRIPT) docker-down
+
+docker-ps:
+	@$(SCRIPT) docker-ps
+
+docker-logs:
+	@$(SCRIPT) docker-logs-all
