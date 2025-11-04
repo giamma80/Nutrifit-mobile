@@ -6,8 +6,7 @@ Orchestrazione della business logic per Activity & Health tracking:
 - ActivityAggregationService: costruzione DailyActivitySummary
 - ActivityCalculationService: (future) metriche avanzate e insights
 
-Servizi stateless che coordinano ports/adapters senza conoscenza
-dell'implementazione concreta del storage.
+Servizi stateless che usano IActivityRepository per l'accesso ai dati.
 """
 
 from __future__ import annotations
@@ -20,7 +19,7 @@ from domain.activity.model import (
     ActivityDelta,
     DailyActivitySummary,
 )
-from domain.activity.ports import ActivityEventsPort, ActivitySnapshotsPort
+from domain.activity.repository import IActivityRepository
 
 
 class ActivitySyncService:
@@ -28,11 +27,9 @@ class ActivitySyncService:
 
     def __init__(
         self,
-        events_port: ActivityEventsPort,
-        snapshots_port: ActivitySnapshotsPort,
+        repository: IActivityRepository,
     ) -> None:
-        self._events_port = events_port
-        self._snapshots_port = snapshots_port
+        self._repository = repository
 
     def ingest_activity_events(
         self,
@@ -50,7 +47,7 @@ class ActivitySyncService:
         # Normalizza tutti gli eventi prima dell'ingest
         normalized_events = [event.normalized() for event in events]
 
-        return self._events_port.ingest_events(normalized_events, idempotency_key)
+        return self._repository.ingest_events(normalized_events, idempotency_key)
 
     def sync_health_snapshot(
         self,
@@ -69,7 +66,7 @@ class ActivitySyncService:
                 'delta': ActivityDelta | None
             }
         """
-        return self._snapshots_port.record_snapshot(snapshot, idempotency_key)
+        return self._repository.record_snapshot(snapshot, idempotency_key)
 
 
 class ActivityAggregationService:
@@ -77,11 +74,9 @@ class ActivityAggregationService:
 
     def __init__(
         self,
-        events_port: ActivityEventsPort,
-        snapshots_port: ActivitySnapshotsPort,
+        repository: IActivityRepository,
     ) -> None:
-        self._events_port = events_port
-        self._snapshots_port = snapshots_port
+        self._repository = repository
 
     def calculate_daily_summary(self, user_id: str, date: str) -> DailyActivitySummary:
         """Calcola riepilogo giornaliero consolidato.
@@ -90,10 +85,10 @@ class ActivityAggregationService:
         eventi minuto solo per count diagnostico.
         """
         # Totali da snapshot/delta (più affidabili)
-        total_steps, total_calories_out = self._snapshots_port.get_daily_totals(user_id, date)
+        total_steps, total_calories_out = self._repository.get_daily_totals(user_id, date)
 
         # Count eventi per diagnosi
-        events_count = self._events_port.get_daily_events_count(user_id, date)
+        events_count = self._repository.get_daily_events_count(user_id, date)
 
         return DailyActivitySummary(
             user_id=user_id,
@@ -111,7 +106,7 @@ class ActivityAggregationService:
         limit: int = 200,
     ) -> List[ActivityDelta]:
         """Lista delta per debugging/audit trail."""
-        return self._snapshots_port.list_deltas(user_id, date, after_ts, limit)
+        return self._repository.list_deltas(user_id, date, after_ts, limit)
 
 
 class ActivityCalculationService:
@@ -119,11 +114,9 @@ class ActivityCalculationService:
 
     def __init__(
         self,
-        events_port: ActivityEventsPort,
-        snapshots_port: ActivitySnapshotsPort,
+        repository: IActivityRepository,
     ) -> None:
-        self._events_port = events_port
-        self._snapshots_port = snapshots_port
+        self._repository = repository
 
     def calculate_activity_intensity(self, user_id: str, date: str) -> Optional[float]:
         """Calcola intensità media activity per il giorno.
@@ -150,24 +143,24 @@ class ActivityCalculationService:
 
 
 def create_activity_sync_service(
-    events_port: ActivityEventsPort, snapshots_port: ActivitySnapshotsPort
+    repository: IActivityRepository,
 ) -> ActivitySyncService:
     """Factory per ActivitySyncService."""
-    return ActivitySyncService(events_port, snapshots_port)
+    return ActivitySyncService(repository)
 
 
 def create_activity_aggregation_service(
-    events_port: ActivityEventsPort, snapshots_port: ActivitySnapshotsPort
+    repository: IActivityRepository,
 ) -> ActivityAggregationService:
     """Factory per ActivityAggregationService."""
-    return ActivityAggregationService(events_port, snapshots_port)
+    return ActivityAggregationService(repository)
 
 
 def create_activity_calculation_service(
-    events_port: ActivityEventsPort, snapshots_port: ActivitySnapshotsPort
+    repository: IActivityRepository,
 ) -> ActivityCalculationService:
     """Factory per ActivityCalculationService."""
-    return ActivityCalculationService(events_port, snapshots_port)
+    return ActivityCalculationService(repository)
 
 
 __all__ = [

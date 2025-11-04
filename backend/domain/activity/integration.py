@@ -22,9 +22,8 @@ from domain.activity.model import (
     ActivityDelta,
     ActivitySource as DomainActivitySource,
 )
-from domain.activity.adapters import (
-    ActivityEventsAdapter,
-    ActivitySnapshotsAdapter,
+from infrastructure.persistence.activity_repository_factory import (
+    create_activity_repository,
 )
 from domain.activity.application import (
     ActivitySyncService,
@@ -49,16 +48,17 @@ class ActivityIntegrationService:
             logger.info("Activity domain V2 enabled and initialized")
         except Exception as e:
             logger.error(f"Failed to initialize activity V2: {e}")
-            raise RuntimeError(f"Critical: Activity service failed to initialize: {e}")
+            raise RuntimeError(
+                f"Critical: Activity service failed to initialize: {e}"
+            )
 
     def _initialize_services(self) -> None:
-        """Inizializza servizi domain con adapter dependency injection."""
-        events_adapter = ActivityEventsAdapter()
-        snapshots_adapter = ActivitySnapshotsAdapter()
+        """Inizializza servizi domain con repository dependency injection."""
+        activity_repo = create_activity_repository()
 
-        self._sync_service = create_activity_sync_service(events_adapter, snapshots_adapter)
+        self._sync_service = create_activity_sync_service(activity_repo)
         self._aggregation_service = create_activity_aggregation_service(
-            events_adapter, snapshots_adapter
+            activity_repo
         )
 
     def enhanced_daily_summary(
@@ -148,9 +148,10 @@ class ActivityIntegrationService:
                 domain_events.append(domain_event)
 
             # Ingest usando domain service
-            accepted, duplicates, rejected = self._sync_service.ingest_activity_events(
+            result = self._sync_service.ingest_activity_events(
                 domain_events, idempotency_key
             )
+            accepted, duplicates, rejected = result
 
             logger.debug(
                 f"Activity events ingest V2: accepted={accepted}, "
@@ -189,7 +190,9 @@ class ActivityIntegrationService:
             )
 
             # Sync usando domain service
-            result = self._sync_service.sync_health_snapshot(domain_snapshot, idempotency_key)
+            result = self._sync_service.sync_health_snapshot(
+                domain_snapshot, idempotency_key
+            )
 
             logger.debug(
                 f"Health snapshot sync V2: accepted={result['accepted']}, "
@@ -218,7 +221,9 @@ class ActivityIntegrationService:
             return [], False
 
         try:
-            deltas = self._aggregation_service.list_activity_deltas(user_id, date, after_ts, limit)
+            deltas = self._aggregation_service.list_activity_deltas(
+                user_id, date, after_ts, limit
+            )
             return deltas, True
 
         except Exception as e:

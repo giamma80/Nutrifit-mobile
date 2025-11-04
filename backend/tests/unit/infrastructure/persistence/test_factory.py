@@ -38,16 +38,18 @@ class TestMealRepositoryFactory:
         assert isinstance(repo, InMemoryMealRepository)
 
     def test_mongodb_not_yet_implemented(self, monkeypatch):
-        """Should raise NotImplementedError when MEAL_REPOSITORY=mongodb (P7.1 pending)."""
-        monkeypatch.setenv("MEAL_REPOSITORY", "mongodb")
+        """Should raise NotImplementedError when mongodb (P7.1 pending)."""
+        monkeypatch.setenv("REPOSITORY_BACKEND", "mongodb")
         monkeypatch.setenv("MONGODB_URI", "mongodb://localhost:27017")
 
-        with pytest.raises(NotImplementedError, match="MongoDB repository not yet implemented"):
+        with pytest.raises(
+            NotImplementedError, match="MongoDB repository not yet implemented"
+        ):
             create_meal_repository()
 
     def test_mongodb_without_uri_raises_error(self, monkeypatch):
-        """Should raise ValueError when MEAL_REPOSITORY=mongodb but no MONGODB_URI."""
-        monkeypatch.setenv("MEAL_REPOSITORY", "mongodb")
+        """Should raise ValueError when mongodb but no MONGODB_URI."""
+        monkeypatch.setenv("REPOSITORY_BACKEND", "mongodb")
         monkeypatch.delenv("MONGODB_URI", raising=False)
 
         with pytest.raises(ValueError, match="MONGODB_URI not set"):
@@ -63,7 +65,7 @@ class TestSingletonGetter:
 
     def test_get_meal_repository_singleton(self, monkeypatch):
         """get_meal_repository() should return same instance on multiple calls."""
-        monkeypatch.setenv("MEAL_REPOSITORY", "inmemory")
+        monkeypatch.setenv("REPOSITORY_BACKEND", "inmemory")
 
         repo1 = get_meal_repository()
         repo2 = get_meal_repository()
@@ -72,7 +74,7 @@ class TestSingletonGetter:
 
     def test_reset_repository_clears_singleton(self, monkeypatch):
         """reset_repository() should clear cached instance."""
-        monkeypatch.setenv("MEAL_REPOSITORY", "inmemory")
+        monkeypatch.setenv("REPOSITORY_BACKEND", "inmemory")
 
         repo1 = get_meal_repository()
         reset_repository()
@@ -83,13 +85,13 @@ class TestSingletonGetter:
     def test_singleton_respects_env_changes_after_reset(self, monkeypatch):
         """After reset, should use new environment configuration."""
         # First call with inmemory
-        monkeypatch.setenv("MEAL_REPOSITORY", "inmemory")
+        monkeypatch.setenv("REPOSITORY_BACKEND", "inmemory")
         repo1 = get_meal_repository()
         assert isinstance(repo1, InMemoryMealRepository)
 
         # Reset and check same type (since mongodb not implemented)
         reset_repository()
-        monkeypatch.setenv("MEAL_REPOSITORY", "inmemory")
+        monkeypatch.setenv("REPOSITORY_BACKEND", "inmemory")
         repo2 = get_meal_repository()
         assert isinstance(repo2, InMemoryMealRepository)
 
@@ -102,19 +104,19 @@ class TestRepositoryFactoryIntegration:
 
     def test_inmemory_default(self, monkeypatch):
         """Factory should default to in-memory when no env vars set."""
-        monkeypatch.delenv("MEAL_REPOSITORY", raising=False)
+        monkeypatch.delenv("REPOSITORY_BACKEND", raising=False)
         repo = create_meal_repository()
         assert isinstance(repo, InMemoryMealRepository)
 
     def test_env_test_configuration(self, monkeypatch):
         """Test configuration from .env.test (inmemory)."""
-        monkeypatch.setenv("MEAL_REPOSITORY", "inmemory")
+        monkeypatch.setenv("REPOSITORY_BACKEND", "inmemory")
         repo = create_meal_repository()
         assert isinstance(repo, InMemoryMealRepository)
 
     def test_production_configuration_not_ready(self, monkeypatch):
         """Production configuration (mongodb) should fail until P7.1."""
-        monkeypatch.setenv("MEAL_REPOSITORY", "mongodb")
+        monkeypatch.setenv("REPOSITORY_BACKEND", "mongodb")
         monkeypatch.setenv("MONGODB_URI", "mongodb://prod.example.com:27017")
 
         with pytest.raises(NotImplementedError):
@@ -122,7 +124,7 @@ class TestRepositoryFactoryIntegration:
 
     def test_invalid_repository_type_defaults_to_inmemory(self, monkeypatch):
         """Invalid repository type should default to in-memory."""
-        monkeypatch.setenv("MEAL_REPOSITORY", "invalid_type")
+        monkeypatch.setenv("REPOSITORY_BACKEND", "invalid_type")
         repo = create_meal_repository()
         # Should default to inmemory for unknown values
         assert isinstance(repo, InMemoryMealRepository)

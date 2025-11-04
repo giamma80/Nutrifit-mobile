@@ -53,9 +53,11 @@ class TestCreateProfileRepository:
 
         assert isinstance(repository, InMemoryProfileRepository)
 
-    def test_create_mongodb_raises_not_implemented(self, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_create_mongodb_raises_not_implemented(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """Test mongodb raises NotImplementedError (Phase 7.1)."""
-        monkeypatch.setenv("PROFILE_REPOSITORY", "mongodb")
+        monkeypatch.setenv("REPOSITORY_BACKEND", "mongodb")
         monkeypatch.setenv("MONGODB_URI", "mongodb://localhost:27017")
 
         with pytest.raises(NotImplementedError) as exc_info:
@@ -63,9 +65,11 @@ class TestCreateProfileRepository:
 
         assert "Phase 7.1" in str(exc_info.value)
 
-    def test_create_mongodb_missing_uri_raises_error(self, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_create_mongodb_missing_uri_raises_error(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """Test mongodb without URI raises ValueError."""
-        monkeypatch.setenv("PROFILE_REPOSITORY", "mongodb")
+        monkeypatch.setenv("REPOSITORY_BACKEND", "mongodb")
         if "MONGODB_URI" in os.environ:
             monkeypatch.delenv("MONGODB_URI")
 
@@ -78,7 +82,7 @@ class TestCreateProfileRepository:
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """Test unknown type gracefully defaults to inmemory."""
-        monkeypatch.setenv("PROFILE_REPOSITORY", "unknown_type")
+        monkeypatch.setenv("REPOSITORY_BACKEND", "unknown_type")
 
         repository = create_profile_repository()
 

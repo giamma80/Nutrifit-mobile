@@ -60,9 +60,10 @@ For **production**, we use **MongoDB Atlas** (managed service).
 In Render Dashboard (or via `render.yaml` sync):
 
 ```yaml
-MONGODB_URI: mongodb+srv://nutrifit_app:YOUR_PASSWORD@cluster0.xxxxx.mongodb.net/nutrifit?retryWrites=true&w=majority
-MEAL_REPOSITORY: mongodb
-PROFILE_REPOSITORY: mongodb
+MONGODB_USER: nutrifit_app
+MONGODB_PASSWORD: YOUR_GENERATED_PASSWORD
+MONGODB_URI: mongodb+srv://${MONGODB_USER}:${MONGODB_PASSWORD}@cluster0.xxxxx.mongodb.net/nutrifit?retryWrites=true&w=majority
+REPOSITORY_BACKEND: mongodb
 ```
 
 ⚠️ **Never commit `MONGODB_URI` to git!** Set it via Render dashboard.
@@ -96,7 +97,7 @@ Future: Consider migration tool like:
 CI/CD uses **in-memory repository** for tests:
 - Fast test execution
 - No external dependencies
-- Configurable via `MEAL_REPOSITORY=inmemory`
+- Configurable via `REPOSITORY_BACKEND=inmemory` (default)
 
 ## 📝 Local Connection Strings
 
