@@ -840,26 +840,26 @@ app.include_router(graphql_app, prefix="/graphql")
 
 # DEBUG: Diagnostic endpoint to check schema
 @app.get("/debug/schema-info")
-async def debug_schema_info():
+async def debug_schema_info() -> dict[str, Any]:
     """Debug endpoint to inspect the GraphQL schema."""
-    import strawberry
     from strawberry.printer import print_schema
 
     # Check if graphql_app has the schema
     router_schema = graphql_app.schema if hasattr(graphql_app, "schema") else None
 
+    mutation_type_def = (
+        getattr(schema.mutation, "_type_definition", None) if schema.mutation else None
+    )
+    mutation_fields = [f.name for f in mutation_type_def.fields] if mutation_type_def else []
+
     return {
-        "module_schema_has_mutation": schema.mutation_type is not None,
+        "module_schema_has_mutation": schema.mutation is not None,
         "router_schema_has_mutation": (
-            router_schema.mutation_type is not None if router_schema else "N/A"
+            router_schema.mutation is not None if router_schema else "N/A"
         ),
-        "schemas_are_same_object": schema is router_schema if router_schema else False,
-        "mutation_type_name": schema.mutation_type.__name__ if schema.mutation_type else None,
-        "mutation_fields": (
-            [f.name for f in schema.mutation_type._type_definition.fields]
-            if schema.mutation_type
-            else []
-        ),
+        "schemas_are_same_object": (schema is router_schema if router_schema else False),
+        "mutation_type_name": (schema.mutation.__name__ if schema.mutation else None),
+        "mutation_fields": mutation_fields,
         "schema_preview": print_schema(schema)[:500],
     }
 
