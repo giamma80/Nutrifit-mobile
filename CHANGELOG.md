@@ -6,6 +6,141 @@ Formato ispirato a [Keep a Changelog](https://keepachangelog.com/it-IT/1.1.0/) e
 
 ## [Unreleased]
 
+### Added
+- add ML integration tests for end-to-end workflows
+- add ML workflow E2E test script
+- add Phase 9 - Nutritional Profile Domain (MVP + ML + LLM)
+- add analyzeMealText mutation with AI text recognition
+- add forecastWeight GraphQL query for weight predictions
+- add image upload REST endpoint with MCP integration
+- add infrastructure adapters for ML services
+- add summaryRange and aggregateRange queries with timezone fixes
+- add trend analysis to weight forecasting + MCP integration
+- add upload_meal_image tool with explicit AI assistant instructions
+- complete P6.2 Coverage & Quality checks
+- create clean architecture structure [P0.4]
+- export updated schema SDL with P5 CQRS resolvers
+- implement Kalman TDEE adaptive tracking service
+- implement P1.4 - Domain Exceptions
+- implement P1.5 - Domain Factories
+- implement P2.1 - Nutrition Capability
+- implement P2.2 - Recognition Capability
+- implement P2.3 - Barcode Capability
+- implement P3.1 & P3.2 - External API Adapters
+- implement P3.1 - OpenAI Client Adapter [P3.1]
+- implement P3.3 - OpenFoodFacts Adapter
+- implement P3.4 - In-Memory Repository
+- implement P3.5 - Event Bus
+- implement P4.1 Commands & P4.3 Orchestrators
+- implement P4.2 - CQRS Queries (7 queries)
+- implement P4.4 - Event Handlers
+- implement P5.1 Schema Integration
+- implement P5.2 - Atomic Query Resolvers (FIRST)
+- implement P5.3 - Aggregate Query Resolvers
+- implement P5.4 Mutation Resolvers
+- implement P6.3 - API Documentation with SpectaQL
+- implement P7.0.1-3 - Repository Factory Pattern
+- implement P7.0.4 - Provider Factory Pattern
+- implement Phase 6.1 E2E tests for CQRS GraphQL API
+- implement calculation services for Phase 9.3
+- implement core entities MealEntry and Meal aggregate (P1.3)
+- implement core value objects [P1.1]
+- implement domain events [P1.2]
+- implement domain events for Phase 9.2.3
+- implement entities for Phase 9.2.2
+- implement factory for Phase 9.2.6
+- implement ports for Phase 9.2.4-9.2.5
+- implement value objects for Phase 9.2.1
+- implement weekly TDEE recalculation background job
+- implement weight forecasting service with time series models
+- improve stub providers to match production behavior
+- integrate P5 CQRS resolvers into app.py runtime
+
+### Fixed
+- add async context managers to all USDA integration tests
+- add context manager to OpenAI client for consistency
+- add python-dotenv for uvicorn --env-file support
+- add schema fields, fix timestamp bug & stub providers
+- complete P0.3 cleanup - fix app.py undefined names
+- correct import paths in context.py
+- correct structure location and remove duplicates [P0.4-FIX]
+- fix P3.7 integration tests to work with real APIs
+- handle None returns in USDA integration tests
+- implement idempotency for AnalyzeMealPhoto & AnalyzeMealBarcode commands
+- lock dependencies to prevent version drift
+- optimize meal_history count and fix test assertions
+- preserve dish_name from OpenAI Vision recognition
+- relax USDA test assertions to match real API behavior
+- rename 'name' to 'product_name' in barcode orchestrator logger
+- resolve 3 critical bugs from P6.2 validation
+- resolve 7 mypy type checking errors
+- resolve deprecation warnings & code quality issues
+- resolve flake8 and mypy errors in debug endpoint
+- use --frozen flag in uv sync to prevent dependency drift
+- use AI_USDA_API_KEY instead of USDA_API_KEY
+
+### Changed
+- remove 15 unused imports/variables (final P0.3 cleanup)
+- riorganizza query con aggregati semantici
+- selective cleanup - remove obsolete architecture [P0.3]
+
+### Docs
+- add IMPLEMENTATION_TRACKER reference to README
+- add P7.0.4 Provider Factory Pattern
+- add Phase 9 Nutritional Profile architecture documentation
+- add comprehensive implementation tracker
+- add strict refactoring rules and REFACTOR documentation reference
+- document automatic .env.test loading
+- fix import path and add context manager tests
+- mark P7.0.1-3 as COMPLETED - Phase 7 100%
+- mark P7.0.4 as COMPLETED
+- mark Phase 4 COMPLETE (100%) - Application Layer
+- update P0.3 status - 100% complete with final cleanup
+- update P1.1 completion - value objects [P1.1]
+- update P1.2 completion - domain events [P1.2]
+- update P3.7 Integration Tests as COMPLETED
+- update P4.2 - Queries completion status
+- update P6.3 as COMPLETED - Phase 6 100%
+- update Phase 0 completion status [P0.4]
+- update architecture documentation for v2.1 range query APIs
+- update for P2.1 - Nutrition Capability completion
+- update for P2.2 Recognition Capability completion
+- update for Phase 1 completion (100%)
+- update for Phase 5 completion
+- update implementation tracker after P1.3 completion
+- update strategy - selective cleanup + client adaptation
+- update tracker - Phase 8 completed (100%)
+- update tracker and changelog for Phase 8 legacy test cleanup
+
+### Tests
+- add 18 new tests + code formatting improvements
+- add comprehensive mutation resolver tests (11 tests)
+- add unit tests for P4.1 Commands & P4.3 Orchestrators
+- add unit tests for P4.2 - CQRS Queries
+- add unit tests for aggregate query resolvers
+- add unit tests for atomic query resolvers + fixes
+- expand E2E coverage from 3 to 11 tests
+- fix test suite - auto-skip E2E tests if server not running, mark legacy tests for Phase 8 cleanup
+- implement P3.7 integration tests for external APIs
+
+### Build
+- add numpy for Phase 9 nutritional profile
+- upgrade openai to 2.6.0+ for structured outputs [P0.1]
+
+### Chore
+- add .env.test to gitignore and remove from tracking
+- bump strawberry-graphql from 0.283.3 to 0.284.1 in /backend (#21)
+- bump uvicorn from 0.37.0 to 0.38.0 in /backend (#19)
+- move legacy V1 API tests to legacy/ directory
+- remove 21 legacy test files using old OpenAI adapter
+- remove additional legacy code and empty directories
+- remove legacy adapter code and dead files (Phase 8.1)
+- remove obsolete test_fixes.sh script
+- update GraphQL schema & gitignore for refactor
+
+## [0.6.2] - 2025-11-04
+
+
 ### Fixed
 - remove unused import and add return type annotations
 - restore display_name field in normalization pipeline

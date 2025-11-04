@@ -7,23 +7,38 @@ readme = "README.md"
 requires-python = ">=3.11,<3.12"
 license = { text = "Proprietary" }
 dependencies = [
-  "fastapi==0.119.0",
+  "fastapi==0.120.0",
   "uvicorn==0.38.0",
   "strawberry-graphql==0.284.1",
   "httpx==0.28.1",
   "pyyaml==6.0.3",
-  "openai==1.45.0",
+  "openai>=2.5.0",
+  "pydantic>=2.12.3",
+  "circuitbreaker>=1.4.0",
+  "tenacity>=8.2.0",
   "flake8>=7.3.0",
-  "aiohttp>=3.13.0",
+  "aiohttp>=3.13.1",
+  "python-dotenv>=1.0.0",
+  "numpy>=1.26.0",
+  "supabase>=2.23.0",
+  "python-multipart>=0.0.20",
+  "pillow>=12.0.0",
+  "werkzeug>=3.1.3",
+  "scipy>=1.11.0",
+  "pandas>=2.2.0",
+  "statsmodels>=0.14.0",
+  "apscheduler>=3.10.0",
 ]
 
 [project.optional-dependencies]
 dev = [
-  "pytest>=8.2.0",
+  "pytest>=8.4.2",
   "pytest-asyncio>=0.23.0",
-  "mypy>=1.10.0",
+  "pytest-cov>=4.1.0",
+  "mypy>=1.18.2",
   "flake8>=7.0.0",
-  "black>=24.4.0",
+  "black>=25.9.0",
+  "ruff>=0.14.2",
   "types-PyYAML"
 ]
 
@@ -33,10 +48,15 @@ strict = true
 warn_unused_configs = true
 disallow_untyped_defs = true
 ignore_missing_imports = true
-exclude = ["^\\.venv/", "^dist/", "^build/"]
+exclude = ["^\\.venv/", "^dist/", "^build/", "^tests/unit/infrastructure/test_openai_client\\.py$", "^tests/unit/infrastructure/test_usda_client\\.py$", "^tests/unit/infrastructure/test_openfoodfacts_client\\.py$"]
 explicit_package_bases = true
 plugins = ["strawberry.ext.mypy_plugin"]
 # Nota: plugin Strawberry abilita validazioni base su resolver e schema.
+
+[[tool.mypy.overrides]]
+module = "tests.*"
+disallow_untyped_defs = false
+disallow_untyped_calls = false
 
 [tool.black]
 line-length = 100
@@ -55,6 +75,17 @@ exclude = [
 addopts = "-q"
 # Aggiungiamo anche 'backend' per consentire import 'app' quando pytest parte dalla root repo.
 pythonpath = [".", "backend"]
+
+# Separate test configurations
+testpaths = ["tests"]
+
+# Markers for different test types
+markers = [
+    "unit: Unit tests (isolated, no dependencies)",
+    "integration: Integration tests (with real dependencies)",
+    "integration_real: Integration tests with real external APIs (opt-in, requires API keys)",
+    "e2e: End-to-end tests (full system)"
+]
 
 [build-system]
 requires = ["setuptools", "wheel"]

@@ -41,35 +41,41 @@ run_tests(){
   echo "$version" | grep -q '"version"' || { log "Campo version assente"; return 11; }
   echo "$gql"     | grep -q '"health"' || { log "Campo health GraphQL assente"; return 12; }
 
-  # Test mutation logMeal + idempotenza
-  meal_idempotent_payload='{"query":"mutation($input: LogMealInput!){ logMeal(input:$input){ id name quantityG idempotencyKey calories } }","variables":{"input":{"name":"Apple","quantityG":100}}}'
-  meal1=$(curl -fsS -H 'Content-Type: application/json' -d "$meal_idempotent_payload" "$BASE_URL/graphql") || { log "Mutation logMeal fallita"; return 20; }
-  meal2=$(curl -fsS -H 'Content-Type: application/json' -d "$meal_idempotent_payload" "$BASE_URL/graphql") || { log "Seconda mutation logMeal fallita"; return 21; }
+  # Test mutation analyzeMealText (CQRS) + idempotenza
+  meal_idempotent_payload='{"query":"mutation($input: AnalyzeMealTextInput!){ meals { analyzeMealText(input:$input){ __typename ... on MealAnalysisSuccess { meal { id userId } } ... on MealAnalysisError { message } } } }","variables":{"input":{"userId":"test-user","textDescription":"Apple 100g","mealType":"SNACK","idempotencyKey":"test-idempotency-key"}}}'
+  meal1=$(curl -fsS -H 'Content-Type: application/json' -d "$meal_idempotent_payload" "$BASE_URL/graphql") || { log "Mutation analyzeMealText fallita"; return 20; }
+  meal2=$(curl -fsS -H 'Content-Type: application/json' -d "$meal_idempotent_payload" "$BASE_URL/graphql") || { log "Seconda mutation analyzeMealText fallita"; return 21; }
   echo "MEAL1: $meal1"
   echo "MEAL2: $meal2"
-  # Estrazione ID robusta:
+  
+  # Verifica che non ci siano errori GraphQL
+  if echo "$meal1" | grep -q '"errors"'; then
+    log "Mutation analyzeMealText ha ritornato errori GraphQL"; return 22
+  fi
+  
+  # Estrazione meal ID robusta:
   # 1. Se jq disponibile usalo (più affidabile)
   # 2. Fallback sed con spazi opzionali
   if command -v jq >/dev/null 2>&1; then
-    id1=$(echo "$meal1" | jq -r '.data.logMeal.id // empty') || true
-    id2=$(echo "$meal2" | jq -r '.data.logMeal.id // empty') || true
+    id1=$(echo "$meal1" | jq -r '.data.meals.analyzeMealText.meal.id // empty') || true
+    id2=$(echo "$meal2" | jq -r '.data.meals.analyzeMealText.meal.id // empty') || true
   else
-    id1=$(echo "$meal1" | sed -n 's/.*"id"[[:space:]]*:[[:space:]]*"\([0-9a-fA-F-]*\)".*/\1/p') || true
-    id2=$(echo "$meal2" | sed -n 's/.*"id"[[:space:]]*:[[:space:]]*"\([0-9a-fA-F-]*\)".*/\1/p') || true
+    id1=$(echo "$meal1" | sed -n 's/.*"id"[[:space:]]*:[[:space:]]*"\([0-9a-fA-F-]*\)".*/\1/p' | head -n1) || true
+    id2=$(echo "$meal2" | sed -n 's/.*"id"[[:space:]]*:[[:space:]]*"\([0-9a-fA-F-]*\)".*/\1/p' | head -n1) || true
   fi
   if [ -z "$id1" ] || [ -z "$id2" ]; then
-    log "IDs non estratti correttamente dalla risposta logMeal"; return 22
+    log "IDs non estratti correttamente dalla risposta analyzeMealText"; return 23
   fi
   # Idempotenza opzionale: per default WARN se differiscono (feature non ancora implementata);
-  # se EXACT_LOGMEAL_IDEMPOTENCY=1 allora fallisce se non coincidono.
+  # se EXACT_MEAL_IDEMPOTENCY=1 allora fallisce se non coincidono.
   if [ "$id1" != "$id2" ]; then
-    if [ "${EXACT_LOGMEAL_IDEMPOTENCY:-0}" = "1" ]; then
-  log "Idempotenza FALLITA (enforced): id diversi ($id1 vs $id2)"; return 23
+    if [ "${EXACT_MEAL_IDEMPOTENCY:-0}" = "1" ]; then
+      log "Idempotenza FALLITA (enforced): meal IDs diversi ($id1 vs $id2)"; return 24
     else
-      log "WARNING: logMeal non idempotente (ids diversi) - test continua (EXACT_LOGMEAL_IDEMPOTENCY=1 per forzare fail)"
+      log "WARNING: analyzeMealText non idempotente (meal IDs diversi) - test continua (EXACT_MEAL_IDEMPOTENCY=1 per forzare fail)"
     fi
   else
-    log "Idempotenza OK (stesso id)"
+    log "Idempotenza OK (stesso meal ID)"
   fi
   log "SUCCESS: integrazione OK"
 }

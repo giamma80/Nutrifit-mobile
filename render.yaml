@@ -33,13 +33,14 @@ services:
       paths:
         - backend/**
         - render.yaml
+        - mongodb/**  # For schema/migration docs reference
 
     envVars:
       # Ambiente
       - key: ENVIRONMENT
         value: production
       - key: APP_VERSION
-        value: 0.2.8
+        value: 0.6.2
       - key: PORT
         value: "8000"
       - key: LOG_LEVEL
@@ -51,17 +52,8 @@ services:
       - key: ENABLE_PLAYGROUND
         value: "false"
 
-      # Placeholder per future integrazioni
-      - key: SUPABASE_URL
-        sync: false
-      - key: SUPABASE_ANON_KEY
-        sync: false
-
-      # Secret generabili o gestiti manualmente (NON in chiaro qui)
-      - key: SECRET_KEY
-        sync: false
-      - key: JWT_SECRET_KEY
-        sync: false
+      # Note: All secrets (API keys, DB URIs, etc.) are managed via Render dashboard
+      # Local dev uses backend/.env, production uses Render environment variables
 
 # -------------------------------------------------------------
 # NOTE OPERATIVE:

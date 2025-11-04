@@ -63,15 +63,6 @@ class ActivityRepository:
         """
         raise NotImplementedError
 
-    def list_events(
-        self,
-        user_id: str,
-        start_ts: Optional[str] = None,
-        end_ts: Optional[str] = None,
-        limit: int = 100,
-    ) -> List[ActivityEventRecord]:  # pragma: no cover
-        raise NotImplementedError
-
 
 class InMemoryActivityRepository(ActivityRepository):
     """Implementazione in-memory del repository activity."""
@@ -213,6 +204,19 @@ class InMemoryActivityRepository(ActivityRepository):
                 break
         return res
 
+    def list_events(
+        self,
+        user_id: str,
+        start_ts: Optional[str] = None,
+        end_ts: Optional[str] = None,
+        limit: int = 10000,
+    ) -> List[ActivityEventRecord]:
+        """List activity events for user within time range.
+
+        Implementation delegates to list() method.
+        """
+        return self.list(user_id, start_ts, end_ts, limit)
+
     def list_all(self, user_id: str) -> List[ActivityEventRecord]:
         return list(self._events_by_user.get(user_id, []))
 
@@ -259,6 +263,33 @@ class InMemoryActivityRepository(ActivityRepository):
 
         # Track for duplicates
         self._duplicate_keys[event.duplicate_key()] = event
+
+    def get_idempotency(self, key: str) -> Optional[str]:
+        """Recupera la signature cached per una chiave di idempotenza.
+
+        Returns:
+            signature string se presente, None altrimenti
+        """
+        # La chiave completa include user_id, ma per semplicità
+        # cerchiamo tra tutte le chiavi che terminano con il nostro key
+        for (_, k), (sig, _) in self._batch_idempo.items():
+            if k == key:
+                return sig
+        return None
+
+    def store_idempotency(self, key: str, signature: str, ttl_seconds: int = 86400) -> None:
+        """Salva una signature per una chiave di idempotenza.
+
+        Args:
+            key: chiave di idempotenza
+            signature: signature del payload
+            ttl_seconds: TTL in secondi (ignorato in implementazione in-memory)
+        """
+        # Per l'implementazione in-memory, usiamo un user_id fittizio
+        # In una implementazione reale con DB, useremmo il TTL
+        user_key = ("__global__", key)
+        # Salviamo signature e un dict vuoto come result placeholder
+        self._batch_idempo[user_key] = (signature, {})
 
 
 # Global instance (singleton pattern come meal_repo)

@@ -1,6 +1,7 @@
 # Miscellaneous
 *.class
 *.lock
+!uv.lock
 *.log
 *.pyc
 *.swp
@@ -30,6 +31,7 @@ logs/
 # Backend example files: non versionare file .env reali (solo template)
 backend/example-files/.env
 backend/.env
+backend/.env.test
 
 # Local Flutter SDK (se scaricato in repo per comodità di sviluppo) – NON versionare
 flutter/
@@ -151,3 +153,5 @@ app.*.symbols
 backend/backend/
 backend/backend/graphql/schema.graphql
 backend/.server.pid
+mobile/DOCS/draft.md
+backend/.coverage

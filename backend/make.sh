@@ -270,11 +270,13 @@ Targets disponibili:
   format            Black format
   lint              Flake8 + mypy
   typecheck         Solo mypy (type checking completo)
-  test              Pytest
+  test              Pytest (skippa integration_real)
+  test-integration  Pytest + integration_real (OpenAI API, consuma crediti)
   schema-export     Esporta SDL GraphQL (aggiorna file versionato)
   schema-check      Verifica drift schema (fail se differente)
   schema-guard      Verifica presenza duplicati e sync canonico/mirror schema
   preflight         format + lint + test + schema-check + commitlint
+
                    (markdownlint STRICT di default; disattiva con MD_STRICT=0)
                    (usa SCHEMA_DRIFT_MODE=warn per non fallire su semplice drift)
   version-guard     Verifica che la versione non sia stata modificata fuori dal flusso autorizzato
@@ -295,7 +297,7 @@ Targets disponibili:
                     (usa COMMIT_SCOPE=all per includere modifiche fuori da backend/)
   push              Preflight + push ramo
 
-  # Docker
+  # Docker (standalone)
   check-docker      Verifica disponibilità demone Docker
   docker-build      Build immagine locale (nutrifit-backend:<TAG> default dev) es: TAG=latest ./make.sh docker-build
   docker-run        Esegui container (porta 8000) con tag corrente (TAG=... opzionale)
@@ -304,6 +306,14 @@ Targets disponibili:
   docker-restart    Restart container
   docker-shell      Entra nel container con shell interattiva
   docker-test       Esegue test integrazione (curl health/version + GraphQL)
+
+  # Docker Compose (full stack)
+  docker-up         Avvia stack completo (MongoDB + Redis + Backend)
+  docker-down       Stop e rimuove stack completo
+  docker-ps         Mostra stato containers
+  docker-logs-all   Segui log di tutti i servizi
+  docker-mongo-shell Apri shell MongoDB
+  docker-redis-cli  Apri Redis CLI
 
   # Utility
   clean             Rimuovi .venv, __pycache__, pid
@@ -328,7 +338,41 @@ EOF
     ;;
 
   test)
-    header "Tests"; uv run pytest -q
+    header "Tests"; uv run pytest -q -m "not integration_real"
+    ;;
+
+  test-unit)
+    header "Unit Tests (stub providers)"; uv run pytest -q -m "not e2e and not integration_real"
+    ;;
+
+  test-integration)
+    header "Integration Tests (includes OpenAI real API)"
+    info "Running all tests including integration_real (OpenAI API calls)"
+    info "Note: This will consume OpenAI API credits"
+    uv run pytest -v --tb=short
+    ;;
+
+  test-e2e)
+    header "E2E Tests (real APIs - requires server running)"
+    if ! server_running; then
+      err "Server non in esecuzione. Avvia con: ./make.sh run-bg"
+      exit 1
+    fi
+    info "Testing against server on port 8080 with real APIs"
+    uv run pytest tests/test_e2e_usda_enrichment.py -v -m e2e
+    ;;
+
+  test-all)
+    header "All Tests (unit + e2e)"
+    info "Running unit tests with stubs..."
+    uv run pytest -q -m "not e2e"
+    echo ""
+    if server_running; then
+      info "Running E2E tests with real APIs..."
+      uv run pytest tests/test_e2e_usda_enrichment.py -v -m e2e
+    else
+      warn "Skipping E2E tests (server not running). Start with: ./make.sh run-bg"
+    fi
     ;;
 
   run)
@@ -750,6 +794,7 @@ EOF
     ;;
 
   schema-sync)
+
     header "Schema sync"
     DRY_RUN=${DRY_RUN:-0}
     tmpfile="$(mktemp -t schema_export_XXXX).graphql"
@@ -910,7 +955,68 @@ EOF
     uv run mypy .
     ;;
 
+  # ========================================
+  # Docker Compose Targets
+  # ========================================
+
+  docker-up)
+    header "Docker Compose Up"
+    cd "$REPO_ROOT" || exit 1
+    if [ ! -f docker-compose.yml ]; then
+      err "File docker-compose.yml non trovato in $REPO_ROOT"
+      exit 1
+    fi
+    if [ ! -f backend/.env ]; then
+      warn "File backend/.env mancante. Copia da backend/.env.example"
+      err "Esegui: cd backend && cp .env.example .env"
+      exit 1
+    fi
+    info "Avvio stack: MongoDB + Backend"
+    info "Configurazione backend da: backend/.env"
+    info "Repository mode: $(grep '^MEAL_REPOSITORY=' backend/.env | cut -d'=' -f2 || echo 'unknown')"
+    docker-compose up -d
+    info "Stack avviato. Verifica con: ./make.sh docker-ps"
+    info "Backend: http://localhost:8000"
+    info "MongoDB: localhost:27017"
+    info "Vedi DOCKER.md per dettagli configurazione"
+    ;;
+
+  docker-down)
+    header "Docker Compose Down"
+    cd "$REPO_ROOT" || exit 1
+    info "Arresto e rimozione stack (volumes preservati)"
+    docker-compose down
+    info "Stack fermato. Per rimuovere anche i volumes: docker-compose down -v"
+    ;;
+
+  docker-ps)
+    header "Docker Compose Status"
+    cd "$REPO_ROOT" || exit 1
+    docker-compose ps
+    ;;
+
+  docker-logs-all)
+    header "Docker Compose Logs (Ctrl+C per uscire)"
+    cd "$REPO_ROOT" || exit 1
+    docker-compose logs -f
+    ;;
+
+  docker-mongo-shell)
+    header "MongoDB Shell"
+    cd "$REPO_ROOT" || exit 1
+    info "Connessione a MongoDB (user: nutrifit, db: nutrifit)"
+    docker-compose exec mongodb mongosh -u nutrifit -p nutrifit_dev_password --authenticationDatabase admin nutrifit
+    ;;
+
+  docker-redis-cli)
+    header "Redis CLI"
+    cd "$REPO_ROOT" || exit 1
+    info "Connessione a Redis (password: nutrifit_redis_password)"
+    docker-compose exec redis redis-cli -a nutrifit_redis_password
+    ;;
+
   *)
+
     # Default: mostra help
     cat "$0" | sed -n '/Targets disponibili:/,$p'
     exit 1

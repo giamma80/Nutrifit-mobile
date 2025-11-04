@@ -21,6 +21,14 @@ type ActivityEvent {
   source: ActivitySource!
 }
 
+enum ActivityLevelEnum {
+  SEDENTARY
+  LIGHT
+  MODERATE
+  ACTIVE
+  VERY_ACTIVE
+}
+
 input ActivityMinuteInput {
   ts: String!
   steps: Int = 0
@@ -29,18 +37,101 @@ input ActivityMinuteInput {
   source: ActivitySource! = MANUAL
 }
 
+type ActivityMutations {
+  """Sync batch minute activity events (idempotent)"""
+  syncActivityEvents(input: [ActivityMinuteInput!]!, idempotencyKey: String = null, userId: String = null): IngestActivityResult!
+}
+
+type ActivityPeriodSummary {
+  period: String!
+  startDate: String!
+  endDate: String!
+  totalSteps: Int!
+  totalCaloriesOut: Float!
+  totalActiveMinutes: Int!
+  avgHeartRate: Float
+  eventCount: Int!
+
+  """Has any activity data"""
+  hasActivity: Boolean!
+
+  """Avg steps per day in period"""
+  avgDailySteps: Float!
+}
+
+type ActivityQueries {
+  """Lista eventi attività con paginazione"""
+  entries(limit: Int! = 100, after: String = null, before: String = null, userId: String = null): [ActivityEvent!]!
+
+  """Lista delta sync health totals per giorno"""
+  syncEntries(date: String!, userId: String = null, after: String = null, limit: Int! = 200): [HealthTotalsDelta!]!
+
+  """Aggrega attività per range con raggruppamento"""
+  aggregateRange(userId: String!, startDate: String!, endDate: String!, groupBy: GroupByPeriod! = DAY): ActivityRangeResult!
+}
+
+type ActivityRangeResult {
+  periods: [ActivityPeriodSummary!]!
+  total: ActivityPeriodSummary!
+}
+
 enum ActivitySource {
   APPLE_HEALTH
   GOOGLE_FIT
   MANUAL
 }
 
-input AnalyzeMealPhotoInput {
-  photoId: String = null
-  photoUrl: String = null
-  userId: String = null
+type AggregateQueries {
+  meal(mealId: String!, userId: String!): Meal
+  mealHistory(userId: String!, startDate: DateTime = null, endDate: DateTime = null, mealType: String = null, limit: Int! = 20, offset: Int! = 0): MealHistoryResult!
+  search(userId: String!, queryText: String!, limit: Int! = 20, offset: Int! = 0): MealSearchResult!
+  dailySummary(userId: String!, date: DateTime!): DailySummary!
+  summaryRange(userId: String!, startDate: DateTime!, endDate: DateTime!, groupBy: GroupByPeriod! = DAY): RangeSummaryResult!
+}
+
+input AnalyzeMealBarcodeInput {
+  userId: String!
+  barcode: String!
+  quantityG: Float!
+  mealType: MealType! = SNACK
+  timestamp: DateTime = null
   idempotencyKey: String = null
+}
+
+input AnalyzeMealPhotoInput {
+  userId: String!
+  photoUrl: String!
   dishHint: String = null
+  mealType: MealType! = LUNCH
+  timestamp: DateTime = null
+  idempotencyKey: String = null
+}
+
+input AnalyzeMealTextInput {
+  userId: String!
+  textDescription: String!
+  mealType: MealType! = LUNCH
+  timestamp: DateTime = null
+  idempotencyKey: String = null
+}
+
+type AtomicQueries {
+  recognizeFood(photoUrl: String = null, text: String = null, dishHint: String = null): FoodRecognitionResult!
+  enrichNutrients(label: String!, quantityG: Float!): NutrientProfile
+  searchFoodByBarcode(barcode: String!): BarcodeProduct
+}
+
+type BMRType {
+  value: Float!
+}
+
+type BarcodeProduct {
+  barcode: String!
+  name: String!
+  brand: String
+  nutrients: NutrientProfile
+  servingSizeG: Float
+  imageUrl: String
 }
 
 type CacheStats {
@@ -49,34 +140,85 @@ type CacheStats {
   misses: Int!
 }
 
-input ConfirmMealPhotoInput {
-  analysisId: String!
-  acceptedIndexes: [Int!]!
-  userId: String = null
-  idempotencyKey: String = null
+type ConfirmAnalysisError {
+  message: String!
+  code: String!
 }
 
-type ConfirmMealPhotoResult {
-  analysisId: String!
-  createdMeals: [MealEntry!]!
+input ConfirmAnalysisInput {
+  mealId: String!
+  userId: String!
+  confirmedEntryIds: [String!]!
+}
+
+type ConfirmAnalysisSuccess {
+  meal: Meal!
+  confirmedCount: Int!
+  rejectedCount: Int!
+}
+
+union ConfirmAnalysisSuccessConfirmAnalysisError = ConfirmAnalysisSuccess | ConfirmAnalysisError
+
+input CreateProfileInput {
+  userId: String!
+  userData: UserDataInput!
+  goal: GoalEnum!
+  initialWeight: Float!
+  initialDate: Date = null
 }
 
 type DailySummary {
-  date: String!
+  date: DateTime!
+  totalCalories: Float!
+  totalProtein: Float!
+  totalCarbs: Float!
+  totalFat: Float!
+  totalFiber: Float!
+  totalSugar: Float!
+  totalSodium: Float!
+  mealCount: Int!
+  breakdownByType: String!
+  hasMeals: Boolean!
+}
+
+"""Date (isoformat)"""
+scalar Date
+
+"""Date with time (isoformat)"""
+scalar DateTime
+
+type DeleteMealError {
+  message: String!
+  code: String!
+}
+
+input DeleteMealInput {
+  mealId: String!
   userId: String!
-  meals: Int!
-  calories: Int!
-  protein: Float
-  carbs: Float
-  fat: Float
-  fiber: Float
-  sugar: Float
-  sodium: Float
-  activitySteps: Int!
-  activityCaloriesOut: Float!
-  activityEvents: Int!
-  caloriesDeficit: Int!
-  caloriesReplenishedPercent: Int!
+}
+
+type DeleteMealSuccess {
+  mealId: String!
+  message: String!
+}
+
+union DeleteMealSuccessDeleteMealError = DeleteMealSuccess | DeleteMealError
+
+type FoodRecognitionResult {
+  items: [RecognizedFood!]!
+  averageConfidence: Float!
+}
+
+enum GoalEnum {
+  CUT
+  MAINTAIN
+  BULK
+}
+
+enum GroupByPeriod {
+  DAY
+  WEEK
+  MONTH
 }
 
 type HealthTotalsDelta {
@@ -107,162 +249,239 @@ type IngestActivityResult {
   idempotencyKeyUsed: String
 }
 
-input LogMealInput {
-  name: String!
-  quantityG: Float!
-  timestamp: String = null
-  barcode: String = null
-  idempotencyKey: String = null
-  userId: String = null
-  photoUrl: String = null
+type MacroSplitType {
+  proteinG: Int!
+  carbsG: Int!
+  fatG: Int!
 }
+
+type Meal {
+  id: String!
+  userId: String!
+  timestamp: DateTime!
+  mealType: MealType!
+  dishName: String!
+  imageUrl: String
+  source: String!
+  confidence: Float!
+  entries: [MealEntry!]!
+  notes: String
+  analysisId: String
+  totalCalories: Int!
+  totalProtein: Float!
+  totalCarbs: Float!
+  totalFat: Float!
+  totalFiber: Float!
+  totalSugar: Float!
+  totalSodium: Float!
+  createdAt: DateTime!
+  updatedAt: DateTime
+  entryCount: Int!
+  averageConfidence: Float!
+}
+
+type MealAnalysisError {
+  message: String!
+  code: String!
+}
+
+type MealAnalysisSuccess {
+  meal: Meal!
+  analysisId: String
+  processingTimeMs: Int
+}
+
+union MealAnalysisSuccessMealAnalysisError = MealAnalysisSuccess | MealAnalysisError
 
 type MealEntry {
   id: String!
-  userId: String!
   name: String!
+  displayName: String!
   quantityG: Float!
-  timestamp: String!
-  barcode: String
-  idempotencyKey: String
-  nutrientSnapshotJson: String
-  calories: Int
-  protein: Float
-  carbs: Float
-  fat: Float
+  calories: Int!
+  protein: Float!
+  carbs: Float!
+  fat: Float!
   fiber: Float
   sugar: Float
   sodium: Float
-  imageUrl: String
-}
-
-type MealPhotoAnalysis {
-  id: String!
-  userId: String!
-  status: MealPhotoAnalysisStatus!
-  createdAt: String!
-  source: String!
-  photoUrl: String
-  dishName: String
-  items: [MealPhotoItemPrediction!]!
-  rawJson: String
-  idempotencyKeyUsed: String
-  totalCalories: Int
-  analysisErrors: [MealPhotoAnalysisError!]!
-  failureReason: MealPhotoAnalysisErrorCode
-}
-
-type MealPhotoAnalysisError {
-  code: MealPhotoAnalysisErrorCode!
-  message: String!
-  severity: MealPhotoErrorSeverity!
-  debugId: String
-  fallbackApplied: Boolean!
-}
-
-enum MealPhotoAnalysisErrorCode {
-  INVALID_IMAGE
-  UNSUPPORTED_FORMAT
-  IMAGE_TOO_LARGE
-  BARCODE_DETECTION_FAILED
-  PARSE_EMPTY
-  PORTION_INFERENCE_FAILED
-  RATE_LIMITED
-  INTERNAL_ERROR
-}
-
-enum MealPhotoAnalysisStatus {
-  PENDING
-  COMPLETED
-  FAILED
-}
-
-enum MealPhotoErrorSeverity {
-  ERROR
-  WARNING
-}
-
-type MealPhotoItemPrediction {
-  label: String!
-  displayName: String
   confidence: Float!
-  quantityG: Float
-  calories: Int
-  protein: Float
-  carbs: Float
-  fat: Float
-  fiber: Float
-  sugar: Float
-  sodium: Float
-  enrichmentSource: String
-  calorieCorrected: Boolean
+  barcode: String
+}
+
+type MealHistoryResult {
+  meals: [Meal!]!
+  totalCount: Int!
+  hasMore: Boolean!
+}
+
+type MealMutations {
+  analyzeMealPhoto(input: AnalyzeMealPhotoInput!): MealAnalysisSuccessMealAnalysisError!
+  analyzeMealText(input: AnalyzeMealTextInput!): MealAnalysisSuccessMealAnalysisError!
+  analyzeMealBarcode(input: AnalyzeMealBarcodeInput!): MealAnalysisSuccessMealAnalysisError!
+  confirmMealAnalysis(input: ConfirmAnalysisInput!): ConfirmAnalysisSuccessConfirmAnalysisError!
+  updateMeal(input: UpdateMealInput!): UpdateMealSuccessUpdateMealError!
+  deleteMeal(input: DeleteMealInput!): DeleteMealSuccessDeleteMealError!
+}
+
+type MealSearchResult {
+  meals: [Meal!]!
+  totalCount: Int!
+}
+
+enum MealType {
+  BREAKFAST
+  LUNCH
+  DINNER
+  SNACK
 }
 
 type Mutation {
-  """Log di un pasto con arricchimento nutrienti se barcode noto"""
-  logMeal(input: LogMealInput!): MealEntry!
+  """Meal domain mutations (CQRS commands)"""
+  meals: MealMutations!
 
-  """Aggiorna un pasto esistente"""
-  updateMeal(input: UpdateMealInput!): MealEntry!
+  """Activity domain mutations"""
+  activity: ActivityMutations!
 
-  """Cancella un pasto"""
-  deleteMeal(id: String!): Boolean!
-
-  """Ingest batch minute activity events (idempotent)"""
-  ingestActivityEvents(input: [ActivityMinuteInput!]!, idempotencyKey: String = null, userId: String = null): IngestActivityResult!
+  """Nutritional profile mutations"""
+  nutritionalProfile: NutritionalProfileMutations!
 
   """Sincronizza snapshot cumulativi attività"""
   syncHealthTotals(input: HealthTotalsInput!, idempotencyKey: String = null, userId: String = null): SyncHealthTotalsResult!
-
-  """Analizza una foto (stub deterministico)"""
-  analyzeMealPhoto(input: AnalyzeMealPhotoInput!): MealPhotoAnalysis!
-
-  """Conferma items analisi foto e crea MealEntry"""
-  confirmMealPhoto(input: ConfirmMealPhotoInput!): ConfirmMealPhotoResult!
 }
 
-type Product {
-  barcode: String!
-  name: String!
-  brand: String
-  category: String
-  calories: Int
-  protein: Float
-  carbs: Float
-  fat: Float
+type NutrientProfile {
+  calories: Float!
+  protein: Float!
+  carbs: Float!
+  fat: Float!
   fiber: Float
   sugar: Float
   sodium: Float
-  imageUrl: String
+  quantityG: Float!
+}
+
+type NutritionalProfileMutations {
+  createNutritionalProfile(input: CreateProfileInput!): NutritionalProfileType!
+  updateNutritionalProfile(input: UpdateProfileInput!): NutritionalProfileType!
+  recordProgress(input: RecordProgressInput!): ProgressRecordType!
+}
+
+type NutritionalProfileQueries {
+  nutritionalProfile(profileId: String = null, userId: String = null): NutritionalProfileType
+  progressScore(userId: String!, startDate: Date!, endDate: Date!): ProgressStatisticsType
+  forecastWeight(profileId: String!, daysAhead: Int! = 30, confidenceLevel: Float! = 0.95): WeightForecastType!
+}
+
+type NutritionalProfileType {
+  profileId: String!
+  userId: String!
+  userData: UserDataType!
+  goal: GoalEnum!
+  bmr: BMRType!
+  tdee: TDEEType!
+  caloriesTarget: Float!
+  macroSplit: MacroSplitType!
+  progressHistory: [ProgressRecordType!]!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type PeriodSummary {
+  period: String!
+  startDate: DateTime!
+  endDate: DateTime!
+  totalCalories: Float!
+  totalProtein: Float!
+  totalCarbs: Float!
+  totalFat: Float!
+  totalFiber: Float!
+  totalSugar: Float!
+  totalSodium: Float!
+  mealCount: Int!
+  breakdownByType: String!
+  hasMeals: Boolean!
+  avgDailyCalories: Float!
+}
+
+type ProgressRecordType {
+  date: Date!
+  weight: Float!
+  consumedCalories: Float
+  consumedProteinG: Float
+  consumedCarbsG: Float
+  consumedFatG: Float
+  caloriesBurnedBmr: Float
+  caloriesBurnedActive: Float
+  notes: String
+}
+
+type ProgressStatisticsType {
+  startDate: Date!
+  endDate: Date!
+  weightDelta: Float!
+  avgDailyCalories: Float
+  avgCaloriesBurned: Float
+  avgDeficit: Float
+  daysDeficitOnTrack: Int!
+  daysMacrosOnTrack: Int!
+  totalDays: Int!
+  adherenceRate: Float!
 }
 
 type Query {
-  hello: String!
   serverTime: String!
   health: String!
 
-  """Fetch prodotto da OpenFoodFacts (cache)"""
-  product(barcode: String!): Product
+  """Atomic utility queries for testing capabilities"""
+  atomic: AtomicQueries!
 
-  """Lista pasti più recenti (desc)"""
-  mealEntries(limit: Int! = 20, after: String = null, before: String = null, userId: String = null): [MealEntry!]!
+  """Aggregate meal data queries"""
+  meals: AggregateQueries!
 
-  """Riepilogo nutrienti per giorno (UTC)"""
-  dailySummary(date: String!, userId: String = null): DailySummary!
+  """Activity data queries"""
+  activity: ActivityQueries!
 
-  """Lista eventi activity minuto (diagnostica)"""
-  activityEntries(limit: Int! = 100, after: String = null, before: String = null, userId: String = null): [ActivityEvent!]!
-
-  """Lista delta sync health totals per giorno"""
-  syncEntries(date: String!, userId: String = null, after: String = null, limit: Int! = 200): [HealthTotalsDelta!]!
+  """Nutritional profile queries"""
+  nutritionalProfile: NutritionalProfileQueries!
 
   """Statistiche cache prodotto"""
   cacheStats: CacheStats!
 }
 
+type RangeSummaryResult {
+  periods: [PeriodSummary!]!
+  total: PeriodSummary!
+}
+
+type RecognizedFood {
+  label: String!
+  displayName: String!
+  quantityG: Float!
+  confidence: Float!
+}
+
+input RecordProgressInput {
+  profileId: String!
+  date: Date!
+  weight: Float!
+  consumedCalories: Float = null
+  consumedProteinG: Float = null
+  consumedCarbsG: Float = null
+  consumedFatG: Float = null
+  caloriesBurnedBmr: Float = null
+  caloriesBurnedActive: Float = null
+  notes: String = null
+}
+
 type RejectedActivityEvent {
   index: Int!
   reason: String!
+}
+
+enum SexEnum {
+  M
+  F
 }
 
 type SyncHealthTotalsResult {
@@ -274,11 +493,66 @@ type SyncHealthTotalsResult {
   delta: HealthTotalsDelta
 }
 
+type TDEEType {
+  value: Float!
+  activityLevel: ActivityLevelEnum!
+}
+
+type UpdateMealError {
+  message: String!
+  code: String!
+}
+
 input UpdateMealInput {
-  id: String!
-  name: String = null
-  quantityG: Float = null
-  timestamp: String = null
-  barcode: String = null
-  userId: String = null
+  mealId: String!
+  userId: String!
+  mealType: MealType = null
+  timestamp: DateTime = null
+  notes: String = null
+}
+
+type UpdateMealSuccess {
+  meal: Meal!
+}
+
+union UpdateMealSuccessUpdateMealError = UpdateMealSuccess | UpdateMealError
+
+input UpdateProfileInput {
+  profileId: String!
+  userData: UserDataInput = null
+  goal: GoalEnum = null
+}
+
+input UserDataInput {
+  weight: Float!
+  height: Float!
+  age: Int!
+  sex: SexEnum!
+  activityLevel: ActivityLevelEnum!
+}
+
+type UserDataType {
+  weight: Float!
+  height: Float!
+  age: Int!
+  sex: SexEnum!
+  activityLevel: ActivityLevelEnum!
+}
+
+type WeightForecastType {
+  profileId: String!
+  generatedAt: DateTime!
+  predictions: [WeightPredictionPointType!]!
+  modelUsed: String!
+  confidenceLevel: Float!
+  dataPointsUsed: Int!
+  trendDirection: String!
+  trendMagnitude: Float!
+}
+
+type WeightPredictionPointType {
+  date: Date!
+  predictedWeight: Float!
+  lowerBound: Float!
+  upperBound: Float!
 }

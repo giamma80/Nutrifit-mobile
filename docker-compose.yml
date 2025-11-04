@@ -1,0 +1,74 @@
+###############################################
+# Nutrifit - Docker Compose Setup
+# MongoDB + Backend (local development)
+#
+# Configurazione:
+# - Backend usa backend/.env per tutte le variabili
+# - MongoDB usa mongodb/.env per credenziali
+# - Scegli MEAL_REPOSITORY in backend/.env:
+#   - inmemory: no persistenza (default dev)
+#   - mongodb: persistenza completa (production-like)
+###############################################
+
+services:
+  # MongoDB - Database principale
+  mongodb:
+    build:
+      context: ./mongodb
+      dockerfile: Dockerfile
+    container_name: nutrifit-mongodb
+    restart: unless-stopped
+    env_file:
+      - ./mongodb/.env
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+      - mongodb_config:/data/configdb
+    networks:
+      - nutrifit-network
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # Backend - FastAPI + Strawberry GraphQL
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: nutrifit-backend
+    restart: unless-stopped
+    env_file:
+      - ./backend/.env
+    ports:
+      - "8000:8000"
+    # Note: volume mount disabled to avoid RO filesystem issues
+    # For hot reload development, use: ./backend:/app
+    # volumes:
+    #   - ./backend:/app:ro
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    networks:
+      - nutrifit-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 40s
+
+# Network isolata
+networks:
+  nutrifit-network:
+    driver: bridge
+
+# Volumes per persistenza MongoDB
+volumes:
+  mongodb_data:
+    driver: local
+  mongodb_config:
+    driver: local
