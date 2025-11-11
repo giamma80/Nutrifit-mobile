@@ -9,7 +9,7 @@ license = { text = "Proprietary" }
 dependencies = [
   "fastapi==0.121.1",
   "uvicorn==0.38.0",
-  "strawberry-graphql==0.284.1",
+  "strawberry-graphql==0.285.0",
   "httpx==0.28.1",
   "pyyaml==6.0.3",
   "openai>=2.5.0",
