@@ -26,6 +26,23 @@ schema-export:
 schema-check:
 	@$(SCRIPT) schema-check
 
+# Dependencies Analysis (essentials only)
+deps-check:
+	@$(SCRIPT) deps-check
+
+deps-health:
+	@$(SCRIPT) deps-health
+
+deps-update:
+	@$(SCRIPT) deps-update
+
+deps-outdated:
+	@$(SCRIPT) deps-outdated
+
+# Configuration
+preflight-config:
+	@$(SCRIPT) preflight-config
+
 # Docker Compose shortcuts
 docker-up:
 	@$(SCRIPT) docker-up

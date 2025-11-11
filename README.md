@@ -106,6 +106,7 @@ Note operative:
 | Policy Contratto Schema | [docs/schema_contract_policy.md](docs/schema_contract_policy.md) | Regole evoluzione schema, deprecation, label PR |
 | Diff Semantico Schema | [docs/schema_diff.md](docs/schema_diff.md) | Classificazione aligned/additive/breaking, output JSON, roadmap |
 | Contratto Ingestion Dati | [docs/data_ingestion_contract.md](docs/data_ingestion_contract.md) | Log/CRUD pasti, idempotenza fallback, nutrient snapshot, activity vs health totals |
+| Gestione Dipendenze | [backend/docs/DEPENDENCIES.md](backend/docs/DEPENDENCIES.md) | Workflow uv, target make, security check, ottimizzazione pyproject.toml |
 | Sprint Plan | (coming soon) [docs/sprint_plan.md](docs/sprint_plan.md) | Sequenza milestone tecniche & deliverables |
 | Pipeline AI Food Recognition | [docs/ai_food_pipeline_README.md](docs/ai_food_pipeline_README.md) | Flusso inference + enrichment futuro |
 | Prompt AI Vision | [docs/ai_food_recognition_prompt.md](docs/ai_food_recognition_prompt.md) | Prompt primario e fallback GPT-4V |

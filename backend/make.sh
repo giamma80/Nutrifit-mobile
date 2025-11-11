@@ -269,20 +269,28 @@ Targets disponibili:
   # Qualità
   format            Black format
   lint              Flake8 + mypy
+  lint-quick        Lint solo file modificati vs main
   typecheck         Solo mypy (type checking completo)
   test              Pytest (skippa integration_real)
   test-integration  Pytest + integration_real (OpenAI API, consuma crediti)
   schema-export     Esporta SDL GraphQL (aggiorna file versionato)
   schema-check      Verifica drift schema (fail se differente)
   schema-guard      Verifica presenza duplicati e sync canonico/mirror schema
-  preflight         format + lint + test + schema-check + commitlint
+  preflight         format + lint + test + deps-check + schema-check + commitlint
 
                    (markdownlint STRICT di default; disattiva con MD_STRICT=0)
                    (usa SCHEMA_DRIFT_MODE=warn per non fallire su semplice drift)
+                   (usa DEPS_CHECK_MODE=warn|skip per personalizzare controllo dipendenze)
   version-guard     Verifica che la versione non sia stata modificata fuori dal flusso autorizzato
   maintenance-ci    Esegue operazioni manutentive (changelog, badge schema, badge versione, linea release)
   release-ci        Pipeline release non interattiva (LEVEL=patch|minor|major) pensata per automazione
   changelog         Aggiorna CHANGELOG.md dai commit conventional (usa DRY=1 per anteprima)
+
+  # Dependencies Analysis
+  deps-check        Check vulnerabilità dipendenze (pip-audit)
+  deps-health       Health check completo dipendenze 
+  deps-update       Mostra dipendenze aggiornabili (dry-run)
+  deps-outdated     Lista pacchetti obsoleti
 
   # Versioning / Release
   version-show      Mostra versione corrente
@@ -318,6 +326,7 @@ Targets disponibili:
   # Utility
   clean             Rimuovi .venv, __pycache__, pid
   clean-dist        Rimuovi eventuale dist residua
+  preflight-config  Mostra configurazione preflight e opzioni personalizzazione
   all               setup + lint + test
 EOF
     ;;
@@ -522,6 +531,7 @@ EOF
   commitlint_status="SKIP"; commitlint_msg=""
   md_status="SKIP"; md_msg=""
   version_guard_status="SKIP"; version_guard_msg=""
+  deps_status="SKIP"; deps_msg=""
 
     # Format (non blocking): se format modifica file, consideriamo PASS comunque
     header "Format (black)"
@@ -540,6 +550,25 @@ EOF
     header "Tests"
     uv run pytest -q >/dev/null 2>&1; test_ec=$?
   if [ $test_ec -eq 0 ]; then tests_status=PASS; else tests_status=FAIL; tests_msg="pytest exit $test_ec"; fi
+
+  # Dependencies security check
+  header "Dependencies security"
+  deps_check_mode=${DEPS_CHECK_MODE:-fail} # fail|warn|skip
+  if [ "$deps_check_mode" = "skip" ]; then
+    deps_status=SKIP; deps_msg="skipped by config"
+  else
+    # Check veloce con pip-audit (più veloce di safety)
+    uv run pip-audit --format=json >/dev/null 2>&1; deps_ec=$?
+    if [ $deps_ec -eq 0 ]; then
+      deps_status=PASS; deps_msg=""
+    else
+      if [ "$deps_check_mode" = "warn" ]; then
+        deps_status=WARN; deps_msg="vulnerabilità rilevate (warn mode)"
+      else
+        deps_status=FAIL; deps_msg="vulnerabilità rilevate"
+      fi
+    fi
+  fi
 
   # Schema guard (prima di drift)
   header "Schema guard"
@@ -611,6 +640,7 @@ EOF
       printf "%-12s | %-6s | %s\n" "format" "$fmt_status" "$fmt_msg"
       printf "%-12s | %-6s | %s\n" "lint" "$lint_status" "$lint_msg"
       printf "%-12s | %-6s | %s\n" "tests" "$tests_status" "$tests_msg"
+      printf "%-12s | %-6s | %s\n" "deps" "$deps_status" "$deps_msg"
       printf "%-12s | %-6s | %s\n" "guard" "$guard_status" "$guard_msg"
   printf "%-12s | %-6s | %s\n" "ver-guard" "$version_guard_status" "$version_guard_msg"
       printf "%-12s | %-6s | %s\n" "schema" "$schema_status" "$schema_msg"
@@ -625,7 +655,7 @@ EOF
 
     # Determina exit code: fallisce se uno dei gate critici FAIL
     CRIT_FAIL=0
-  if [ "$lint_status" = FAIL ] || [ "$tests_status" = FAIL ] || [ "$schema_status" = FAIL ] || [ "$guard_status" = FAIL ] || [ "$version_guard_status" = FAIL ]; then CRIT_FAIL=1; fi
+  if [ "$lint_status" = FAIL ] || [ "$tests_status" = FAIL ] || [ "$deps_status" = FAIL ] || [ "$schema_status" = FAIL ] || [ "$guard_status" = FAIL ] || [ "$version_guard_status" = FAIL ]; then CRIT_FAIL=1; fi
   # Se strict e markdownlint FAIL lo includiamo
   if [ "$md_status" = FAIL ]; then CRIT_FAIL=1; fi
     if [ $CRIT_FAIL -eq 1 ]; then
@@ -1013,6 +1043,79 @@ EOF
     cd "$REPO_ROOT" || exit 1
     info "Connessione a Redis (password: nutrifit_redis_password)"
     docker-compose exec redis redis-cli -a nutrifit_redis_password
+    ;;
+
+  # ========================================
+  # Dependencies Analysis Targets
+  # ========================================
+
+  deps-check)
+    header "Dependencies Security Check"
+    echo "🔒 Controllo vulnerabilità con pip-audit..."
+    uv run pip-audit || { warn "Vulnerabilità rilevate da pip-audit"; }
+    echo ""
+    info "Controllo sicurezza completato"
+    ;;
+
+  deps-health)
+    header "Dependencies Health Check"
+    if [ -f scripts/health_check.sh ]; then
+      ./scripts/health_check.sh
+    else
+      warn "Script health_check.sh non trovato"
+      echo "Esegui controlli base:"
+      echo ""
+      echo "🔍 Tree dipendenze (top-level):"
+      uv tree --depth 1 | head -20
+      echo ""
+      echo "📊 Statistiche:"
+      echo "Pacchetti: $(uv pip list | wc -l | tr -d ' ')"
+      echo "Dimensione .venv: $(du -sh .venv 2>/dev/null || echo 'N/A')"
+    fi
+    ;;
+
+  deps-update)
+    header "Dependencies Update Check"
+    echo "🔍 Controllo aggiornamenti disponibili (dry-run)..."
+    echo ""
+    current_hash=$(uv lock --dry-run --upgrade 2>&1 | sha256sum | cut -d' ' -f1)
+    existing_hash=$(sha256sum uv.lock 2>/dev/null | cut -d' ' -f1 || echo "none")
+    
+    if [ "$current_hash" != "$existing_hash" ]; then
+      warn "Aggiornamenti disponibili!"
+      echo ""
+      echo "Per aggiornare tutto: uv lock --upgrade && uv sync"
+      echo "Per aggiornare un pacchetto: uv lock --upgrade-package NOME"
+    else
+      info "Tutte le dipendenze sono aggiornate"
+    fi
+    ;;
+
+  deps-outdated)
+    header "Dependencies Outdated"
+    echo "📦 Pacchetti potenzialmente obsoleti:"
+    echo ""
+    uv pip list --outdated 2>/dev/null || {
+      warn "Comando non supportato, uso alternativo:"
+      echo ""
+      echo "🌳 Dipendenze principali:"
+      uv tree --depth 1
+    }
+    ;;
+
+  preflight-config)
+    header "Preflight Configuration"
+    if [ -f scripts/preflight_config.sh ]; then
+      chmod +x scripts/preflight_config.sh
+      ./scripts/preflight_config.sh
+    else
+      echo "🔧 Configurazione preflight corrente:"
+      echo "   DEPS_CHECK_MODE: ${DEPS_CHECK_MODE:-fail}"
+      echo "   MD_STRICT: ${MD_STRICT:-1}"
+      echo "   SCHEMA_DRIFT_MODE: ${SCHEMA_DRIFT_MODE:-fail}"
+      echo ""
+      echo "💡 Per personalizzare esporta le variabili prima del comando"
+    fi
     ;;
 
   *)
