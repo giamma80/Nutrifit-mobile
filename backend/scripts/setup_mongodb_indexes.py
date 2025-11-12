@@ -20,11 +20,19 @@ Environment Variables:
 import asyncio
 import logging
 import sys
+from pathlib import Path
 from typing import Dict, Any
 
+from dotenv import load_dotenv
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
 
 from infrastructure.config import get_mongodb_uri, get_mongodb_database
+
+# Load environment variables from .env file
+env_path = Path(__file__).parent.parent / ".env"
+if env_path.exists():
+    load_dotenv(env_path)
+    logging.debug(f"Loaded environment from: {env_path}")
 
 
 logging.basicConfig(
@@ -82,14 +90,24 @@ async def create_profile_indexes(
     collection = db["nutritional_profiles"]
     logger.info("Creating indexes for 'nutritional_profiles' collection...")
 
-    # Unique index on user_id (one profile per user)
-    await collection.create_index(
-        [("user_id", 1)],
-        name="idx_user_unique",
-        unique=True,
-        background=True,
+    # Check if user_id index already exists
+    existing_indexes = await collection.list_indexes().to_list(length=None)
+    user_id_exists = any(
+        "user_id" in idx.get("key", {}) and idx.get("unique", False)
+        for idx in existing_indexes
     )
-    logger.info("  ✓ Created unique index: user_id")
+
+    if not user_id_exists:
+        # Unique index on user_id (one profile per user)
+        await collection.create_index(
+            [("user_id", 1)],
+            name="idx_user_unique",
+            unique=True,
+            background=True,
+        )
+        logger.info("  ✓ Created unique index: user_id")
+    else:
+        logger.info("  ℹ️  Unique index on user_id already exists (skipped)")
 
 
 async def create_activity_event_indexes(
@@ -172,7 +190,12 @@ async def list_existing_indexes(
     logger.info("Existing Indexes Summary")
     logger.info("=" * 60)
 
-    collections = ["meals", "nutritional_profiles", "activity_events", "health_snapshots"]
+    collections = [
+        "meals",
+        "nutritional_profiles",
+        "activity_events",
+        "health_snapshots",
+    ]
 
     for coll_name in collections:
         collection = db[coll_name]
