@@ -115,10 +115,7 @@ class MongoMealRepository(MongoBaseRepository[Meal]):
             ValueError: If document is invalid or missing required fields
         """
         try:
-            entries = [
-                self._dict_to_entry(entry_dict)
-                for entry_dict in doc.get("entries", [])
-            ]
+            entries = [self._dict_to_entry(entry_dict) for entry_dict in doc.get("entries", [])]
 
             meal = Meal(
                 id=self.str_to_uuid(doc["_id"]),
@@ -261,9 +258,7 @@ class MongoMealRepository(MongoBaseRepository[Meal]):
         filter_dict = {"user_id": user_id}
         sort = [("timestamp", -1)]  # Descending (newest first)
 
-        docs = await self._find_many(
-            filter_dict, sort=sort, limit=limit, skip=offset
-        )
+        docs = await self._find_many(filter_dict, sort=sort, limit=limit, skip=offset)
 
         return [self.from_document(doc) for doc in docs]
 

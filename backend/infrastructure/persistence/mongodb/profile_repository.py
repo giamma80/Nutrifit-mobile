@@ -1,7 +1,7 @@
 """MongoDB implementation of IProfileRepository."""
 
 from datetime import datetime
-from typing import Optional
+from typing import Dict, Any
 from uuid import UUID
 
 from domain.nutritional_profile.core.entities.nutritional_profile import (
@@ -27,7 +27,8 @@ from .base import MongoBaseRepository
 
 
 class MongoProfileRepository(
-    MongoBaseRepository[NutritionalProfile], IProfileRepository
+    MongoBaseRepository[NutritionalProfile],
+    IProfileRepository,
 ):
     """MongoDB implementation of nutritional profile repository."""
 
@@ -36,15 +37,16 @@ class MongoProfileRepository(
         """MongoDB collection name."""
         return "nutritional_profiles"
 
-    def to_document(self, profile: NutritionalProfile) -> dict:
+    def to_document(self, entity: NutritionalProfile) -> Dict[str, Any]:
         """Convert NutritionalProfile entity to MongoDB document.
 
         Args:
-            profile: Domain entity
+            entity: Domain entity
 
         Returns:
             dict: MongoDB document
         """
+        profile = entity
         return {
             "_id": str(profile.profile_id.value),
             "profile_id": str(profile.profile_id.value),
@@ -81,7 +83,7 @@ class MongoProfileRepository(
             "updated_at": profile.updated_at.isoformat(),
         }
 
-    def from_document(self, doc: dict) -> NutritionalProfile:
+    def from_document(self, doc: Dict[str, Any]) -> NutritionalProfile:
         """Convert MongoDB document to NutritionalProfile entity.
 
         Args:
@@ -98,9 +100,7 @@ class MongoProfileRepository(
                 height=doc["user_data"]["height"],
                 age=doc["user_data"]["age"],
                 sex=doc["user_data"]["sex"],
-                activity_level=ActivityLevel(
-                    doc["user_data"]["activity_level"]
-                ),
+                activity_level=ActivityLevel(doc["user_data"]["activity_level"]),
             ),
             goal=Goal(doc["goal"]),
             bmr=BMR(doc["bmr"]),
@@ -140,9 +140,7 @@ class MongoProfileRepository(
 
         await self._update_one(filter_dict, update_dict, upsert=True)
 
-    async def find_by_id(
-        self, profile_id: ProfileId
-    ) -> Optional[NutritionalProfile]:
+    async def find_by_id(self, profile_id: ProfileId) -> NutritionalProfile | None:
         """Find profile by ID."""
         filter_dict = {"_id": str(profile_id.value)}
 
@@ -152,9 +150,7 @@ class MongoProfileRepository(
 
         return self.from_document(doc)
 
-    async def find_by_user_id(
-        self, user_id: str
-    ) -> Optional[NutritionalProfile]:
+    async def find_by_user_id(self, user_id: str) -> NutritionalProfile | None:
         """Find profile by user ID."""
         filter_dict = {"user_id": user_id}
 

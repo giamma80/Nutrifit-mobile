@@ -11,7 +11,7 @@ All concrete MongoDB repositories should inherit from MongoBaseRepository.
 """
 
 from abc import ABC, abstractmethod
-from typing import TypeVar, Generic, Optional, Dict, Any, List
+from typing import TypeVar, Generic, Optional, Dict, Any, List, Tuple
 from uuid import UUID
 from datetime import datetime
 import logging
@@ -58,7 +58,7 @@ class MongoBaseRepository(ABC, Generic[TEntity]):
                 ...
     """
 
-    def __init__(self, client: Optional[AsyncIOMotorClient] = None):
+    def __init__(self, client: Optional[AsyncIOMotorClient[Dict[str, Any]]] = None):
         """
         Initialize repository with optional client.
 
@@ -73,7 +73,7 @@ class MongoBaseRepository(ABC, Generic[TEntity]):
                     "Set MONGODB_URI, MONGODB_USER, "
                     "and MONGODB_PASSWORD environment variables."
                 )
-            self._client = AsyncIOMotorClient(uri)
+            self._client: AsyncIOMotorClient[Dict[str, Any]] = AsyncIOMotorClient(uri)
         else:
             self._client = client
 
@@ -82,8 +82,7 @@ class MongoBaseRepository(ABC, Generic[TEntity]):
         self._collection = self._db[self.collection_name]
 
         logger.info(
-            f"Initialized {self.__class__.__name__} "
-            f"for collection '{self.collection_name}'"
+            f"Initialized {self.__class__.__name__} " f"for collection '{self.collection_name}'"
         )
 
     # ============================================================
@@ -130,7 +129,7 @@ class MongoBaseRepository(ABC, Generic[TEntity]):
     # ============================================================
 
     @property
-    def collection(self) -> AsyncIOMotorCollection:
+    def collection(self) -> AsyncIOMotorCollection[Dict[str, Any]]:
         """Get MongoDB collection handle."""
         return self._collection
 
@@ -174,6 +173,7 @@ class MongoBaseRepository(ABC, Generic[TEntity]):
         if dt.tzinfo is None:
             # If no timezone, assume UTC
             from datetime import timezone
+
             dt = dt.replace(tzinfo=timezone.utc)
         return dt
 
@@ -208,7 +208,7 @@ class MongoBaseRepository(ABC, Generic[TEntity]):
     async def _find_many(
         self,
         filter_dict: Dict[str, Any],
-        sort: Optional[List[tuple]] = None,
+        sort: Optional[List[Tuple[str, int]]] = None,
         limit: Optional[int] = None,
         skip: Optional[int] = None,
         projection: Optional[Dict[str, int]] = None,
@@ -261,10 +261,7 @@ class MongoBaseRepository(ABC, Generic[TEntity]):
         try:
             await self._collection.insert_one(document)
         except Exception as e:
-            logger.error(
-                f"Error in insert_one: collection={self.collection_name}, "
-                f"error={e}"
-            )
+            logger.error(f"Error in insert_one: collection={self.collection_name}, " f"error={e}")
             raise
 
     async def _update_one(
@@ -288,9 +285,7 @@ class MongoBaseRepository(ABC, Generic[TEntity]):
             Exception: If MongoDB operation fails (logged and re-raised)
         """
         try:
-            result = await self._collection.update_one(
-                filter_dict, update_dict, upsert=upsert
-            )
+            result = await self._collection.update_one(filter_dict, update_dict, upsert=upsert)
             return result.modified_count
         except Exception as e:
             logger.error(

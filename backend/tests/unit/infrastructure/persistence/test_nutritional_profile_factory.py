@@ -53,9 +53,7 @@ class TestCreateProfileRepository:
 
         assert isinstance(repository, InMemoryProfileRepository)
 
-    def test_create_mongodb_creates_mongo_repository(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_create_mongodb_creates_mongo_repository(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Test mongodb creates MongoProfileRepository."""
         from infrastructure.persistence.mongodb.profile_repository import (
             MongoProfileRepository,
@@ -69,9 +67,7 @@ class TestCreateProfileRepository:
         assert isinstance(repository, MongoProfileRepository)
         assert isinstance(repository, IProfileRepository)
 
-    def test_create_mongodb_missing_uri_raises_error(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_create_mongodb_missing_uri_raises_error(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Test mongodb without URI raises ValueError."""
         monkeypatch.setenv("REPOSITORY_BACKEND", "mongodb")
         if "MONGODB_URI" in os.environ:

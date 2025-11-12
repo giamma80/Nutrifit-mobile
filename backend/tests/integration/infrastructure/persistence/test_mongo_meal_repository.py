@@ -64,9 +64,7 @@ class TestMongoMealRepositorySave:
         await mongo_repo.save(sample_meal)
 
         # Verify saved
-        retrieved = await mongo_repo.get_by_id(
-            sample_meal.meal_id, sample_meal.user_id
-        )
+        retrieved = await mongo_repo.get_by_id(sample_meal.meal_id, sample_meal.user_id)
         assert retrieved is not None
         assert retrieved.meal_id == sample_meal.meal_id
         assert retrieved.user_id == sample_meal.user_id
@@ -92,9 +90,7 @@ class TestMongoMealRepositorySave:
         await mongo_repo.save(sample_meal)
 
         # Verify updated
-        retrieved = await mongo_repo.get_by_id(
-            sample_meal.meal_id, sample_meal.user_id
-        )
+        retrieved = await mongo_repo.get_by_id(sample_meal.meal_id, sample_meal.user_id)
         assert len(retrieved.components) == 2
 
 
@@ -106,17 +102,13 @@ class TestMongoMealRepositoryGet:
         """Should retrieve existing meal by ID."""
         await mongo_repo.save(sample_meal)
 
-        retrieved = await mongo_repo.get_by_id(
-            sample_meal.meal_id, sample_meal.user_id
-        )
+        retrieved = await mongo_repo.get_by_id(sample_meal.meal_id, sample_meal.user_id)
         assert retrieved is not None
         assert retrieved.meal_id == sample_meal.meal_id
 
     async def test_get_by_id_nonexistent(self, mongo_repo):
         """Should return None for nonexistent meal."""
-        retrieved = await mongo_repo.get_by_id(
-            "nonexistent_id", "test_user_001"
-        )
+        retrieved = await mongo_repo.get_by_id("nonexistent_id", "test_user_001")
         assert retrieved is None
 
     async def test_list_by_user_empty(self, mongo_repo):
@@ -147,23 +139,17 @@ class TestMongoMealRepositoryGet:
             meal = MealEntry(
                 meal_id=f"test_meal_{i:03d}",
                 user_id="test_user_pagination",
-                timestamp=datetime(
-                    2025, 11, 12, 10 + i, 0, 0, tzinfo=timezone.utc
-                ),
+                timestamp=datetime(2025, 11, 12, 10 + i, 0, 0, tzinfo=timezone.utc),
                 components=[],
             )
             await mongo_repo.save(meal)
 
         # Get first page
-        page1 = await mongo_repo.list_by_user(
-            "test_user_pagination", limit=2, skip=0
-        )
+        page1 = await mongo_repo.list_by_user("test_user_pagination", limit=2, skip=0)
         assert len(page1) == 2
 
         # Get second page
-        page2 = await mongo_repo.list_by_user(
-            "test_user_pagination", limit=2, skip=2
-        )
+        page2 = await mongo_repo.list_by_user("test_user_pagination", limit=2, skip=2)
         assert len(page2) == 2
 
         # Verify different meals
@@ -179,18 +165,14 @@ class TestMongoMealRepositoryDelete:
         await mongo_repo.save(sample_meal)
 
         # Verify exists
-        retrieved = await mongo_repo.get_by_id(
-            sample_meal.meal_id, sample_meal.user_id
-        )
+        retrieved = await mongo_repo.get_by_id(sample_meal.meal_id, sample_meal.user_id)
         assert retrieved is not None
 
         # Delete
         await mongo_repo.delete(sample_meal.meal_id, sample_meal.user_id)
 
         # Verify deleted
-        retrieved = await mongo_repo.get_by_id(
-            sample_meal.meal_id, sample_meal.user_id
-        )
+        retrieved = await mongo_repo.get_by_id(sample_meal.meal_id, sample_meal.user_id)
         assert retrieved is None
 
     async def test_delete_nonexistent_meal_no_error(self, mongo_repo):
@@ -210,9 +192,7 @@ class TestMongoMealRepositorySearch:
             meal = MealEntry(
                 meal_id=f"test_meal_day_{day}",
                 user_id="test_user_search",
-                timestamp=datetime(
-                    2025, 11, day, 12, 0, 0, tzinfo=timezone.utc
-                ),
+                timestamp=datetime(2025, 11, day, 12, 0, 0, tzinfo=timezone.utc),
                 components=[],
             )
             await mongo_repo.save(meal)
@@ -221,9 +201,7 @@ class TestMongoMealRepositorySearch:
         start = datetime(2025, 11, 11, 0, 0, 0, tzinfo=timezone.utc)
         end = datetime(2025, 11, 11, 23, 59, 59, tzinfo=timezone.utc)
 
-        meals = await mongo_repo.search(
-            user_id="test_user_search", start_date=start, end_date=end
-        )
+        meals = await mongo_repo.search(user_id="test_user_search", start_date=start, end_date=end)
 
         assert len(meals) == 1
         assert meals[0].meal_id == "test_meal_day_11"
@@ -235,9 +213,7 @@ class TestMongoMealRepositorySearch:
             meal = MealEntry(
                 meal_id=f"test_meal_{i:03d}",
                 user_id="test_user_all",
-                timestamp=datetime(
-                    2025, 11, 12, 10 + i, 0, 0, tzinfo=timezone.utc
-                ),
+                timestamp=datetime(2025, 11, 12, 10 + i, 0, 0, tzinfo=timezone.utc),
                 components=[],
             )
             await mongo_repo.save(meal)

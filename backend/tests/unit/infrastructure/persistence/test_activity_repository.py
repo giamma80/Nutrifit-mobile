@@ -21,16 +21,16 @@ def reset_repos():
     """Reset all repositories before each test."""
     # Reset factory singletons
     reset_activity_repository()
-    
+
     # Import and reset legacy repositories
     from repository import activities, health_totals
-    
+
     # Recreate fresh instances (if they have clear methods, use them)
     activities.activity_repo = activities.InMemoryActivityRepository()
     health_totals.health_totals_repo = health_totals.HealthTotalsRepository()
-    
+
     yield
-    
+
     # Cleanup after test
     reset_activity_repository()
 
@@ -260,9 +260,7 @@ class TestInMemoryActivityRepository:
 
         activity_repo.record_snapshot(snapshot)
 
-        steps, calories = activity_repo.get_daily_totals(
-            "user_123", "2025-11-05"
-        )
+        steps, calories = activity_repo.get_daily_totals("user_123", "2025-11-05")
 
         assert steps == 1000
         assert calories == 50.0
@@ -290,9 +288,7 @@ class TestActivityRepositoryFactory:
 
         assert repo1 is repo2
 
-    def test_create_activity_repository_mongodb_not_implemented(
-        self, monkeypatch
-    ):
+    def test_create_activity_repository_mongodb_not_implemented(self, monkeypatch):
         """Test factory raises error for MongoDB (not yet implemented)."""
         monkeypatch.setenv("REPOSITORY_BACKEND", "mongodb")
         reset_activity_repository()

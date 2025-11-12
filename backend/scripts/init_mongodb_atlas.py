@@ -14,11 +14,12 @@ Environment:
 import asyncio
 import os
 import sys
+from typing import Dict, Any
 from dotenv import load_dotenv
 from motor.motor_asyncio import AsyncIOMotorClient
 
 
-async def init_mongodb_atlas():
+async def init_mongodb_atlas() -> None:
     """Initialize MongoDB Atlas with collections, validation, and indexes."""
 
     # Get MongoDB URI from environment
@@ -38,11 +39,13 @@ async def init_mongodb_atlas():
             print("Aborted.")
             sys.exit(0)
 
-    print(f"🔗 Connecting to MongoDB...")
+    print("🔗 Connecting to MongoDB...")
     print(f"   URI: {mongodb_uri.split('@')[1] if '@' in mongodb_uri else 'localhost'}")
 
     try:
-        client = AsyncIOMotorClient(mongodb_uri, serverSelectionTimeoutMS=10000)
+        client: AsyncIOMotorClient[Dict[str, Any]] = AsyncIOMotorClient(
+            mongodb_uri, serverSelectionTimeoutMS=10000
+        )
         await client.admin.command("ping")
         print("✅ Connected successfully!")
     except Exception as e:

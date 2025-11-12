@@ -43,9 +43,7 @@ def create_profile_repository() -> IProfileRepository:
         # Validate MongoDB URI is provided
         mongodb_uri = os.getenv("MONGODB_URI")
         if not mongodb_uri:
-            raise ValueError(
-                "REPOSITORY_BACKEND='mongodb' requires MONGODB_URI"
-            )
+            raise ValueError("REPOSITORY_BACKEND='mongodb' requires MONGODB_URI")
 
         # Import here to avoid circular dependency
         from infrastructure.persistence.mongodb.profile_repository import (
