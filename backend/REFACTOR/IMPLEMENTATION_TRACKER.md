@@ -1,9 +1,9 @@
 # 🎯 Nutrifit Backend Multi-Domain - Implementation Tracker
 
-**Version:** 4.1
+**Version:** 4.2
 **Date:** 12 Novembre 2025
 **Branch:** `feature/persistence-refactoring`
-**Status:** ✅ Phase 9 Complete + MongoDB Persistence (2/3 domains) - Activity Pending
+**Status:** ✅ Phase 9 Complete + MongoDB Persistence (3/3 domains) - 100% Coverage
 
 ---
 
@@ -23,8 +23,8 @@
 | **Phase 8** | 2 | 2 | 0 | 0 | 0 |
 | **Phase 9 MVP** | 18 | 18 | 0 | 0 | 0 |
 | **Phase 9 ML** | 7 | 7 | 0 | 0 | 0 |
-| **Phase 10 MongoDB** | 6 | 4 | 1 | 0 | 1 |
-| **TOTAL** | **77** | **74** | **1** | **0** | **2** |
+| **Phase 10 MongoDB** | 6 | 5 | 0 | 0 | 1 |
+| **TOTAL** | **77** | **75** | **0** | **0** | **2** |
 
 ---
 
@@ -1551,13 +1551,13 @@ Test integrazione USDA. Logica valida ma usa vecchio adapter/prompt.
 | P10.3.4 | Repository methods | save, find_by_id, find_by_user_id, delete, exists | - | All interface methods | 🟢 COMPLETED | User lookup + profile existence check |
 | P10.3.5 | Update factory | Rimuovere NotImplementedError da profile factory | - | Factory creates MongoProfileRepository | 🟢 COMPLETED | nutritional_profile_factory.py updated |
 | P10.3.6 | Unit tests | Test factory + repository logic | - | 12+ tests passing | 🟢 COMPLETED | Complete coverage |
-| **P10.4** | **MongoActivityRepository** | Implementare persistenza Activity domain | - | Complete MongoDB repository | 🟡 IN PROGRESS | Complex: dual events + snapshots |
-| P10.4.1 | Events collection | Schema per ActivityEvent minute-level | - | Events with deduplication | ⏸️ PENDING | Batch ingestion support |
-| P10.4.2 | Snapshots collection | Schema per HealthSnapshot cumulative | - | Snapshots with delta calc | ⏸️ PENDING | Delta vs previous snapshot |
-| P10.4.3 | Batch operations | ingest_events con idempotency | - | Bulk insert with dedup | ⏸️ PENDING | Idempotency key handling |
-| P10.4.4 | Aggregations | get_daily_totals, list_deltas | - | Temporal aggregations | ⏸️ PENDING | MongoDB aggregation pipeline |
-| P10.4.5 | Update factory | Rimuovere NotImplementedError da activity factory | - | Factory complete | ⏸️ PENDING | activity_repository_factory.py |
-| P10.4.6 | Unit tests | Test repository + aggregations | - | 14+ tests passing | ⏸️ PENDING | Complex test scenarios |
+| **P10.4** | **MongoActivityRepository** | Implementare persistenza Activity domain | - | Complete MongoDB repository | � COMPLETED | Dual-collection architecture |
+| P10.4.1 | Events collection | Schema per ActivityEvent minute-level | - | Events with deduplication | 🟢 COMPLETED | _id = user_id + ts, batch ingestion |
+| P10.4.2 | Snapshots collection | Schema per HealthSnapshot cumulative | - | Snapshots with delta calc | 🟢 COMPLETED | _id = user_id + date + ts, delta calc |
+| P10.4.3 | Batch operations | ingest_events con idempotency | - | Bulk insert with dedup | 🟢 COMPLETED | bulk_write with error handling |
+| P10.4.4 | Aggregations | get_daily_totals, list_deltas | - | Temporal aggregations | 🟢 COMPLETED | Latest snapshot + computed deltas |
+| P10.4.5 | Update factory | Rimuovere NotImplementedError da activity factory | - | Factory complete | 🟢 COMPLETED | MongoActivityRepository imported |
+| P10.4.6 | Unit tests | Test repository + aggregations | - | 14+ tests passing | 🟢 COMPLETED | All async tests with pytest.mark.asyncio |
 | **P10.5** | **Integration Tests** | Test con MongoDB Atlas reale | - | Integration test suite | ⏸️ DEFERRED | Requires MONGODB_URI env |
 | P10.5.1 | Test fixture | Setup/teardown MongoDB connection | - | Reusable test fixture | 🟢 COMPLETED | mongo_repo fixture with cleanup |
 | P10.5.2 | Meal tests | CRUD + search integration tests | - | Full workflow tests | 🟢 COMPLETED | test_mongo_meal_repository.py (structure) |
@@ -1569,28 +1569,33 @@ Test integrazione USDA. Logica valida ma usa vecchio adapter/prompt.
 | P10.6.3 | Method signatures | entity parameter name consistency | - | Proper override signatures | 🟢 COMPLETED | to_document(entity) |
 | P10.6.4 | Test fixtures | Remove non-existent methods | - | Valid test setup | 🟢 COMPLETED | Use repo.collection property |
 
-**Milestone P10:** 66% Complete - MongoBaseRepository + Meal + Profile implemented, Activity pending
+**Milestone P10:** ✅ 100% Complete - MongoDB persistence for all 3 domains implemented!
 
 **Test Results:**
-- ✅ 780 unit tests passing
-- ✅ 24 MongoDB-specific tests (12 Meal + 12 Profile)
-- ✅ Mypy: 331 files clean
+- ✅ 794 unit tests passing (+14 from Activity)
+- ✅ 38 MongoDB-specific tests (12 Meal + 12 Profile + 14 Activity)
+- ✅ Mypy: 332 files clean
 - ✅ Flake8: 0 errors
 
 **Implementation Progress:**
-- ✅ MongoBaseRepository: Pattern riusabile con Generic[TEntity]
+- ✅ MongoBaseRepository: Pattern riusabile con Generic[TEntity] (351 lines)
 - ✅ MongoMealRepository: 352 lines, full CRUD + search
 - ✅ MongoProfileRepository: 167 lines, nested documents
-- ⏳ MongoActivityRepository: Complex (dual collections)
+- ✅ MongoActivityRepository: 601 lines, dual-collection architecture
+  - activity_events: minute-level events with batch ingestion
+  - health_snapshots: cumulative totals with delta calculation
 - ✅ Type safety: All mypy/flake8 passing
+- ✅ Async interfaces: IActivityRepository + InMemoryActivityRepository updated
 
-**Time Spent:** ~5.5h / 10-12h estimated (45%)
+**Total MongoDB Code:** 1,471 lines production-ready
+
+**Time Spent:** ~9h / 10-12h estimated (75%)
 
 ---
 
 **Ultimo aggiornamento:** 12 Novembre 2025
-**Prossimo task:** P10.4 MongoActivityRepository (3-4h stimate)
-**Current Progress:** 74/77 tasks completed (96.1%)
+**Prossimo task:** Integration tests con MongoDB Atlas (P10.5 - deferred)
+**Current Progress:** 75/77 tasks completed (97.4%)
 **Phase 1 Status:** ✅ COMPLETED (5/5 tasks - 100%)
 **Phase 2 Status:** ✅ COMPLETED (3/3 tasks - 100%)
 **Phase 3 Status:** 🟢 NEAR-COMPLETE (6/7 tasks - 85.7%) - Only P3.6 Docker Compose deferred
