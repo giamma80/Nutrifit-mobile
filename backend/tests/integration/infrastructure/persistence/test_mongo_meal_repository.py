@@ -26,12 +26,10 @@ pytestmark = pytest.mark.skipif(
 async def mongo_repo():
     """Create a MongoMealRepository for testing."""
     repo = MongoMealRepository()
-    await repo.connect()
     yield repo
     # Cleanup: delete all test meals
-    collection = await repo._get_collection()
+    collection = repo.collection
     await collection.delete_many({"user_id": {"$regex": "^test_user_"}})
-    await repo.disconnect()
 
 
 @pytest.fixture
