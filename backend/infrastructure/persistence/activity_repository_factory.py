@@ -53,11 +53,10 @@ def create_activity_repository() -> IActivityRepository:
         return _repository_instance
 
     if mode == "mongodb":
-        # Future implementation
-        raise NotImplementedError(
-            "MongoDB backend for activity repository not yet implemented. "
-            "Use REPOSITORY_BACKEND=inmemory for now."
-        )
+        from infrastructure.persistence.mongodb import MongoActivityRepository
+
+        _repository_instance = MongoActivityRepository()
+        return _repository_instance
 
     raise ValueError(
         f"Unknown REPOSITORY_BACKEND value: '{mode}'. " f"Supported values: inmemory, mongodb"

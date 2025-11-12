@@ -41,10 +41,11 @@ def activity_repo():
     return InMemoryActivityRepository()
 
 
+@pytest.mark.asyncio
 class TestInMemoryActivityRepository:
     """Test InMemoryActivityRepository implementation."""
 
-    def test_ingest_events_success(self, activity_repo):
+    async def test_ingest_events_success(self, activity_repo):
         """Test successful event ingestion."""
         events = [
             ActivityEvent(
@@ -65,13 +66,15 @@ class TestInMemoryActivityRepository:
             ),
         ]
 
-        accepted, duplicates, rejected = activity_repo.ingest_events(events)
+        accepted, duplicates, rejected = await activity_repo.ingest_events(
+            events
+        )
 
         assert accepted == 2
         assert duplicates == 0
         assert len(rejected) == 0
 
-    def test_ingest_events_duplicates(self, activity_repo):
+    async def test_ingest_events_duplicates(self, activity_repo):
         """Test duplicate detection in event ingestion."""
         event = ActivityEvent(
             user_id="user_123",
@@ -83,18 +86,18 @@ class TestInMemoryActivityRepository:
         )
 
         # First ingest
-        result1 = activity_repo.ingest_events([event])
+        result1 = await activity_repo.ingest_events([event])
         accepted1, duplicates1, rejected1 = result1
         assert accepted1 == 1
         assert duplicates1 == 0
 
         # Second ingest (duplicate)
-        result2 = activity_repo.ingest_events([event])
+        result2 = await activity_repo.ingest_events([event])
         accepted2, duplicates2, rejected2 = result2
         assert accepted2 == 0
         assert duplicates2 == 1
 
-    def test_list_events(self, activity_repo):
+    async def test_list_events(self, activity_repo):
         """Test listing events."""
         events = [
             ActivityEvent(
@@ -115,15 +118,15 @@ class TestInMemoryActivityRepository:
             ),
         ]
 
-        activity_repo.ingest_events(events)
+        await activity_repo.ingest_events(events)
 
         # List all events
-        result = activity_repo.list_events("user_123")
+        result = await activity_repo.list_events("user_123")
         assert len(result) == 2
         assert result[0].steps == 100
         assert result[1].steps == 150
 
-    def test_list_events_with_date_range(self, activity_repo):
+    async def test_list_events_with_date_range(self, activity_repo):
         """Test listing events with date range filter."""
         events = [
             ActivityEvent(
@@ -144,10 +147,10 @@ class TestInMemoryActivityRepository:
             ),
         ]
 
-        activity_repo.ingest_events(events)
+        await activity_repo.ingest_events(events)
 
         # List only Nov 5
-        result = activity_repo.list_events(
+        result = await activity_repo.list_events(
             "user_123",
             start_ts="2025-11-05T00:00:00Z",
             end_ts="2025-11-05T23:59:59Z",
@@ -155,7 +158,7 @@ class TestInMemoryActivityRepository:
         assert len(result) == 1
         assert result[0].steps == 100
 
-    def test_get_daily_events_count(self, activity_repo):
+    async def test_get_daily_events_count(self, activity_repo):
         """Test counting daily events."""
         events = [
             ActivityEvent(
@@ -176,12 +179,14 @@ class TestInMemoryActivityRepository:
             ),
         ]
 
-        activity_repo.ingest_events(events)
+        await activity_repo.ingest_events(events)
 
-        count = activity_repo.get_daily_events_count("user_123", "2025-11-05")
+        count = await activity_repo.get_daily_events_count(
+            "user_123", "2025-11-05"
+        )
         assert count == 2
 
-    def test_record_snapshot_success(self, activity_repo):
+    async def test_record_snapshot_success(self, activity_repo):
         """Test recording health snapshot."""
         snapshot = HealthSnapshot(
             user_id="user_123",
@@ -192,14 +197,14 @@ class TestInMemoryActivityRepository:
             hr_avg_session=75,
         )
 
-        result = activity_repo.record_snapshot(snapshot)
+        result = await activity_repo.record_snapshot(snapshot)
 
         assert result["accepted"] is True
         assert result["duplicate"] is False
         assert result["delta"] is not None
         assert result["delta"].steps_delta == 1000
 
-    def test_record_snapshot_duplicate(self, activity_repo):
+    async def test_record_snapshot_duplicate(self, activity_repo):
         """Test duplicate snapshot detection."""
         snapshot = HealthSnapshot(
             user_id="user_123",
@@ -211,14 +216,14 @@ class TestInMemoryActivityRepository:
         )
 
         # First record
-        result1 = activity_repo.record_snapshot(snapshot)
+        result1 = await activity_repo.record_snapshot(snapshot)
         assert result1["accepted"] is True
 
         # Duplicate
-        result2 = activity_repo.record_snapshot(snapshot)
+        result2 = await activity_repo.record_snapshot(snapshot)
         assert result2["duplicate"] is True
 
-    def test_list_deltas(self, activity_repo):
+    async def test_list_deltas(self, activity_repo):
         """Test listing activity deltas."""
         snapshot1 = HealthSnapshot(
             user_id="user_123",
@@ -238,16 +243,16 @@ class TestInMemoryActivityRepository:
             hr_avg_session=80,
         )
 
-        activity_repo.record_snapshot(snapshot1)
-        activity_repo.record_snapshot(snapshot2)
+        await activity_repo.record_snapshot(snapshot1)
+        await activity_repo.record_snapshot(snapshot2)
 
-        deltas = activity_repo.list_deltas("user_123", "2025-11-05")
+        deltas = await activity_repo.list_deltas("user_123", "2025-11-05")
 
         assert len(deltas) == 2
         assert deltas[0].steps_delta == 1000
         assert deltas[1].steps_delta == 500
 
-    def test_get_daily_totals(self, activity_repo):
+    async def test_get_daily_totals(self, activity_repo):
         """Test getting daily totals."""
         snapshot = HealthSnapshot(
             user_id="user_123",
@@ -258,9 +263,11 @@ class TestInMemoryActivityRepository:
             hr_avg_session=75,
         )
 
-        activity_repo.record_snapshot(snapshot)
+        await activity_repo.record_snapshot(snapshot)
 
-        steps, calories = activity_repo.get_daily_totals("user_123", "2025-11-05")
+        steps, calories = await activity_repo.get_daily_totals(
+            "user_123", "2025-11-05"
+        )
 
         assert steps == 1000
         assert calories == 50.0
@@ -288,12 +295,15 @@ class TestActivityRepositoryFactory:
 
         assert repo1 is repo2
 
-    def test_create_activity_repository_mongodb_not_implemented(self, monkeypatch):
-        """Test factory raises error for MongoDB (not yet implemented)."""
+    def test_create_activity_repository_mongodb_requires_uri(
+        self, monkeypatch
+    ):
+        """Test factory requires MONGODB_URI for MongoDB backend."""
         monkeypatch.setenv("REPOSITORY_BACKEND", "mongodb")
+        monkeypatch.delenv("MONGODB_URI", raising=False)
         reset_activity_repository()
 
-        with pytest.raises(NotImplementedError):
+        with pytest.raises(ValueError, match="MONGODB_URI not configured"):
             create_activity_repository()
 
     def test_create_activity_repository_invalid_backend(self, monkeypatch):

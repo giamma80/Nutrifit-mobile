@@ -28,7 +28,7 @@ class IActivityRepository(ABC):
     # ===== Eventi Activity (minute-level) =====
 
     @abstractmethod
-    def ingest_events(
+    async def ingest_events(
         self,
         events: List[ActivityEvent],
         idempotency_key: Optional[str] = None,
@@ -45,7 +45,7 @@ class IActivityRepository(ABC):
         """
 
     @abstractmethod
-    def list_events(
+    async def list_events(
         self,
         user_id: str,
         start_ts: Optional[str] = None,
@@ -65,7 +65,7 @@ class IActivityRepository(ABC):
         """
 
     @abstractmethod
-    def get_daily_events_count(self, user_id: str, date: str) -> int:
+    async def get_daily_events_count(self, user_id: str, date: str) -> int:
         """Conta eventi per diagnostica.
 
         Args:
@@ -79,7 +79,7 @@ class IActivityRepository(ABC):
     # ===== Snapshot cumulativi e Delta calculation =====
 
     @abstractmethod
-    def record_snapshot(
+    async def record_snapshot(
         self,
         snapshot: HealthSnapshot,
         idempotency_key: Optional[str] = None,
@@ -103,7 +103,7 @@ class IActivityRepository(ABC):
         """
 
     @abstractmethod
-    def list_deltas(
+    async def list_deltas(
         self,
         user_id: str,
         date: str,
@@ -123,7 +123,7 @@ class IActivityRepository(ABC):
         """
 
     @abstractmethod
-    def get_daily_totals(self, user_id: str, date: str) -> Tuple[int, float]:
+    async def get_daily_totals(self, user_id: str, date: str) -> Tuple[int, float]:
         """Aggrega totali giornalieri da delta.
 
         Args:

@@ -42,7 +42,7 @@ class InMemoryActivityRepository(IActivityRepository):
 
     # ===== Eventi Activity (minute-level) =====
 
-    def ingest_events(
+    async def ingest_events(
         self,
         events: List[ActivityEvent],
         idempotency_key: Optional[str] = None,
@@ -69,7 +69,7 @@ class InMemoryActivityRepository(IActivityRepository):
 
         return self._activity_repo.ingest_batch(repo_events)
 
-    def list_events(
+    async def list_events(
         self,
         user_id: str,
         start_ts: Optional[str] = None,
@@ -96,7 +96,7 @@ class InMemoryActivityRepository(IActivityRepository):
 
         return domain_events
 
-    def get_daily_events_count(self, user_id: str, date: str) -> int:
+    async def get_daily_events_count(self, user_id: str, date: str) -> int:
         """Conta eventi per diagnosi."""
         timestamp = date + "T00:00:00Z"
         stats = self._activity_repo.get_daily_stats(user_id, timestamp)
@@ -105,7 +105,7 @@ class InMemoryActivityRepository(IActivityRepository):
 
     # ===== Snapshot cumulativi e Delta calculation =====
 
-    def record_snapshot(
+    async def record_snapshot(
         self,
         snapshot: HealthSnapshot,
         idempotency_key: Optional[str] = None,
@@ -147,7 +147,7 @@ class InMemoryActivityRepository(IActivityRepository):
             "delta": domain_delta,
         }
 
-    def list_deltas(
+    async def list_deltas(
         self,
         user_id: str,
         date: str,
@@ -178,7 +178,9 @@ class InMemoryActivityRepository(IActivityRepository):
 
         return domain_deltas
 
-    def get_daily_totals(self, user_id: str, date: str) -> Tuple[int, float]:
+    async def get_daily_totals(
+        self, user_id: str, date: str
+    ) -> Tuple[int, float]:
         """Aggrega totali giornalieri."""
         return self._health_repo.daily_totals(user_id=user_id, date=date)
 
