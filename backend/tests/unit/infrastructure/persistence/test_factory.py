@@ -37,15 +37,17 @@ class TestMealRepositoryFactory:
         repo = create_meal_repository()
         assert isinstance(repo, InMemoryMealRepository)
 
-    def test_mongodb_not_yet_implemented(self, monkeypatch):
-        """Should raise NotImplementedError when mongodb (P7.1 pending)."""
+    def test_mongodb_creates_mongo_repository(self, monkeypatch):
+        """Should create MongoMealRepository when mongodb mode."""
+        from infrastructure.persistence.mongodb.meal_repository import (
+            MongoMealRepository,
+        )
+
         monkeypatch.setenv("REPOSITORY_BACKEND", "mongodb")
         monkeypatch.setenv("MONGODB_URI", "mongodb://localhost:27017")
 
-        with pytest.raises(
-            NotImplementedError, match="MongoDB repository not yet implemented"
-        ):
-            create_meal_repository()
+        repo = create_meal_repository()
+        assert isinstance(repo, MongoMealRepository)
 
     def test_mongodb_without_uri_raises_error(self, monkeypatch):
         """Should raise ValueError when mongodb but no MONGODB_URI."""
@@ -114,13 +116,17 @@ class TestRepositoryFactoryIntegration:
         repo = create_meal_repository()
         assert isinstance(repo, InMemoryMealRepository)
 
-    def test_production_configuration_not_ready(self, monkeypatch):
-        """Production configuration (mongodb) should fail until P7.1."""
+    def test_production_configuration_mongodb(self, monkeypatch):
+        """Production configuration (mongodb) creates MongoMealRepository."""
+        from infrastructure.persistence.mongodb.meal_repository import (
+            MongoMealRepository,
+        )
+
         monkeypatch.setenv("REPOSITORY_BACKEND", "mongodb")
         monkeypatch.setenv("MONGODB_URI", "mongodb://prod.example.com:27017")
 
-        with pytest.raises(NotImplementedError):
-            create_meal_repository()
+        repo = create_meal_repository()
+        assert isinstance(repo, MongoMealRepository)
 
     def test_invalid_repository_type_defaults_to_inmemory(self, monkeypatch):
         """Invalid repository type should default to in-memory."""

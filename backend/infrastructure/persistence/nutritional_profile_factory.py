@@ -43,14 +43,16 @@ def create_profile_repository() -> IProfileRepository:
         # Validate MongoDB URI is provided
         mongodb_uri = os.getenv("MONGODB_URI")
         if not mongodb_uri:
-            raise ValueError("REPOSITORY_BACKEND='mongodb' requires MONGODB_URI env var")
+            raise ValueError(
+                "REPOSITORY_BACKEND='mongodb' requires MONGODB_URI"
+            )
 
-        # MongoDB implementation pending (Phase 7.1)
-        raise NotImplementedError(
-            "MongoProfileRepository not yet implemented. "
-            "Use REPOSITORY_BACKEND='inmemory' for now. "
-            "MongoDB support will be added in Phase 7.1 (cross-domain)."
+        # Import here to avoid circular dependency
+        from infrastructure.persistence.mongodb.profile_repository import (
+            MongoProfileRepository,
         )
+
+        return MongoProfileRepository()
 
     else:
         # Unknown type - graceful fallback to inmemory

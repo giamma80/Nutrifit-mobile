@@ -53,17 +53,21 @@ class TestCreateProfileRepository:
 
         assert isinstance(repository, InMemoryProfileRepository)
 
-    def test_create_mongodb_raises_not_implemented(
+    def test_create_mongodb_creates_mongo_repository(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        """Test mongodb raises NotImplementedError (Phase 7.1)."""
+        """Test mongodb creates MongoProfileRepository."""
+        from infrastructure.persistence.mongodb.profile_repository import (
+            MongoProfileRepository,
+        )
+
         monkeypatch.setenv("REPOSITORY_BACKEND", "mongodb")
         monkeypatch.setenv("MONGODB_URI", "mongodb://localhost:27017")
 
-        with pytest.raises(NotImplementedError) as exc_info:
-            create_profile_repository()
+        repository = create_profile_repository()
 
-        assert "Phase 7.1" in str(exc_info.value)
+        assert isinstance(repository, MongoProfileRepository)
+        assert isinstance(repository, IProfileRepository)
 
     def test_create_mongodb_missing_uri_raises_error(
         self, monkeypatch: pytest.MonkeyPatch

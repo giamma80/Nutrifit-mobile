@@ -23,11 +23,14 @@ from typing import Optional
 from domain.shared.ports.meal_repository import IMealRepository
 
 # In-memory repository (fast, transient)
-from infrastructure.persistence.in_memory.meal_repository import InMemoryMealRepository
+from infrastructure.persistence.in_memory.meal_repository import (
+    InMemoryMealRepository,
+)
 
 # MongoDB repository (persistent, requires connection)
-# Will be implemented in P7.1
-# from infrastructure.persistence.mongodb.meal_repository import MongoMealRepository
+from infrastructure.persistence.mongodb.meal_repository import (
+    MongoMealRepository,
+)
 
 
 def create_meal_repository() -> IMealRepository:
@@ -42,7 +45,6 @@ def create_meal_repository() -> IMealRepository:
         IMealRepository: Repository instance
 
     Raises:
-        NotImplementedError: If mongodb selected but not yet implemented
         ValueError: If mongodb selected but MONGODB_URI not set
 
     Example:
@@ -64,14 +66,8 @@ def create_meal_repository() -> IMealRepository:
                 "Set MONGODB_URI in .env or use REPOSITORY_BACKEND=inmemory"
             )
 
-        # MongoDB repository not yet implemented (P7.1)
-        raise NotImplementedError(
-            "MongoDB repository not yet implemented. "
-            "Use REPOSITORY_BACKEND=inmemory or implement P7.1 first."
-        )
-
-        # Future implementation (P7.1):
-        # return MongoMealRepository(uri=mongodb_uri)
+        # Return MongoDB repository
+        return MongoMealRepository()
 
     # Default: inmemory (safe fallback)
     return InMemoryMealRepository()
