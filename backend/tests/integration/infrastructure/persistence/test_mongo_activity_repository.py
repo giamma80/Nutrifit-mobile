@@ -185,8 +185,12 @@ class TestMongoActivityRepositorySnapshotRecording:
             calories_out_total=220.0,
             hr_avg_session=72.0,
         )
-        delta1 = await mongo_repo.record_snapshot(snapshot1)
-        assert delta1 is None
+        result1 = await mongo_repo.record_snapshot(snapshot1)
+        assert result1["status"] == "new"
+        # Bootstrap case: delta equals totals
+        delta1 = result1["delta"]
+        assert delta1.steps_delta == 5000
+        assert delta1.steps_total == 5000
 
         # Record second snapshot (later in the day)
         snapshot2 = HealthSnapshot(
@@ -199,10 +203,12 @@ class TestMongoActivityRepositorySnapshotRecording:
             calories_out_total=450.0,
             hr_avg_session=74.0,
         )
-        delta2 = await mongo_repo.record_snapshot(snapshot2)
+        result2 = await mongo_repo.record_snapshot(snapshot2)
 
         # Verify delta calculated correctly
-        assert delta2 is not None
+        assert result2["status"] == "new"
+        assert result2["delta"] is not None
+        delta2 = result2["delta"]
         assert delta2.steps_delta == 5000
         assert delta2.calories_out_delta == 230.0
         assert delta2.reset is False
@@ -234,10 +240,14 @@ class TestMongoActivityRepositorySnapshotRecording:
             calories_out_total=135.0,
             hr_avg_session=71.0,
         )
-        delta = await mongo_repo.record_snapshot(snapshot2)
+        result = await mongo_repo.record_snapshot(snapshot2)
 
-        # Different dates: no delta calculated
-        assert delta is None
+        # Different dates: bootstrap delta (first snapshot of new day)
+        assert result["status"] == "new"
+        delta = result["delta"]
+        assert delta.steps_delta == 3000  # Bootstrap: equals totals
+        assert delta.steps_total == 3000
+        assert delta.reset is False
 
 
 @pytest.mark.asyncio
@@ -293,42 +303,39 @@ class TestMongoActivityRepositoryDailyTotals:
     """Test daily aggregation queries."""
 
     async def test_get_daily_totals_with_events(self, mongo_repo):
-        """Should aggregate events into daily totals."""
-        base_time = datetime(2025, 11, 13, 8, 0, 0, tzinfo=timezone.utc)
-        events = [
-            ActivityEvent(
-                user_id="test_user_001",
-                ts=(base_time + timedelta(hours=i))
-                .isoformat()
-                .replace("+00:00", "Z"),
-                steps=500,
-                calories_out=22.5,
-                hr_avg=70.0,
-                source=ActivitySource.APPLE_HEALTH,
-            )
-            for i in range(5)  # 5 hours of data
-        ]
-        await mongo_repo.ingest_events(events)
+        """Should return daily totals from latest snapshot."""
+        # Record snapshot with cumulative totals
+        snapshot = HealthSnapshot(
+            user_id="test_user_001",
+            date="2025-11-13",
+            timestamp=datetime(2025, 11, 13, 18, 0, 0, tzinfo=timezone.utc)
+            .isoformat()
+            .replace("+00:00", "Z"),
+            steps_total=2500,
+            calories_out_total=112.5,
+            hr_avg_session=72.0,
+        )
+        await mongo_repo.record_snapshot(snapshot)
 
-        # Get daily totals
-        totals = await mongo_repo.get_daily_totals(
+        # Get daily totals (returns tuple from latest snapshot)
+        steps_total, calories_out_total = await mongo_repo.get_daily_totals(
             user_id="test_user_001",
             date="2025-11-13",
         )
 
-        # Verify aggregation
-        assert totals["steps_total"] == 2500  # 500 * 5
-        assert totals["calories_out_total"] == 112.5  # 22.5 * 5
+        # Verify returns snapshot totals
+        assert steps_total == 2500
+        assert calories_out_total == 112.5
 
     async def test_get_daily_totals_empty_day(self, mongo_repo):
         """Should return zeros for day with no events."""
-        totals = await mongo_repo.get_daily_totals(
+        steps_total, calories_out_total = await mongo_repo.get_daily_totals(
             user_id="test_user_001",
             date="2025-11-13",
         )
 
-        assert totals["steps_total"] == 0
-        assert totals["calories_out_total"] == 0.0
+        assert steps_total == 0
+        assert calories_out_total == 0.0
 
 
 @pytest.mark.asyncio
@@ -370,28 +377,37 @@ class TestMongoActivityRepositoryListDeltas:
             )
             await mongo_repo.record_snapshot(snapshot2)
 
-        # Query deltas across both days
-        deltas = await mongo_repo.list_deltas(
+        # Query deltas for first day
+        deltas_day1 = await mongo_repo.list_deltas(
             user_id="test_user_001",
-            start_date="2025-11-13",
-            end_date="2025-11-15",
+            date="2025-11-13",
         )
 
-        # Should have deltas for 2 days (morning->evening for each)
-        assert len(deltas) >= 2
+        # Query deltas for second day
+        deltas_day2 = await mongo_repo.list_deltas(
+            user_id="test_user_001",
+            date="2025-11-14",
+        )
 
-        # Verify delta calculations
-        for delta in deltas:
-            if not delta.duplicate and not delta.reset:
-                assert delta.steps_delta == 7000  # 12000 - 5000
-                assert delta.calories_out_delta == 320.0  # 540 - 220
+        # Should have deltas for both days
+        assert len(deltas_day1) >= 1
+        assert len(deltas_day2) >= 1
+
+        # Verify delta calculations (2 deltas per day: bootstrap + increment)
+        # First delta of each day is bootstrap (equals totals = 5000)
+        # Second delta of each day is incremental (12000 - 5000 = 7000)
+        all_deltas = deltas_day1 + deltas_day2
+        bootstrap_deltas = [d for d in all_deltas if d.steps_delta == 5000]
+        increment_deltas = [d for d in all_deltas if d.steps_delta == 7000]
+        
+        assert len(bootstrap_deltas) >= 2  # One per day
+        assert len(increment_deltas) >= 2  # One per day
 
     async def test_list_deltas_empty_range(self, mongo_repo):
-        """Should return empty list for date range with no snapshots."""
+        """Should return empty list for date with no snapshots."""
         deltas = await mongo_repo.list_deltas(
             user_id="test_user_001",
-            start_date="2025-11-13",
-            end_date="2025-11-15",
+            date="2025-11-13",
         )
 
         assert deltas == []
