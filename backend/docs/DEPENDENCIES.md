@@ -95,6 +95,24 @@ Lo **smart update** analizza automaticamente i vincoli di dipendenze prima di ap
    make preflight-config  # Mostra opzioni configurazione
    ```
 
+5. **Sincronizzazione ambiente**:
+   ```bash
+   # Sincronizza produzione + dev dependencies (raccomandato)
+   uv sync --extra dev
+   
+   # Solo produzione
+   uv sync
+   ```
+
+### 💡 Best Practice Sincronizzazione
+
+**Sempre includere `--extra dev`** per garantire che:
+- ✅ Tool di sviluppo (pytest, black, ruff) siano aggiornati
+- ✅ Type stubs e dipendenze di testing siano sincronizzate
+- ✅ Coverage e altri tool di QA siano allineati
+
+**Il sistema smart update** gestisce automaticamente questa sincronizzazione.
+
 ### 📊 Output dei Report
 
 - **JSON**: `logs/dependencies_report.json`

@@ -293,6 +293,18 @@ Targets disponibili:
   deps-outdated     Lista pacchetti obsoleti
   deps-smart-update Aggiornamento intelligente con controllo vincoli
 
+  # Dependencies Examples
+  📦 Smart Update Esempi:
+    make deps-smart-update                    # Analisi patch updates (default, sicuro)
+    ./make.sh deps-smart-update minor        # Solo analisi minor updates
+    ./make.sh deps-smart-update --category=minor --apply  # Applica minor updates sicuri
+    ./make.sh deps-smart-update --category=major         # Analisi major updates (attenzione!)
+    
+  🎯 Workflow raccomandato:
+    1. make deps-health                       # Check stato generale
+    2. make deps-smart-update                 # Analizza patch sicuri  
+    3. ./make.sh deps-smart-update --category=minor --apply  # Applica se sicuri
+
   # Versioning / Release
   version-show      Mostra versione corrente
   version-verify    Verifica pyproject vs tag HEAD
@@ -328,6 +340,7 @@ Targets disponibili:
   clean             Rimuovi .venv, __pycache__, pid
   clean-dist        Rimuovi eventuale dist residua
   preflight-config  Mostra configurazione preflight e opzioni personalizzazione
+  deps-help         Help completo sistema gestione dipendenze con esempi
   all               setup + lint + test
 EOF
     ;;
@@ -1085,8 +1098,9 @@ EOF
     if [ "$current_hash" != "$existing_hash" ]; then
       warn "Aggiornamenti disponibili!"
       echo ""
-      echo "Per aggiornare tutto: uv lock --upgrade && uv sync"
-      echo "Per aggiornare un pacchetto: uv lock --upgrade-package NOME"
+      echo "Per aggiornare tutto: uv lock --upgrade && uv sync --extra dev"
+      echo "Per aggiornare un pacchetto: uv lock --upgrade-package NOME && uv sync --extra dev"
+      echo "💡 Smart update raccomandato: make deps-smart-update"
     else
       info "Tutte le dipendenze sono aggiornate"
     fi
@@ -1148,6 +1162,54 @@ EOF
       echo ""
       echo "💡 Per personalizzare esporta le variabili prima del comando"
     fi
+    ;;
+
+  deps-help|help-deps)
+    header "Dependencies Management Help"
+    echo "🧠 Smart Update System - Guida Completa"
+    echo ""
+    echo "📦 COMANDI BASE:"
+    echo "   make deps-check          # Controllo vulnerabilità"
+    echo "   make deps-health         # Health check completo" 
+    echo "   make deps-outdated       # Lista pacchetti obsoleti"
+    echo ""
+    echo "🎯 SMART UPDATE (Raccomandato):"
+    echo "   make deps-smart-update   # Analisi patch (sicuro)"
+    echo ""
+    echo "⚙️  PARAMETRI AVANZATI:"
+    echo "   --category=patch         # Solo aggiornamenti patch (default)"
+    echo "   --category=minor         # Include aggiornamenti minor"
+    echo "   --category=major         # Include aggiornamenti major (attenzione!)"
+    echo "   --apply                  # Applica aggiornamenti (default: solo analisi)"
+    echo ""
+    echo "📋 ESEMPI PRATICI:"
+    echo "   # 1. Analisi patch sicuri (default)"
+    echo "   make deps-smart-update"
+    echo ""
+    echo "   # 2. Analisi minor updates"  
+    echo "   ./make.sh deps-smart-update --category=minor"
+    echo ""
+    echo "   # 3. Applica aggiornamenti minor sicuri"
+    echo "   ./make.sh deps-smart-update --category=minor --apply"
+    echo ""
+    echo "   # 4. Analisi major (attenzione ai breaking changes!)"
+    echo "   ./make.sh deps-smart-update --category=major"
+    echo ""
+    echo "🚫 GESTIONE CONFLITTI:"
+    echo "   • Il sistema identifica automaticamente dipendenze incompatibili"
+    echo "   • Esempio: Starlette 0.50.0 bloccata da FastAPI < 0.50.0"
+    echo "   • Fornisce raccomandazioni specifiche per ogni conflitto"
+    echo ""
+    echo "💡 WORKFLOW CONSIGLIATO:"
+    echo "   1. make deps-health                    # Stato generale"
+    echo "   2. make deps-smart-update              # Analizza patch"
+    echo "   3. ./make.sh deps-smart-update --category=minor --apply  # Applica minor sicuri"
+    echo ""
+    echo "🔧 SINCRONIZZAZIONE:"
+    echo "   Il sistema include automaticamente --extra dev per:"
+    echo "   • Tool di sviluppo (pytest, black, ruff)"
+    echo "   • Type stubs e dipendenze testing"
+    echo "   • Coverage e tool QA"
     ;;
 
   *)
