@@ -422,11 +422,9 @@ class AggregateQueries:
         if not repository:
             raise ValueError("MealRepository not available in context")
 
-        # Normalize to naive UTC (remove timezone info for consistency)
-        if start_date.tzinfo is not None:
-            start_date = start_date.replace(tzinfo=None)
-        if end_date.tzinfo is not None:
-            end_date = end_date.replace(tzinfo=None)
+        # Keep timezone-aware datetimes (MongoDB requirement)
+        # Both InMemory and MongoDB repositories handle timezone-aware
+        # datetimes correctly
 
         # Map GraphQL enum to query enum
         group_by_map = {

@@ -115,42 +115,65 @@ class GetSummaryRangeQueryHandler:
         periods: List[tuple[datetime, datetime]] = []
 
         if group_by == GroupByPeriod.DAY:
-            # Split by days
-            current = start_date.replace(hour=0, minute=0, second=0, microsecond=0)
+            # Split by days (preserve timezone)
+            tzinfo = start_date.tzinfo
+            current = start_date.replace(
+                hour=0, minute=0, second=0, microsecond=0, tzinfo=tzinfo
+            )
             while current <= end_date:
-                day_end = current.replace(hour=23, minute=59, second=59)
+                day_end = current.replace(
+                    hour=23, minute=59, second=59, tzinfo=tzinfo
+                )
                 periods.append((current, day_end))
                 current += timedelta(days=1)
 
         elif group_by == GroupByPeriod.WEEK:
-            # Split by weeks (Monday to Sunday)
-            current = start_date.replace(hour=0, minute=0, second=0, microsecond=0)
+            # Split by weeks (Monday to Sunday, preserve timezone)
+            tzinfo = start_date.tzinfo
+            current = start_date.replace(
+                hour=0, minute=0, second=0, microsecond=0, tzinfo=tzinfo
+            )
             # Move to Monday of current week
             days_to_monday = current.weekday()
             week_start = current - timedelta(days=days_to_monday)
 
             while week_start <= end_date:
-                week_end = (week_start + timedelta(days=6)).replace(hour=23, minute=59, second=59)
+                week_end = (week_start + timedelta(days=6)).replace(
+                    hour=23, minute=59, second=59, tzinfo=tzinfo
+                )
                 # Only include if overlaps with query range
                 if week_end >= start_date:
-                    periods.append((max(week_start, start_date), min(week_end, end_date)))
+                    periods.append(
+                        (max(week_start, start_date), min(week_end, end_date))
+                    )
                 week_start += timedelta(days=7)
 
         elif group_by == GroupByPeriod.MONTH:
-            # Split by months
-            current = start_date.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+            # Split by months (preserve timezone)
+            tzinfo = start_date.tzinfo
+            current = start_date.replace(
+                day=1, hour=0, minute=0, second=0, microsecond=0, tzinfo=tzinfo
+            )
 
             while current <= end_date:
                 # Calculate last day of month
                 if current.month == 12:
-                    next_month = current.replace(year=current.year + 1, month=1)
+                    next_month = current.replace(
+                        year=current.year + 1, month=1, tzinfo=tzinfo
+                    )
                 else:
-                    next_month = current.replace(month=current.month + 1)
-                month_end = (next_month - timedelta(days=1)).replace(hour=23, minute=59, second=59)
+                    next_month = current.replace(
+                        month=current.month + 1, tzinfo=tzinfo
+                    )
+                month_end = (next_month - timedelta(days=1)).replace(
+                    hour=23, minute=59, second=59, tzinfo=tzinfo
+                )
 
                 # Only include if overlaps with query range
                 if month_end >= start_date:
-                    periods.append((max(current, start_date), min(month_end, end_date)))
+                    periods.append(
+                        (max(current, start_date), min(month_end, end_date))
+                    )
 
                 current = next_month
 
@@ -215,7 +238,9 @@ class GetSummaryRangeQueryHandler:
             breakdown_by_type=breakdown,
         )
 
-    def _format_period_label(self, date: datetime, group_by: GroupByPeriod) -> str:
+    def _format_period_label(
+        self, date: datetime, group_by: GroupByPeriod
+    ) -> str:
         """Format period label based on grouping.
 
         Args:
