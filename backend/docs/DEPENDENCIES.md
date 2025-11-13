@@ -12,6 +12,7 @@ Il progetto Nutrifit Backend ora include target specializzati per l'analisi e ot
 | `make deps-health` | Health check completo con statistiche | Monitoraggio generale |
 | `make deps-update` | Mostra aggiornamenti disponibili (dry-run) | Pianificazione aggiornamenti |
 | `make deps-outdated` | Lista pacchetti obsoleti | Identificazione dipendenze datate |
+| `make deps-smart-update` | **🧠 Aggiornamento intelligente con controllo vincoli** | **Aggiornamenti sicuri** |
 
 ### � Integrazione con Preflight
 
@@ -51,6 +52,41 @@ make preflight-config                  # Mostra configurazione corrente
    make deps-update
    make deps-outdated  # Se servono dettagli specifici
    ```
+
+4. **Aggiornamento intelligente** (⭐ Raccomandato):
+   ```bash
+   # Analisi aggiornamenti patch (sicuri)
+   make deps-smart-update
+   
+   # Analisi aggiornamenti minor
+   ./make.sh deps-smart-update --category=minor
+   
+   # Applica aggiornamenti sicuri
+   ./make.sh deps-smart-update --category=minor --apply
+   ```
+
+### 🧠 Smart Update Features
+
+Lo **smart update** analizza automaticamente i vincoli di dipendenze prima di applicare aggiornamenti:
+
+- ✅ **Test compatibilità**: Testa ogni aggiornamento prima di applicarlo
+- 🚫 **Blocca conflitti**: Identifica dipendenze incompatibili (es. Starlette/FastAPI)  
+- 📊 **Categorizza**: patch, minor, major updates
+- 💡 **Raccomandazioni**: Suggerimenti specifici per ogni dipendenza bloccata
+- 🔄 **Backup automatico**: Ripristino automatico in caso di errori
+
+#### Esempi Output Smart Update
+
+```bash
+✅ Safe updates (6):
+   • anyio: 4.10.0 → 4.11.0 (minor)
+   • certifi: 2025.8.3 → 2025.11.12 (minor)
+   ...
+
+❌ Blocked updates (2):
+   • starlette: 0.49.3 → 0.50.0 (minor)
+     ❌ Conflict: FastAPI depends on starlette<0.50.0
+```
 
    ```
 

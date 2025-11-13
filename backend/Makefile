@@ -39,6 +39,10 @@ deps-update:
 deps-outdated:
 	@$(SCRIPT) deps-outdated
 
+# Smart Dependencies Update
+deps-smart-update:
+	@$(SCRIPT) deps-smart-update
+
 # Configuration
 preflight-config:
 	@$(SCRIPT) preflight-config

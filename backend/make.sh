@@ -291,6 +291,7 @@ Targets disponibili:
   deps-health       Health check completo dipendenze 
   deps-update       Mostra dipendenze aggiornabili (dry-run)
   deps-outdated     Lista pacchetti obsoleti
+  deps-smart-update Aggiornamento intelligente con controllo vincoli
 
   # Versioning / Release
   version-show      Mostra versione corrente
@@ -1101,6 +1102,37 @@ EOF
       echo "🌳 Dipendenze principali:"
       uv tree --depth 1
     }
+    ;;
+
+  deps-smart-update)
+    header "Smart Dependencies Update"
+    if [ -f scripts/smart_update.py ]; then
+      chmod +x scripts/smart_update.py
+      echo "🧠 Analisi intelligente aggiornamenti dipendenze..."
+      echo ""
+      
+      # Parse arguments for category and apply
+      category="patch"
+      apply_flag=""
+      
+      # Check for arguments
+      for arg in "$@"; do
+        case $arg in
+          --apply) apply_flag="--apply" ;;
+          --category=*) category="${arg#--category=}" ;;
+          patch|minor|major) category="$arg" ;;
+        esac
+      done
+      
+      echo "📂 Categoria: $category"
+      [ -n "$apply_flag" ] && echo "⚡ Modalità: Apply (esegue aggiornamenti)" || echo "🔍 Modalità: Dry-run (solo analisi)"
+      echo ""
+      
+      uv run python scripts/smart_update.py --category "$category" $apply_flag
+    else
+      error "Script smart_update.py non trovato"
+      return 1
+    fi
     ;;
 
   preflight-config)
