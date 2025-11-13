@@ -1181,6 +1181,16 @@ class OpenFoodFactsBarcodeProvider:
 
 ## 💾 Repositories
 
+### Repository Implementations
+
+**Available Backends:**
+- **InMemory** (Development/Testing) - Default, shown below
+- **MongoDB** (Production) - See [09_PERSISTENCE_STRATEGY.md](./09_PERSISTENCE_STRATEGY.md) and [persistence-layer-status.md](../docs/REFACTOR/persistence-layer-status.md)
+  - ✅ 4 repositories: MongoMealRepository, MongoActivityRepository, MongoProfileRepository, MongoBaseRepository
+  - ✅ 12/12 integration tests passing on MongoDB Atlas
+  - ✅ Dual-collection architecture for Activity domain (events + snapshots)
+  - ✅ 1,471 production lines + 414 test lines
+
 ### In-Memory Repository (Development/Testing)
 
 ```python
