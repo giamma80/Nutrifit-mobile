@@ -35,9 +35,7 @@ class TestTimezonePreservation:
     """Test timezone preservation in date range splitting."""
 
     @pytest.mark.asyncio
-    async def test_day_grouping_preserves_timezone(
-        self, handler, mock_repository
-    ):
+    async def test_day_grouping_preserves_timezone(self, handler, mock_repository):
         """Test that DAY grouping preserves timezone in split periods."""
         # Create timezone-aware datetimes (UTC)
         start = datetime(2025, 11, 13, 0, 0, 0, tzinfo=timezone.utc)
@@ -63,19 +61,13 @@ class TestTimezonePreservation:
             period_end = kwargs["end_date"]
 
             # Critical: Both must be timezone-aware (MongoDB requirement)
-            assert period_start.tzinfo is not None, (
-                f"period_start lost timezone: {period_start}"
-            )
-            assert period_end.tzinfo is not None, (
-                f"period_end lost timezone: {period_end}"
-            )
+            assert period_start.tzinfo is not None, f"period_start lost timezone: {period_start}"
+            assert period_end.tzinfo is not None, f"period_end lost timezone: {period_end}"
             assert period_start.tzinfo == timezone.utc
             assert period_end.tzinfo == timezone.utc
 
     @pytest.mark.asyncio
-    async def test_week_grouping_preserves_timezone(
-        self, handler, mock_repository
-    ):
+    async def test_week_grouping_preserves_timezone(self, handler, mock_repository):
         """Test that WEEK grouping preserves timezone in split periods."""
         # Create timezone-aware datetimes (UTC)
         start = datetime(2025, 11, 10, 0, 0, 0, tzinfo=timezone.utc)
@@ -98,19 +90,13 @@ class TestTimezonePreservation:
             period_end = kwargs["end_date"]
 
             # Critical: Must preserve timezone
-            assert period_start.tzinfo is not None, (
-                f"period_start lost timezone: {period_start}"
-            )
-            assert period_end.tzinfo is not None, (
-                f"period_end lost timezone: {period_end}"
-            )
+            assert period_start.tzinfo is not None, f"period_start lost timezone: {period_start}"
+            assert period_end.tzinfo is not None, f"period_end lost timezone: {period_end}"
             assert period_start.tzinfo == timezone.utc
             assert period_end.tzinfo == timezone.utc
 
     @pytest.mark.asyncio
-    async def test_month_grouping_preserves_timezone(
-        self, handler, mock_repository
-    ):
+    async def test_month_grouping_preserves_timezone(self, handler, mock_repository):
         """Test that MONTH grouping preserves timezone in split periods."""
         # Create timezone-aware datetimes (UTC)
         start = datetime(2025, 10, 1, 0, 0, 0, tzinfo=timezone.utc)
@@ -133,19 +119,13 @@ class TestTimezonePreservation:
             period_end = kwargs["end_date"]
 
             # Critical: Must preserve timezone
-            assert period_start.tzinfo is not None, (
-                f"period_start lost timezone: {period_start}"
-            )
-            assert period_end.tzinfo is not None, (
-                f"period_end lost timezone: {period_end}"
-            )
+            assert period_start.tzinfo is not None, f"period_start lost timezone: {period_start}"
+            assert period_end.tzinfo is not None, f"period_end lost timezone: {period_end}"
             assert period_start.tzinfo == timezone.utc
             assert period_end.tzinfo == timezone.utc
 
     @pytest.mark.asyncio
-    async def test_mongodb_compatibility_regression(
-        self, handler, mock_repository
-    ):
+    async def test_mongodb_compatibility_regression(self, handler, mock_repository):
         """
         Regression test for MongoDB compatibility issue.
 
@@ -189,11 +169,9 @@ class TestTimezonePreservation:
 
         # Verify all returned datetimes are timezone-aware
         for period_start, period_end in periods:
-            assert period_start.tzinfo is not None, (
-                f"Split period start lost timezone: {period_start}"
-            )
-            assert period_end.tzinfo is not None, (
-                f"Split period end lost timezone: {period_end}"
-            )
+            assert (
+                period_start.tzinfo is not None
+            ), f"Split period start lost timezone: {period_start}"
+            assert period_end.tzinfo is not None, f"Split period end lost timezone: {period_end}"
             assert period_start.tzinfo == timezone.utc
             assert period_end.tzinfo == timezone.utc
