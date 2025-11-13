@@ -66,9 +66,7 @@ class TestInMemoryActivityRepository:
             ),
         ]
 
-        accepted, duplicates, rejected = await activity_repo.ingest_events(
-            events
-        )
+        accepted, duplicates, rejected = await activity_repo.ingest_events(events)
 
         assert accepted == 2
         assert duplicates == 0
@@ -181,9 +179,7 @@ class TestInMemoryActivityRepository:
 
         await activity_repo.ingest_events(events)
 
-        count = await activity_repo.get_daily_events_count(
-            "user_123", "2025-11-05"
-        )
+        count = await activity_repo.get_daily_events_count("user_123", "2025-11-05")
         assert count == 2
 
     async def test_record_snapshot_success(self, activity_repo):
@@ -265,9 +261,7 @@ class TestInMemoryActivityRepository:
 
         await activity_repo.record_snapshot(snapshot)
 
-        steps, calories = await activity_repo.get_daily_totals(
-            "user_123", "2025-11-05"
-        )
+        steps, calories = await activity_repo.get_daily_totals("user_123", "2025-11-05")
 
         assert steps == 1000
         assert calories == 50.0
@@ -295,9 +289,7 @@ class TestActivityRepositoryFactory:
 
         assert repo1 is repo2
 
-    def test_create_activity_repository_mongodb_requires_uri(
-        self, monkeypatch
-    ):
+    def test_create_activity_repository_mongodb_requires_uri(self, monkeypatch):
         """Test factory requires MONGODB_URI for MongoDB backend."""
         monkeypatch.setenv("REPOSITORY_BACKEND", "mongodb")
         monkeypatch.delenv("MONGODB_URI", raising=False)

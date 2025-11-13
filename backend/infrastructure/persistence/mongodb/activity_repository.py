@@ -33,14 +33,10 @@ from infrastructure.persistence.mongodb.base import MongoBaseRepository
 logger = logging.getLogger(__name__)
 
 
-class MongoActivityRepository(
-    MongoBaseRepository[ActivityEvent], IActivityRepository
-):
+class MongoActivityRepository(MongoBaseRepository[ActivityEvent], IActivityRepository):
     """MongoDB implementation for Activity domain with dual collections."""
 
-    def __init__(
-        self, client: Optional[AsyncIOMotorClient[Dict[str, Any]]] = None
-    ):
+    def __init__(self, client: Optional[AsyncIOMotorClient[Dict[str, Any]]] = None):
         """Initialize repository with optional MongoDB client.
 
         Args:
@@ -207,18 +203,14 @@ class MongoActivityRepository(
         from pymongo import InsertOne
         from pymongo.errors import BulkWriteError
 
-        operations = [
-            InsertOne(self.to_document(event)) for event in normalized_events
-        ]
+        operations = [InsertOne(self.to_document(event)) for event in normalized_events]
 
         accepted = 0
         duplicates = 0
         rejected: List[Tuple[int, str]] = []
 
         try:
-            result = await self.collection.bulk_write(
-                operations, ordered=False
-            )
+            result = await self.collection.bulk_write(operations, ordered=False)
             accepted = result.inserted_count
             logger.info(f"Ingested {accepted}/{len(events)} activity events")
 
@@ -236,9 +228,7 @@ class MongoActivityRepository(
                     duplicates += 1
                 else:
                     rejected.append((index, msg))
-                    logger.warning(
-                        f"Event {index} rejected: {msg[:100]}"
-                    )
+                    logger.warning(f"Event {index} rejected: {msg[:100]}")
 
             logger.info(
                 f"Batch ingest: {accepted} accepted, {duplicates} duplicates, "
@@ -281,20 +271,15 @@ class MongoActivityRepository(
                 ts_filter["$lt"] = end_ts
             query["ts"] = ts_filter
 
-        docs = await self._find_many(
-            query, sort=[("ts", 1)], limit=limit
-        )
+        docs = await self._find_many(query, sort=[("ts", 1)], limit=limit)
 
         events = [self.from_document(doc) for doc in docs]
         logger.debug(
-            f"Listed {len(events)} events for user {user_id} "
-            f"(range: {start_ts} to {end_ts})"
+            f"Listed {len(events)} events for user {user_id} " f"(range: {start_ts} to {end_ts})"
         )
         return events
 
-    async def get_daily_events_count(
-        self, user_id: str, date: str
-    ) -> int:
+    async def get_daily_events_count(self, user_id: str, date: str) -> int:
         """Count activity events for a specific date.
 
         Args:
@@ -309,10 +294,8 @@ class MongoActivityRepository(
             date_obj = datetime.strptime(date, "%Y-%m-%d").date()
             start_ts = f"{date}T00:00:00Z"
             end_ts = (
-                datetime.combine(
-                    date_obj,
-                    datetime.min.time()
-                ).replace(hour=23, minute=59, second=59)
+                datetime.combine(date_obj, datetime.min.time())
+                .replace(hour=23, minute=59, second=59)
                 .isoformat()
                 .replace("+00:00", "Z")
             )
@@ -323,9 +306,7 @@ class MongoActivityRepository(
             }
 
             count = await self._count(query)
-            logger.debug(
-                f"Counted {count} events for user {user_id} on {date}"
-            )
+            logger.debug(f"Counted {count} events for user {user_id} on {date}")
             return count
 
         except ValueError as e:
@@ -412,9 +393,7 @@ class MongoActivityRepository(
             "timestamp": {"$lt": timestamp},
         }
 
-        doc = await self.snapshots_collection.find_one(
-            query, sort=[("timestamp", -1)]
-        )
+        doc = await self.snapshots_collection.find_one(query, sort=[("timestamp", -1)])
 
         if doc:
             return self.document_to_snapshot(doc)
@@ -478,9 +457,7 @@ class MongoActivityRepository(
 
         # Calculate deltas
         steps_delta = current.steps_total - previous.steps_total
-        calories_delta = (
-            current.calories_out_total - previous.calories_out_total
-        )
+        calories_delta = current.calories_out_total - previous.calories_out_total
 
         # Check for duplicate (no change)
         duplicate = steps_delta == 0 and calories_delta == 0.0
@@ -529,11 +506,7 @@ class MongoActivityRepository(
             query["timestamp"] = {"$gt": after_ts}
 
         # Fetch snapshots sorted by timestamp
-        cursor = (
-            self.snapshots_collection.find(query)
-            .sort("timestamp", 1)
-            .limit(limit + 1)
-        )
+        cursor = self.snapshots_collection.find(query).sort("timestamp", 1).limit(limit + 1)
         docs = await cursor.to_list(length=limit + 1)
 
         if not docs:
@@ -548,14 +521,10 @@ class MongoActivityRepository(
             delta = self._calculate_delta(current, previous)
             deltas.append(delta)
 
-        logger.debug(
-            f"Computed {len(deltas)} deltas for user {user_id} on {date}"
-        )
+        logger.debug(f"Computed {len(deltas)} deltas for user {user_id} on {date}")
         return deltas[:limit]  # Respect limit
 
-    async def get_daily_totals(
-        self, user_id: str, date: str
-    ) -> Tuple[int, float]:
+    async def get_daily_totals(self, user_id: str, date: str) -> Tuple[int, float]:
         """Get daily totals (steps, calories) from latest snapshot.
 
         Args:
@@ -575,9 +544,7 @@ class MongoActivityRepository(
         }
 
         # Get most recent snapshot
-        doc = await self.snapshots_collection.find_one(
-            query, sort=[("timestamp", -1)]
-        )
+        doc = await self.snapshots_collection.find_one(query, sort=[("timestamp", -1)])
 
         if doc:
             snapshot = self.document_to_snapshot(doc)
@@ -588,9 +555,7 @@ class MongoActivityRepository(
             )
             return (snapshot.steps_total, snapshot.calories_out_total)
 
-        logger.debug(
-            f"No snapshots found for user {user_id} on {date}"
-        )
+        logger.debug(f"No snapshots found for user {user_id} on {date}")
         return (0, 0.0)
 
 

@@ -178,9 +178,7 @@ class InMemoryActivityRepository(IActivityRepository):
 
         return domain_deltas
 
-    async def get_daily_totals(
-        self, user_id: str, date: str
-    ) -> Tuple[int, float]:
+    async def get_daily_totals(self, user_id: str, date: str) -> Tuple[int, float]:
         """Aggrega totali giornalieri."""
         return self._health_repo.daily_totals(user_id=user_id, date=date)
 

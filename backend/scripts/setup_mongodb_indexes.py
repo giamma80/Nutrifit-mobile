@@ -78,9 +78,7 @@ async def create_meal_indexes(db: AsyncIOMotorDatabase[Dict[str, Any]]) -> None:
     logger.info("  ✓ Created index: meal_date")
 
 
-async def create_profile_indexes(
-    db: AsyncIOMotorDatabase[Dict[str, Any]]
-) -> None:
+async def create_profile_indexes(db: AsyncIOMotorDatabase[Dict[str, Any]]) -> None:
     """Create indexes for nutritional_profiles collection.
 
     Indexes:
@@ -93,8 +91,7 @@ async def create_profile_indexes(
     # Check if user_id index already exists
     existing_indexes = await collection.list_indexes().to_list(length=None)
     user_id_exists = any(
-        "user_id" in idx.get("key", {}) and idx.get("unique", False)
-        for idx in existing_indexes
+        "user_id" in idx.get("key", {}) and idx.get("unique", False) for idx in existing_indexes
     )
 
     if not user_id_exists:
@@ -110,9 +107,7 @@ async def create_profile_indexes(
         logger.info("  ℹ️  Unique index on user_id already exists (skipped)")
 
 
-async def create_activity_event_indexes(
-    db: AsyncIOMotorDatabase[Dict[str, Any]]
-) -> None:
+async def create_activity_event_indexes(db: AsyncIOMotorDatabase[Dict[str, Any]]) -> None:
     """Create indexes for activity_events collection.
 
     Indexes:
@@ -140,9 +135,7 @@ async def create_activity_event_indexes(
     logger.info("  ✓ Created index: user_id")
 
 
-async def create_health_snapshot_indexes(
-    db: AsyncIOMotorDatabase[Dict[str, Any]]
-) -> None:
+async def create_health_snapshot_indexes(db: AsyncIOMotorDatabase[Dict[str, Any]]) -> None:
     """Create indexes for health_snapshots collection.
 
     Indexes:
@@ -178,9 +171,7 @@ async def create_health_snapshot_indexes(
     logger.info("  ✓ Created index: user_id + date")
 
 
-async def list_existing_indexes(
-    db: AsyncIOMotorDatabase[Dict[str, Any]]
-) -> None:
+async def list_existing_indexes(db: AsyncIOMotorDatabase[Dict[str, Any]]) -> None:
     """List all existing indexes for verification.
 
     Args:
@@ -206,9 +197,7 @@ async def list_existing_indexes(
             name = idx.get("name", "unknown")
             keys = idx.get("key", {})
             unique = " (unique)" if idx.get("unique", False) else ""
-            keys_str = ", ".join(
-                f"{k}:{v}" for k, v in keys.items()
-            )
+            keys_str = ", ".join(f"{k}:{v}" for k, v in keys.items())
             logger.info(f"  • {name}: [{keys_str}]{unique}")
 
 
@@ -222,9 +211,7 @@ async def setup_all_indexes() -> None:
     uri = get_mongodb_uri()
     if not uri:
         logger.error("MONGODB_URI not configured!")
-        logger.error(
-            "Set MONGODB_URI environment variable with connection string."
-        )
+        logger.error("Set MONGODB_URI environment variable with connection string.")
         sys.exit(1)
 
     database_name = get_mongodb_database()
