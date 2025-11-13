@@ -55,8 +55,7 @@ exclude = [
     "^build/",
     "^tests/unit/infrastructure/test_openai_client\\.py$",
     "^tests/unit/infrastructure/test_usda_client\\.py$",
-    "^tests/unit/infrastructure/test_openfoodfacts_client\\.py$",
-    "^tests/integration/infrastructure/persistence/test_mongo_meal_repository\\.py$"
+    "^tests/unit/infrastructure/test_openfoodfacts_client\\.py$"
 ]
 explicit_package_bases = true
 plugins = ["strawberry.ext.mypy_plugin"]
