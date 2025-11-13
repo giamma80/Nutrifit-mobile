@@ -72,10 +72,12 @@ class TestMongoActivityRepositoryEventIngestion:
         assert len(rejected) == 0
 
         # Verify events stored in MongoDB
+        # Note: list_events uses $lt (exclusive end), so add 1 second
+        end_time = base_time + timedelta(minutes=2, seconds=1)
         stored_events = await mongo_repo.list_events(
             user_id="test_user_001",
             start_ts=events[0].ts,
-            end_ts=events[-1].ts,
+            end_ts=end_time.isoformat().replace("+00:00", "Z"),
         )
         assert len(stored_events) == 3
 
@@ -147,7 +149,7 @@ class TestMongoActivityRepositorySnapshotRecording:
     """Test snapshot recording with delta calculation."""
 
     async def test_record_snapshot_first_of_day(self, mongo_repo):
-        """Should record first snapshot with no previous delta."""
+        """Should record first snapshot with bootstrap delta."""
         snapshot = HealthSnapshot(
             user_id="test_user_001",
             date="2025-11-13",
@@ -159,10 +161,13 @@ class TestMongoActivityRepositorySnapshotRecording:
             hr_avg_session=72.0,
         )
 
-        delta = await mongo_repo.record_snapshot(snapshot)
+        result = await mongo_repo.record_snapshot(snapshot)
 
-        # First snapshot: no previous data for delta
-        assert delta is None
+        # First snapshot: bootstrap case - delta equals totals
+        assert result["status"] == "new"
+        assert result["delta"].steps_delta == 5000
+        assert result["delta"].calories_out_delta == 220.0
+        assert result["snapshot"].steps_total == 5000
 
         # Verify snapshot stored (check collection directly)
         doc = await mongo_repo.snapshots_collection.find_one(
