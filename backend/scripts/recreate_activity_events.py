@@ -7,6 +7,7 @@ we can drop and recreate it without validator.
 import asyncio
 import sys
 from pathlib import Path
+from typing import Any, Dict
 
 from dotenv import load_dotenv
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -17,14 +18,14 @@ load_dotenv(Path(__file__).parent.parent / ".env")
 from infrastructure.config import get_mongodb_uri  # noqa: E402
 
 
-async def recreate_collection():
+async def recreate_collection() -> bool:
     """Drop and recreate activity_events without validator."""
     uri = get_mongodb_uri()
     if not uri:
         print("❌ MONGODB_URI not configured")
         return False
 
-    client = AsyncIOMotorClient(uri)
+    client: AsyncIOMotorClient[Dict[str, Any]] = AsyncIOMotorClient(uri)
     db = client["nutrifit"]
 
     print("Recreating activity_events collection...")
@@ -68,9 +69,7 @@ async def recreate_collection():
         )
         print("   ✅ idx_user_ts")
 
-        await db.activity_events.create_index(
-            [("user_id", 1)], name="idx_user", background=True
-        )
+        await db.activity_events.create_index([("user_id", 1)], name="idx_user", background=True)
         print("   ✅ idx_user")
 
         print("✅ All indexes created")

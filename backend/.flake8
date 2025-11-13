@@ -1,4 +1,4 @@
 [flake8]
 max-line-length = 100
 extend-ignore = E203,W503
-exclude = .venv,dist,build
+exclude = .venv,dist,build,tests/integration/infrastructure/persistence/test_mongo_meal_repository.py

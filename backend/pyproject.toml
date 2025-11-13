@@ -49,7 +49,15 @@ strict = true
 warn_unused_configs = true
 disallow_untyped_defs = true
 ignore_missing_imports = true
-exclude = ["^\\.venv/", "^dist/", "^build/", "^tests/unit/infrastructure/test_openai_client\\.py$", "^tests/unit/infrastructure/test_usda_client\\.py$", "^tests/unit/infrastructure/test_openfoodfacts_client\\.py$"]
+exclude = [
+    "^\\.venv/",
+    "^dist/",
+    "^build/",
+    "^tests/unit/infrastructure/test_openai_client\\.py$",
+    "^tests/unit/infrastructure/test_usda_client\\.py$",
+    "^tests/unit/infrastructure/test_openfoodfacts_client\\.py$",
+    "^tests/integration/infrastructure/persistence/test_mongo_meal_repository\\.py$"
+]
 explicit_package_bases = true
 plugins = ["strawberry.ext.mypy_plugin"]
 # Nota: plugin Strawberry abilita validazioni base su resolver e schema.

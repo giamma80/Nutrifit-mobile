@@ -36,12 +36,8 @@ async def mongo_repo():
     repo = MongoActivityRepository()
     yield repo
     # Cleanup: delete all test data
-    await repo.collection.delete_many(
-        {"user_id": {"$regex": "^test_user_"}}
-    )
-    await repo.snapshots_collection.delete_many(
-        {"user_id": {"$regex": "^test_user_"}}
-    )
+    await repo.collection.delete_many({"user_id": {"$regex": "^test_user_"}})
+    await repo.snapshots_collection.delete_many({"user_id": {"$regex": "^test_user_"}})
 
 
 @pytest.mark.asyncio
@@ -54,9 +50,7 @@ class TestMongoActivityRepositoryEventIngestion:
         events = [
             ActivityEvent(
                 user_id="test_user_001",
-                ts=(base_time + timedelta(minutes=i))
-                .isoformat()
-                .replace("+00:00", "Z"),
+                ts=(base_time + timedelta(minutes=i)).isoformat().replace("+00:00", "Z"),
                 steps=100 + i * 10,
                 calories_out=4.5 + i,
                 hr_avg=70.0 + i,
@@ -96,16 +90,12 @@ class TestMongoActivityRepositoryEventIngestion:
         ]
 
         # First ingestion
-        accepted1, duplicates1, rejected1 = await mongo_repo.ingest_events(
-            events
-        )
+        accepted1, duplicates1, rejected1 = await mongo_repo.ingest_events(events)
         assert accepted1 == 1
         assert duplicates1 == 0
 
         # Second ingestion (same event)
-        accepted2, duplicates2, rejected2 = await mongo_repo.ingest_events(
-            events
-        )
+        accepted2, duplicates2, rejected2 = await mongo_repo.ingest_events(events)
         assert accepted2 == 0
         assert duplicates2 == 1
         assert len(rejected2) == 0
@@ -129,17 +119,13 @@ class TestMongoActivityRepositoryEventIngestion:
         # Ingest batch with 1 duplicate and 1 new
         event2 = ActivityEvent(
             user_id="test_user_001",
-            ts=(base_time + timedelta(minutes=1))
-            .isoformat()
-            .replace("+00:00", "Z"),
+            ts=(base_time + timedelta(minutes=1)).isoformat().replace("+00:00", "Z"),
             steps=120,
             calories_out=5.4,
             hr_avg=75.0,
             source=ActivitySource.APPLE_HEALTH,
         )
-        accepted2, duplicates2, _ = await mongo_repo.ingest_events(
-            [event1, event2]
-        )
+        accepted2, duplicates2, _ = await mongo_repo.ingest_events([event1, event2])
         assert accepted2 == 1  # Only event2 inserted
         assert duplicates2 == 1  # event1 duplicate
 
@@ -265,9 +251,7 @@ class TestMongoActivityRepositoryTemporalQueries:
         events = [
             ActivityEvent(
                 user_id="test_user_001",
-                ts=(base_time + timedelta(minutes=i))
-                .isoformat()
-                .replace("+00:00", "Z"),
+                ts=(base_time + timedelta(minutes=i)).isoformat().replace("+00:00", "Z"),
                 steps=100,
                 calories_out=4.5,
                 hr_avg=70.0,
@@ -291,15 +275,13 @@ class TestMongoActivityRepositoryTemporalQueries:
     async def test_list_events_empty_range(self, mongo_repo):
         """Should return empty list for time range with no events."""
         base_time = datetime(2025, 11, 13, 10, 0, 0, tzinfo=timezone.utc)
-        
+
         events = await mongo_repo.list_events(
             user_id="test_user_001",
             start_ts=base_time.isoformat().replace("+00:00", "Z"),
-            end_ts=(base_time + timedelta(hours=1))
-            .isoformat()
-            .replace("+00:00", "Z"),
+            end_ts=(base_time + timedelta(hours=1)).isoformat().replace("+00:00", "Z"),
         )
-        
+
         assert events == []
 
 
@@ -356,9 +338,7 @@ class TestMongoActivityRepositoryListDeltas:
             snapshot1 = HealthSnapshot(
                 user_id="test_user_001",
                 date=date,
-                timestamp=datetime(
-                    2025, 11, 13 + idx, 12, 0, 0, tzinfo=timezone.utc
-                )
+                timestamp=datetime(2025, 11, 13 + idx, 12, 0, 0, tzinfo=timezone.utc)
                 .isoformat()
                 .replace("+00:00", "Z"),
                 steps_total=5000,
@@ -371,9 +351,7 @@ class TestMongoActivityRepositoryListDeltas:
             snapshot2 = HealthSnapshot(
                 user_id="test_user_001",
                 date=date,
-                timestamp=datetime(
-                    2025, 11, 13 + idx, 20, 0, 0, tzinfo=timezone.utc
-                )
+                timestamp=datetime(2025, 11, 13 + idx, 20, 0, 0, tzinfo=timezone.utc)
                 .isoformat()
                 .replace("+00:00", "Z"),
                 steps_total=12000,
@@ -404,7 +382,7 @@ class TestMongoActivityRepositoryListDeltas:
         all_deltas = deltas_day1 + deltas_day2
         bootstrap_deltas = [d for d in all_deltas if d.steps_delta == 5000]
         increment_deltas = [d for d in all_deltas if d.steps_delta == 7000]
-        
+
         assert len(bootstrap_deltas) >= 2  # One per day
         assert len(increment_deltas) >= 2  # One per day
 

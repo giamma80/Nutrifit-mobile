@@ -7,6 +7,7 @@ The validator was expecting 'timestamp' (date) but repository uses
 import asyncio
 import logging
 from pathlib import Path
+from typing import Any, Dict
 
 from dotenv import load_dotenv
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -19,13 +20,13 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-async def fix_validator():
+async def fix_validator() -> None:
     """Update activity_events validator to match repository schema."""
     uri = get_mongodb_uri()
     if not uri:
         raise ValueError("MONGODB_URI not configured")
 
-    client: AsyncIOMotorClient = AsyncIOMotorClient(uri)
+    client: AsyncIOMotorClient[Dict[str, Any]] = AsyncIOMotorClient(uri)
     db = client["nutrifit"]
 
     # New validator: ts as string (not timestamp as date)
@@ -74,10 +75,7 @@ async def fix_validator():
         )
 
         logger.info(f"✅ Updated activity_events validator: {result}")
-        logger.info(
-            "Validator now requires 'ts' (string) "
-            "instead of 'timestamp' (date)"
-        )
+        logger.info("Validator now requires 'ts' (string) " "instead of 'timestamp' (date)")
         logger.info("This matches the MongoActivityRepository schema")
 
     except Exception as e:
