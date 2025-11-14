@@ -269,20 +269,41 @@ Targets disponibili:
   # Qualità
   format            Black format
   lint              Flake8 + mypy
+  lint-quick        Lint solo file modificati vs main
   typecheck         Solo mypy (type checking completo)
   test              Pytest (skippa integration_real)
   test-integration  Pytest + integration_real (OpenAI API, consuma crediti)
   schema-export     Esporta SDL GraphQL (aggiorna file versionato)
   schema-check      Verifica drift schema (fail se differente)
   schema-guard      Verifica presenza duplicati e sync canonico/mirror schema
-  preflight         format + lint + test + schema-check + commitlint
+  preflight         format + lint + test + deps-check + schema-check + commitlint
 
                    (markdownlint STRICT di default; disattiva con MD_STRICT=0)
                    (usa SCHEMA_DRIFT_MODE=warn per non fallire su semplice drift)
+                   (usa DEPS_CHECK_MODE=warn|skip per personalizzare controllo dipendenze)
   version-guard     Verifica che la versione non sia stata modificata fuori dal flusso autorizzato
   maintenance-ci    Esegue operazioni manutentive (changelog, badge schema, badge versione, linea release)
   release-ci        Pipeline release non interattiva (LEVEL=patch|minor|major) pensata per automazione
   changelog         Aggiorna CHANGELOG.md dai commit conventional (usa DRY=1 per anteprima)
+
+  # Dependencies Analysis
+  deps-check        Check vulnerabilità dipendenze (pip-audit)
+  deps-health       Health check completo dipendenze 
+  deps-update       Mostra dipendenze aggiornabili (dry-run)
+  deps-outdated     Lista pacchetti obsoleti
+  deps-smart-update Aggiornamento intelligente con controllo vincoli
+
+  # Dependencies Examples
+  📦 Smart Update Esempi:
+    make deps-smart-update                    # Analisi patch updates (default, sicuro)
+    ./make.sh deps-smart-update minor        # Solo analisi minor updates
+    ./make.sh deps-smart-update --category=minor --apply  # Applica minor updates sicuri
+    ./make.sh deps-smart-update --category=major         # Analisi major updates (attenzione!)
+    
+  🎯 Workflow raccomandato:
+    1. make deps-health                       # Check stato generale
+    2. make deps-smart-update                 # Analizza patch sicuri  
+    3. ./make.sh deps-smart-update --category=minor --apply  # Applica se sicuri
 
   # Versioning / Release
   version-show      Mostra versione corrente
@@ -318,6 +339,8 @@ Targets disponibili:
   # Utility
   clean             Rimuovi .venv, __pycache__, pid
   clean-dist        Rimuovi eventuale dist residua
+  preflight-config  Mostra configurazione preflight e opzioni personalizzazione
+  deps-help         Help completo sistema gestione dipendenze con esempi
   all               setup + lint + test
 EOF
     ;;
@@ -522,6 +545,7 @@ EOF
   commitlint_status="SKIP"; commitlint_msg=""
   md_status="SKIP"; md_msg=""
   version_guard_status="SKIP"; version_guard_msg=""
+  deps_status="SKIP"; deps_msg=""
 
     # Format (non blocking): se format modifica file, consideriamo PASS comunque
     header "Format (black)"
@@ -540,6 +564,25 @@ EOF
     header "Tests"
     uv run pytest -q >/dev/null 2>&1; test_ec=$?
   if [ $test_ec -eq 0 ]; then tests_status=PASS; else tests_status=FAIL; tests_msg="pytest exit $test_ec"; fi
+
+  # Dependencies security check
+  header "Dependencies security"
+  deps_check_mode=${DEPS_CHECK_MODE:-fail} # fail|warn|skip
+  if [ "$deps_check_mode" = "skip" ]; then
+    deps_status=SKIP; deps_msg="skipped by config"
+  else
+    # Check veloce con pip-audit (più veloce di safety)
+    uv run pip-audit --format=json >/dev/null 2>&1; deps_ec=$?
+    if [ $deps_ec -eq 0 ]; then
+      deps_status=PASS; deps_msg=""
+    else
+      if [ "$deps_check_mode" = "warn" ]; then
+        deps_status=WARN; deps_msg="vulnerabilità rilevate (warn mode)"
+      else
+        deps_status=FAIL; deps_msg="vulnerabilità rilevate"
+      fi
+    fi
+  fi
 
   # Schema guard (prima di drift)
   header "Schema guard"
@@ -611,6 +654,7 @@ EOF
       printf "%-12s | %-6s | %s\n" "format" "$fmt_status" "$fmt_msg"
       printf "%-12s | %-6s | %s\n" "lint" "$lint_status" "$lint_msg"
       printf "%-12s | %-6s | %s\n" "tests" "$tests_status" "$tests_msg"
+      printf "%-12s | %-6s | %s\n" "deps" "$deps_status" "$deps_msg"
       printf "%-12s | %-6s | %s\n" "guard" "$guard_status" "$guard_msg"
   printf "%-12s | %-6s | %s\n" "ver-guard" "$version_guard_status" "$version_guard_msg"
       printf "%-12s | %-6s | %s\n" "schema" "$schema_status" "$schema_msg"
@@ -625,7 +669,7 @@ EOF
 
     # Determina exit code: fallisce se uno dei gate critici FAIL
     CRIT_FAIL=0
-  if [ "$lint_status" = FAIL ] || [ "$tests_status" = FAIL ] || [ "$schema_status" = FAIL ] || [ "$guard_status" = FAIL ] || [ "$version_guard_status" = FAIL ]; then CRIT_FAIL=1; fi
+  if [ "$lint_status" = FAIL ] || [ "$tests_status" = FAIL ] || [ "$deps_status" = FAIL ] || [ "$schema_status" = FAIL ] || [ "$guard_status" = FAIL ] || [ "$version_guard_status" = FAIL ]; then CRIT_FAIL=1; fi
   # Se strict e markdownlint FAIL lo includiamo
   if [ "$md_status" = FAIL ]; then CRIT_FAIL=1; fi
     if [ $CRIT_FAIL -eq 1 ]; then
@@ -1013,6 +1057,159 @@ EOF
     cd "$REPO_ROOT" || exit 1
     info "Connessione a Redis (password: nutrifit_redis_password)"
     docker-compose exec redis redis-cli -a nutrifit_redis_password
+    ;;
+
+  # ========================================
+  # Dependencies Analysis Targets
+  # ========================================
+
+  deps-check)
+    header "Dependencies Security Check"
+    echo "🔒 Controllo vulnerabilità con pip-audit..."
+    uv run pip-audit || { warn "Vulnerabilità rilevate da pip-audit"; }
+    echo ""
+    info "Controllo sicurezza completato"
+    ;;
+
+  deps-health)
+    header "Dependencies Health Check"
+    if [ -f scripts/health_check.sh ]; then
+      ./scripts/health_check.sh
+    else
+      warn "Script health_check.sh non trovato"
+      echo "Esegui controlli base:"
+      echo ""
+      echo "🔍 Tree dipendenze (top-level):"
+      uv tree --depth 1 | head -20
+      echo ""
+      echo "📊 Statistiche:"
+      echo "Pacchetti: $(uv pip list | wc -l | tr -d ' ')"
+      echo "Dimensione .venv: $(du -sh .venv 2>/dev/null || echo 'N/A')"
+    fi
+    ;;
+
+  deps-update)
+    header "Dependencies Update Check"
+    echo "🔍 Controllo aggiornamenti disponibili (dry-run)..."
+    echo ""
+    current_hash=$(uv lock --dry-run --upgrade 2>&1 | sha256sum | cut -d' ' -f1)
+    existing_hash=$(sha256sum uv.lock 2>/dev/null | cut -d' ' -f1 || echo "none")
+    
+    if [ "$current_hash" != "$existing_hash" ]; then
+      warn "Aggiornamenti disponibili!"
+      echo ""
+      echo "Per aggiornare tutto: uv lock --upgrade && uv sync --extra dev"
+      echo "Per aggiornare un pacchetto: uv lock --upgrade-package NOME && uv sync --extra dev"
+      echo "💡 Smart update raccomandato: make deps-smart-update"
+    else
+      info "Tutte le dipendenze sono aggiornate"
+    fi
+    ;;
+
+  deps-outdated)
+    header "Dependencies Outdated"
+    echo "📦 Pacchetti potenzialmente obsoleti:"
+    echo ""
+    uv pip list --outdated 2>/dev/null || {
+      warn "Comando non supportato, uso alternativo:"
+      echo ""
+      echo "🌳 Dipendenze principali:"
+      uv tree --depth 1
+    }
+    ;;
+
+  deps-smart-update)
+    header "Smart Dependencies Update"
+    if [ -f scripts/smart_update.py ]; then
+      chmod +x scripts/smart_update.py
+      echo "🧠 Analisi intelligente aggiornamenti dipendenze..."
+      echo ""
+      
+      # Parse arguments for category and apply
+      category="patch"
+      apply_flag=""
+      
+      # Check for arguments
+      for arg in "$@"; do
+        case $arg in
+          --apply) apply_flag="--apply" ;;
+          --category=*) category="${arg#--category=}" ;;
+          patch|minor|major) category="$arg" ;;
+        esac
+      done
+      
+      echo "📂 Categoria: $category"
+      [ -n "$apply_flag" ] && echo "⚡ Modalità: Apply (esegue aggiornamenti)" || echo "🔍 Modalità: Dry-run (solo analisi)"
+      echo ""
+      
+      uv run python scripts/smart_update.py --category "$category" $apply_flag
+    else
+      error "Script smart_update.py non trovato"
+      return 1
+    fi
+    ;;
+
+  preflight-config)
+    header "Preflight Configuration"
+    if [ -f scripts/preflight_config.sh ]; then
+      chmod +x scripts/preflight_config.sh
+      ./scripts/preflight_config.sh
+    else
+      echo "🔧 Configurazione preflight corrente:"
+      echo "   DEPS_CHECK_MODE: ${DEPS_CHECK_MODE:-fail}"
+      echo "   MD_STRICT: ${MD_STRICT:-1}"
+      echo "   SCHEMA_DRIFT_MODE: ${SCHEMA_DRIFT_MODE:-fail}"
+      echo ""
+      echo "💡 Per personalizzare esporta le variabili prima del comando"
+    fi
+    ;;
+
+  deps-help|help-deps)
+    header "Dependencies Management Help"
+    echo "🧠 Smart Update System - Guida Completa"
+    echo ""
+    echo "📦 COMANDI BASE:"
+    echo "   make deps-check          # Controllo vulnerabilità"
+    echo "   make deps-health         # Health check completo" 
+    echo "   make deps-outdated       # Lista pacchetti obsoleti"
+    echo ""
+    echo "🎯 SMART UPDATE (Raccomandato):"
+    echo "   make deps-smart-update   # Analisi patch (sicuro)"
+    echo ""
+    echo "⚙️  PARAMETRI AVANZATI:"
+    echo "   --category=patch         # Solo aggiornamenti patch (default)"
+    echo "   --category=minor         # Include aggiornamenti minor"
+    echo "   --category=major         # Include aggiornamenti major (attenzione!)"
+    echo "   --apply                  # Applica aggiornamenti (default: solo analisi)"
+    echo ""
+    echo "📋 ESEMPI PRATICI:"
+    echo "   # 1. Analisi patch sicuri (default)"
+    echo "   make deps-smart-update"
+    echo ""
+    echo "   # 2. Analisi minor updates"  
+    echo "   ./make.sh deps-smart-update --category=minor"
+    echo ""
+    echo "   # 3. Applica aggiornamenti minor sicuri"
+    echo "   ./make.sh deps-smart-update --category=minor --apply"
+    echo ""
+    echo "   # 4. Analisi major (attenzione ai breaking changes!)"
+    echo "   ./make.sh deps-smart-update --category=major"
+    echo ""
+    echo "🚫 GESTIONE CONFLITTI:"
+    echo "   • Il sistema identifica automaticamente dipendenze incompatibili"
+    echo "   • Esempio: Starlette 0.50.0 bloccata da FastAPI < 0.50.0"
+    echo "   • Fornisce raccomandazioni specifiche per ogni conflitto"
+    echo ""
+    echo "💡 WORKFLOW CONSIGLIATO:"
+    echo "   1. make deps-health                    # Stato generale"
+    echo "   2. make deps-smart-update              # Analizza patch"
+    echo "   3. ./make.sh deps-smart-update --category=minor --apply  # Applica minor sicuri"
+    echo ""
+    echo "🔧 SINCRONIZZAZIONE:"
+    echo "   Il sistema include automaticamente --extra dev per:"
+    echo "   • Tool di sviluppo (pytest, black, ruff)"
+    echo "   • Type stubs e dipendenze testing"
+    echo "   • Coverage e tool QA"
     ;;
 
   *)
