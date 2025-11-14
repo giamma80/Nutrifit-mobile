@@ -7,6 +7,21 @@ Formato ispirato a [Keep a Changelog](https://keepachangelog.com/it-IT/1.1.0/) e
 ## [Unreleased]
 
 ### Added
+- add smart dependency update system
+- enhance smart update with comprehensive help and dev sync
+- implement comprehensive dependency management with uv
+
+### Fixed
+- Preserve timezone in summaryRange for MongoDB compatibility (#29)
+
+### Chore
+- bump fastapi from 0.120.0 to 0.121.1 in /backend (#28)
+- bump strawberry-graphql from 0.284.1 to 0.284.2 in /backend (#27)
+
+## [0.8.0] - 2025-11-14
+
+
+### Added
 - Complete DDD refactor with ML, Docker, and CQRS (v0.6.2) (#26)
 
 ### Chore
