@@ -31,7 +31,7 @@ class ActivitySyncService:
     ) -> None:
         self._repository = repository
 
-    def ingest_activity_events(
+    async def ingest_activity_events(
         self,
         events: List[ActivityEvent],
         idempotency_key: Optional[str] = None,
@@ -47,9 +47,9 @@ class ActivitySyncService:
         # Normalizza tutti gli eventi prima dell'ingest
         normalized_events = [event.normalized() for event in events]
 
-        return self._repository.ingest_events(normalized_events, idempotency_key)
+        return await self._repository.ingest_events(normalized_events, idempotency_key)
 
-    def sync_health_snapshot(
+    async def sync_health_snapshot(
         self,
         snapshot: HealthSnapshot,
         idempotency_key: Optional[str] = None,
@@ -66,7 +66,7 @@ class ActivitySyncService:
                 'delta': ActivityDelta | None
             }
         """
-        return self._repository.record_snapshot(snapshot, idempotency_key)
+        return await self._repository.record_snapshot(snapshot, idempotency_key)
 
 
 class ActivityAggregationService:
@@ -78,17 +78,17 @@ class ActivityAggregationService:
     ) -> None:
         self._repository = repository
 
-    def calculate_daily_summary(self, user_id: str, date: str) -> DailyActivitySummary:
+    async def calculate_daily_summary(self, user_id: str, date: str) -> DailyActivitySummary:
         """Calcola riepilogo giornaliero consolidato.
 
         Usa snapshot/delta come fonte primaria per totali affidabili;
         eventi minuto solo per count diagnostico.
         """
         # Totali da snapshot/delta (più affidabili)
-        total_steps, total_calories_out = self._repository.get_daily_totals(user_id, date)
+        total_steps, total_calories_out = await self._repository.get_daily_totals(user_id, date)
 
         # Count eventi per diagnosi
-        events_count = self._repository.get_daily_events_count(user_id, date)
+        events_count = await self._repository.get_daily_events_count(user_id, date)
 
         return DailyActivitySummary(
             user_id=user_id,
@@ -98,7 +98,7 @@ class ActivityAggregationService:
             events_count=events_count,
         )
 
-    def list_activity_deltas(
+    async def list_activity_deltas(
         self,
         user_id: str,
         date: str,
@@ -106,7 +106,7 @@ class ActivityAggregationService:
         limit: int = 200,
     ) -> List[ActivityDelta]:
         """Lista delta per debugging/audit trail."""
-        return self._repository.list_deltas(user_id, date, after_ts, limit)
+        return await self._repository.list_deltas(user_id, date, after_ts, limit)
 
 
 class ActivityCalculationService:
