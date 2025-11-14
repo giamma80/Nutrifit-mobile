@@ -2,8 +2,8 @@
 
 Environment-based repository selection with graceful fallback to in-memory.
 Strategy:
-- .env (runtime): MEAL_REPOSITORY=mongodb (production persistence)
-- .env.test (pytest): MEAL_REPOSITORY=inmemory (fast, isolated tests)
+- .env (runtime): REPOSITORY_BACKEND=mongodb (production persistence)
+- .env.test (pytest): REPOSITORY_BACKEND=inmemory (fast, isolated tests)
 - Default: inmemory (safe fallback if env vars not set)
 
 Usage:
@@ -23,17 +23,20 @@ from typing import Optional
 from domain.shared.ports.meal_repository import IMealRepository
 
 # In-memory repository (fast, transient)
-from infrastructure.persistence.in_memory.meal_repository import InMemoryMealRepository
+from infrastructure.persistence.in_memory.meal_repository import (
+    InMemoryMealRepository,
+)
 
 # MongoDB repository (persistent, requires connection)
-# Will be implemented in P7.1
-# from infrastructure.persistence.mongodb.meal_repository import MongoMealRepository
+from infrastructure.persistence.mongodb.meal_repository import (
+    MongoMealRepository,
+)
 
 
 def create_meal_repository() -> IMealRepository:
-    """Create meal repository based on MEAL_REPOSITORY env var.
+    """Create meal repository based on REPOSITORY_BACKEND env var.
 
-    Environment variable: MEAL_REPOSITORY
+    Environment variable: REPOSITORY_BACKEND
     Values:
         - "inmemory": In-memory repository (default, fast, transient)
         - "mongodb": MongoDB repository (persistent, requires MONGODB_URI)
@@ -42,36 +45,29 @@ def create_meal_repository() -> IMealRepository:
         IMealRepository: Repository instance
 
     Raises:
-        NotImplementedError: If mongodb selected but not yet implemented
         ValueError: If mongodb selected but MONGODB_URI not set
 
     Example:
         # In .env (production):
-        MEAL_REPOSITORY=mongodb
+        REPOSITORY_BACKEND=mongodb
         MONGODB_URI=mongodb://localhost:27017
 
         # In .env.test (testing):
-        MEAL_REPOSITORY=inmemory
+        REPOSITORY_BACKEND=inmemory
     """
-    mode = os.getenv("MEAL_REPOSITORY", "inmemory").lower()
+    mode = os.getenv("REPOSITORY_BACKEND", "inmemory").lower()
 
     if mode == "mongodb":
         # Check if MongoDB URI is set
         mongodb_uri = os.getenv("MONGODB_URI")
         if not mongodb_uri:
             raise ValueError(
-                "MEAL_REPOSITORY=mongodb but MONGODB_URI not set. "
-                "Set MONGODB_URI in .env or use MEAL_REPOSITORY=inmemory"
+                "REPOSITORY_BACKEND=mongodb but MONGODB_URI not set. "
+                "Set MONGODB_URI in .env or use REPOSITORY_BACKEND=inmemory"
             )
 
-        # MongoDB repository not yet implemented (P7.1)
-        raise NotImplementedError(
-            "MongoDB repository not yet implemented. "
-            "Use MEAL_REPOSITORY=inmemory or implement P7.1 first."
-        )
-
-        # Future implementation (P7.1):
-        # return MongoMealRepository(uri=mongodb_uri)
+        # Return MongoDB repository
+        return MongoMealRepository()
 
     # Default: inmemory (safe fallback)
     return InMemoryMealRepository()
@@ -105,7 +101,7 @@ def reset_repository() -> None:
     Example:
         # In tests:
         reset_repository()
-        os.environ["MEAL_REPOSITORY"] = "inmemory"
+        os.environ["REPOSITORY_BACKEND"] = "inmemory"
         repo = get_meal_repository()  # Creates new instance
     """
     global _meal_repository

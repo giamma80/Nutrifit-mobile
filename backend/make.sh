@@ -271,6 +271,7 @@ Targets disponibili:
   lint              Flake8 + mypy
   lint-quick        Lint solo file modificati vs main
   typecheck         Solo mypy (type checking completo)
+  ci-check          Mypy con cache pulita (simula CI)
   test              Pytest (skippa integration_real)
   test-integration  Pytest + integration_real (OpenAI API, consuma crediti)
   schema-export     Esporta SDL GraphQL (aggiorna file versionato)
@@ -557,7 +558,13 @@ EOF
     header "Flake8"
     uv run flake8 . >/dev/null 2>&1; flake_ec=$?
     header "Mypy"
-    uv run mypy . >/dev/null 2>&1; mypy_ec=$?
+    mypy_out=$(mktemp)
+    uv run mypy . > "$mypy_out" 2>&1; mypy_ec=$?
+    if [ $mypy_ec -ne 0 ]; then
+      echo "Mypy errors:" >&2
+      cat "$mypy_out" >&2
+    fi
+    rm -f "$mypy_out"
     if [ $flake_ec -eq 0 ] && [ $mypy_ec -eq 0 ]; then lint_status=PASS; else lint_status=FAIL; lint_msg="flake8=$flake_ec mypy=$mypy_ec"; fi
 
     # Tests
@@ -996,6 +1003,12 @@ EOF
 
   typecheck)
     header "Type check (mypy)"
+    uv run mypy .
+    ;;
+
+  ci-check)
+    header "CI-like type check (clean cache)"
+    rm -rf .mypy_cache
     uv run mypy .
     ;;
 

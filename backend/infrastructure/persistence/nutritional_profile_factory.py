@@ -17,24 +17,24 @@ _profile_repository: Optional[IProfileRepository] = None
 
 def create_profile_repository() -> IProfileRepository:
     """
-    Create profile repository based on environment configuration.
+    Create profile repository based on global REPOSITORY_BACKEND configuration.
 
     Environment Variables:
-        PROFILE_REPOSITORY: Repository type ('inmemory' or 'mongodb')
+        REPOSITORY_BACKEND: Global repository type ('inmemory' or 'mongodb')
         MONGODB_URI: MongoDB connection URI (required if type='mongodb')
 
     Returns:
         IProfileRepository implementation
 
     Raises:
-        ValueError: If PROFILE_REPOSITORY='mongodb' but MONGODB_URI not set
-        NotImplementedError: If PROFILE_REPOSITORY='mongodb'
+        ValueError: If REPOSITORY_BACKEND='mongodb' but MONGODB_URI not set
+        NotImplementedError: If REPOSITORY_BACKEND='mongodb'
             (Phase 7.1 pending)
 
     Default:
-        Returns InMemoryProfileRepository if PROFILE_REPOSITORY not set
+        Returns InMemoryProfileRepository if REPOSITORY_BACKEND not set
     """
-    repo_type = os.getenv("PROFILE_REPOSITORY", "inmemory").lower()
+    repo_type = os.getenv("REPOSITORY_BACKEND", "inmemory").lower()
 
     if repo_type == "inmemory":
         return InMemoryProfileRepository()
@@ -43,14 +43,14 @@ def create_profile_repository() -> IProfileRepository:
         # Validate MongoDB URI is provided
         mongodb_uri = os.getenv("MONGODB_URI")
         if not mongodb_uri:
-            raise ValueError("PROFILE_REPOSITORY='mongodb' requires MONGODB_URI env var")
+            raise ValueError("REPOSITORY_BACKEND='mongodb' requires MONGODB_URI")
 
-        # MongoDB implementation pending (Phase 7.1)
-        raise NotImplementedError(
-            "MongoProfileRepository not yet implemented. "
-            "Use PROFILE_REPOSITORY='inmemory' for now. "
-            "MongoDB support will be added in Phase 7.1 (cross-domain)."
+        # Import here to avoid circular dependency
+        from infrastructure.persistence.mongodb.profile_repository import (
+            MongoProfileRepository,
         )
+
+        return MongoProfileRepository()
 
     else:
         # Unknown type - graceful fallback to inmemory

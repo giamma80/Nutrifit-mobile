@@ -22,9 +22,8 @@ from domain.activity.model import (
     ActivityDelta,
     ActivitySource as DomainActivitySource,
 )
-from domain.activity.adapters import (
-    ActivityEventsAdapter,
-    ActivitySnapshotsAdapter,
+from infrastructure.persistence.activity_repository_factory import (
+    create_activity_repository,
 )
 from domain.activity.application import (
     ActivitySyncService,
@@ -52,16 +51,13 @@ class ActivityIntegrationService:
             raise RuntimeError(f"Critical: Activity service failed to initialize: {e}")
 
     def _initialize_services(self) -> None:
-        """Inizializza servizi domain con adapter dependency injection."""
-        events_adapter = ActivityEventsAdapter()
-        snapshots_adapter = ActivitySnapshotsAdapter()
+        """Inizializza servizi domain con repository dependency injection."""
+        activity_repo = create_activity_repository()
 
-        self._sync_service = create_activity_sync_service(events_adapter, snapshots_adapter)
-        self._aggregation_service = create_activity_aggregation_service(
-            events_adapter, snapshots_adapter
-        )
+        self._sync_service = create_activity_sync_service(activity_repo)
+        self._aggregation_service = create_activity_aggregation_service(activity_repo)
 
-    def enhanced_daily_summary(
+    async def enhanced_daily_summary(
         self,
         user_id: str,
         date: str,
@@ -82,7 +78,7 @@ class ActivityIntegrationService:
 
         try:
             # Calculate enhanced summary using activity domain
-            domain_summary = self._aggregation_service.calculate_daily_summary(
+            domain_summary = await self._aggregation_service.calculate_daily_summary(
                 user_id=user_id, date=date
             )
 
@@ -112,7 +108,7 @@ class ActivityIntegrationService:
             # Graceful fallback to existing logic
             return fallback_summary
 
-    def ingest_activity_events_v2(
+    async def ingest_activity_events_v2(
         self,
         events_data: List[Dict[str, Any]],
         user_id: str,
@@ -148,9 +144,8 @@ class ActivityIntegrationService:
                 domain_events.append(domain_event)
 
             # Ingest usando domain service
-            accepted, duplicates, rejected = self._sync_service.ingest_activity_events(
-                domain_events, idempotency_key
-            )
+            result = await self._sync_service.ingest_activity_events(domain_events, idempotency_key)
+            accepted, duplicates, rejected = result
 
             logger.debug(
                 f"Activity events ingest V2: accepted={accepted}, "
@@ -163,7 +158,7 @@ class ActivityIntegrationService:
             logger.error(f"Error in activity events ingest V2: {e}")
             return 0, 0, [], False
 
-    def sync_health_snapshot_v2(
+    async def sync_health_snapshot_v2(
         self,
         snapshot_data: Dict[str, Any],
         user_id: str,
@@ -189,7 +184,7 @@ class ActivityIntegrationService:
             )
 
             # Sync usando domain service
-            result = self._sync_service.sync_health_snapshot(domain_snapshot, idempotency_key)
+            result = await self._sync_service.sync_health_snapshot(domain_snapshot, idempotency_key)
 
             logger.debug(
                 f"Health snapshot sync V2: accepted={result['accepted']}, "
@@ -202,7 +197,7 @@ class ActivityIntegrationService:
             logger.error(f"Error in health snapshot sync V2: {e}")
             return {}, False
 
-    def list_activity_deltas_v2(
+    async def list_activity_deltas_v2(
         self,
         user_id: str,
         date: str,
@@ -218,7 +213,9 @@ class ActivityIntegrationService:
             return [], False
 
         try:
-            deltas = self._aggregation_service.list_activity_deltas(user_id, date, after_ts, limit)
+            deltas = await self._aggregation_service.list_activity_deltas(
+                user_id, date, after_ts, limit
+            )
             return deltas, True
 
         except Exception as e:

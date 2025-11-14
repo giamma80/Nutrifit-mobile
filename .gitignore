@@ -155,3 +155,4 @@ backend/backend/graphql/schema.graphql
 backend/.server.pid
 mobile/DOCS/draft.md
 backend/.coverage
+.server.pid
