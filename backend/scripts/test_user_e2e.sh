@@ -25,10 +25,11 @@ echo ""
 # Test 1: Health check
 echo "${BLUE}[2/6]${NC} Testing health endpoint..."
 HEALTH=$(curl -s http://localhost:8000/health)
-if echo "$HEALTH" | grep -q "healthy"; then
+if echo "$HEALTH" | grep -q "ok"; then
     echo "${GREEN}✓ Health check passed${NC}"
 else
     echo "${RED}✗ Health check failed${NC}"
+    echo "Response: $HEALTH"
     exit 1
 fi
 echo ""

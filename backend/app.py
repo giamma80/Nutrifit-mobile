@@ -575,10 +575,9 @@ class Mutation:
     #     raise NotImplementedError("Meal analysis service temporarily disabled during refactor")
 
 
-schema = strawberry.Schema(
-    query=Query,
-    mutation=Mutation,
-)
+# Use create_schema() to ensure all resolvers are included
+from graphql.schema import create_schema
+schema = create_schema()
 
 # Explicit export per mypy/tests
 __all__: list[str] = []
