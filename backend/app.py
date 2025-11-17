@@ -40,7 +40,7 @@ from graphql.resolvers.nutritional_profile import (
 )
 from graphql.context import create_context
 from infrastructure.persistence.factory import get_meal_repository
-from infrastructure.user.in_memory_user_repository import InMemoryUserRepository
+from infrastructure.user.repository_factory import get_user_repository
 from infrastructure.persistence.nutritional_profile_factory import (
     get_profile_repository,
 )
@@ -759,7 +759,7 @@ async def version() -> dict[str, str]:
 # - USER_REPOSITORY: "inmemory" (default) | "mongodb"
 _meal_repository = get_meal_repository()
 _profile_repository = get_profile_repository()
-_user_repository = InMemoryUserRepository()
+_user_repository = get_user_repository()  # Environment-based selection
 
 _event_bus = InMemoryEventBus()
 _idempotency_cache = InMemoryIdempotencyCache()
