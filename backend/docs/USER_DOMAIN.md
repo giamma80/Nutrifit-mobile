@@ -43,23 +43,27 @@ Implementazione completa del dominio **User** con Clean Architecture + DDD patte
 ## 🔑 Key Features
 
 ### Domain Layer
+
 - **User Entity**: Aggregato root con lifecycle completo
 - **Value Objects**: `UserId`, `Auth0Sub`, `UserPreferences`
 - **Domain Events**: `UserCreatedEvent`, `UserAuthenticatedEvent`, `PreferencesUpdatedEvent`, `UserDeactivatedEvent`
 - **Ports**: `IUserRepository`, `IAuthProvider`
 
 ### Infrastructure Layer
+
 - **Auth0Provider**: JWT RS256 + JWKS caching (1h TTL) + Management API
 - **MongoUserRepository**: Persistent storage con indexes ottimizzati
 - **InMemoryUserRepository**: Test doubles
 - **AuthMiddleware**: FastAPI middleware per JWT validation
 
 ### Application Layer (CQRS)
+
 - **Commands**: `AuthenticateUserCommand`, `UpdatePreferencesCommand`, `DeactivateUserCommand`
 - **Queries**: `GetUserQuery` (by auth0_sub, by user_id, exists)
 - **Event Handlers**: `UserEventHandler` per logging ed analytics
 
 ### GraphQL Layer
+
 - **Types**: `UserType`, `UserPreferencesType`, `UserPreferencesInput`
 - **Queries**: `me()`, `exists()`
 - **Mutations**: `authenticate()`, `updatePreferences()`, `deactivate()`
@@ -148,6 +152,7 @@ mutation Authenticate {
 ```
 
 **Response:**
+
 ```json
 {
   "data": {
@@ -181,6 +186,7 @@ query Me {
 ```
 
 **Headers:**
+
 ```
 Authorization: Bearer <JWT_TOKEN>
 ```
@@ -271,12 +277,14 @@ backend/
 ## 🔐 Security
 
 ### JWT Validation
+
 - **Algorithm**: RS256 (asymmetric)
 - **JWKS Caching**: 1 hour TTL (configurable)
 - **Token Validation**: Signature + Expiration + Audience
 - **Claims**: `sub` (Auth0 user ID) + custom claims
 
 ### Auth0 Configuration
+
 1. Create Auth0 Application (SPA o Native)
 2. Create Auth0 API with RS256
 3. Configure Audience + Domain
@@ -284,6 +292,7 @@ backend/
 5. Grant `read:users`, `update:users` scopes
 
 ### Environment Variables
+
 ```bash
 AUTH0_DOMAIN=tenant.auth0.com          # Required
 AUTH0_AUDIENCE=https://api.nutrifit.com # Required
@@ -326,6 +335,7 @@ AUTH_REQUIRED=true                     # Optional (default: true)
 | `idx_active_recent`       | `is_active` (1), `last_authenticated_at` (-1) | Compound |
 
 **Create indexes:**
+
 ```bash
 python -m scripts.init_user_schema
 ```
@@ -428,27 +438,32 @@ curl -X POST http://localhost:8000/graphql \
 ## 🧪 Testing Strategy
 
 ### Unit Tests (Domain)
+
 - **Entities**: Lifecycle, validation, invariants
 - **Value Objects**: Immutability, equality, validation
 - **Events**: Event data, serialization
 - **Exceptions**: Error messages, inheritance
 
 ### Integration Tests (Infrastructure)
+
 - **Repositories**: CRUD operations, concurrency
 - **Auth0Provider**: JWT validation, Management API (mocked)
 - **Middleware**: Request interception, JWT extraction
 
 ### Unit Tests (Application)
+
 - **Commands**: Business logic, repository interaction
 - **Queries**: Data retrieval, filtering
 - **Event Handlers**: Event processing, side effects
 
 ### Integration Tests (GraphQL)
+
 - **Queries**: Field resolution, auth validation
 - **Mutations**: Data modification, error handling
 - **Context**: Dependency injection
 
 ### E2E Tests
+
 - **Full Flow**: Login → Create → Update → Query → Deactivate
 - **Auth Flow**: JWT token → GraphQL → Repository → MongoDB
 - **Error Scenarios**: Invalid token, missing user, network errors
@@ -458,6 +473,7 @@ curl -X POST http://localhost:8000/graphql \
 ### Common Issues
 
 #### 1. JWT Validation Failed
+
 ```bash
 # Check Auth0 configuration
 python -m scripts.check_user_env
@@ -469,6 +485,7 @@ curl -X POST http://localhost:8000/graphql \
 ```
 
 #### 2. MongoDB Connection Error
+
 ```bash
 # Check MongoDB is running
 docker ps | grep mongo
@@ -479,6 +496,7 @@ python -m scripts.init_user_schema
 ```
 
 #### 3. Import Errors
+
 ```bash
 # Reinstall dependencies
 uv sync
@@ -488,6 +506,7 @@ python --version  # Should be 3.11+
 ```
 
 #### 4. Test Failures
+
 ```bash
 # Run with verbose output
 uv run pytest -vv --tb=short
@@ -499,18 +518,21 @@ uv run pytest tests/unit/domain/user -vv
 ## 📈 Performance
 
 ### Benchmarks (InMemory)
+
 - **Create User**: ~0.5ms
 - **Get User**: ~0.2ms
 - **Update Preferences**: ~0.8ms
 - **JWT Validation**: ~1.5ms (first) / ~0.1ms (cached)
 
 ### MongoDB Performance
+
 - **Create User**: ~5ms (single insert)
 - **Get User (by auth0_sub)**: ~2ms (unique index)
 - **Update Preferences**: ~8ms (update + retrieve)
 - **Batch Operations**: ~50ms (100 users)
 
 ### Optimization Tips
+
 1. **JWKS Caching**: Riduce latency validazione JWT da 200ms a <1ms
 2. **MongoDB Indexes**: `auth0_sub` unique index garantisce O(log n) lookup
 3. **Connection Pooling**: Motor gestisce automaticamente connection pool
@@ -519,6 +541,7 @@ uv run pytest tests/unit/domain/user -vv
 ## 🔄 Future Enhancements
 
 ### Phase 6: Advanced Features
+
 - [ ] User roles e permissions (RBAC)
 - [ ] User profile (avatar, bio, settings)
 - [ ] User groups e teams
@@ -529,12 +552,14 @@ uv run pytest tests/unit/domain/user -vv
 - [ ] GDPR compliance (data export, deletion)
 
 ### Phase 7: Monitoring
+
 - [ ] Prometheus metrics (user creation rate, auth failures)
 - [ ] Sentry error tracking
 - [ ] Auth0 logs integration
 - [ ] Performance monitoring (APM)
 
 ### Phase 8: Scalability
+
 - [ ] Redis caching layer
 - [ ] MongoDB replica set
 - [ ] Horizontal scaling (multiple app instances)
@@ -546,10 +571,10 @@ uv run pytest tests/unit/domain/user -vv
 - **Clean Architecture**: Uncle Bob Martin
 - **DDD**: Eric Evans, Vaughn Vernon
 - **CQRS**: Greg Young, Udi Dahan
-- **Auth0**: https://auth0.com/docs
-- **Strawberry GraphQL**: https://strawberry.rocks
-- **FastAPI**: https://fastapi.tiangolo.com
-- **Motor**: https://motor.readthedocs.io
+- **Auth0**: <https://auth0.com/docs>
+- **Strawberry GraphQL**: <https://strawberry.rocks>
+- **FastAPI**: <https://fastapi.tiangolo.com>
+- **Motor**: <https://motor.readthedocs.io>
 
 ## 👥 Contributors
 

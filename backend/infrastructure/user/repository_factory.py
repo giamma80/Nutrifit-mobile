@@ -9,7 +9,7 @@ Default: inmemory
 """
 
 import os
-from domain.user.ports.repository import IUserRepository
+from domain.user.core.ports.user_repository import IUserRepository
 from infrastructure.user.in_memory_user_repository import (
     InMemoryUserRepository,
 )
@@ -35,8 +35,7 @@ def create_user_repository() -> IUserRepository:
         mongo_url = os.getenv("MONGODB_URL")
         if not mongo_url:
             raise ValueError(
-                "MONGODB_URL environment variable is required "
-                "when USER_REPOSITORY=mongodb"
+                "MONGODB_URL environment variable is required " "when USER_REPOSITORY=mongodb"
             )
 
         db_name = os.getenv("MONGODB_DATABASE", "nutrifit")
@@ -51,8 +50,7 @@ def create_user_repository() -> IUserRepository:
 
     else:
         raise ValueError(
-            f"Invalid USER_REPOSITORY value: {repo_type}. "
-            "Expected 'inmemory' or 'mongodb'"
+            f"Invalid USER_REPOSITORY value: {repo_type}. " "Expected 'inmemory' or 'mongodb'"
         )
 
 
