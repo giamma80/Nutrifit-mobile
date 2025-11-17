@@ -275,6 +275,7 @@ Targets disponibili:
   test              Pytest (skippa integration_real)
   test-integration  Pytest + integration_real (OpenAI API, consuma crediti)
   schema-export     Esporta SDL GraphQL (aggiorna file versionato)
+  schema-sync       Sincronizza schema canonical (backend) con mirror (root)
   schema-check      Verifica drift schema (fail se differente)
   schema-guard      Verifica presenza duplicati e sync canonico/mirror schema
   preflight         format + lint + test + deps-check + schema-check + commitlint
@@ -569,7 +570,7 @@ EOF
 
     # Tests
     header "Tests"
-    uv run pytest -q >/dev/null 2>&1; test_ec=$?
+    uv run pytest -q -m "not integration_real" >/dev/null 2>&1; test_ec=$?
   if [ $test_ec -eq 0 ]; then tests_status=PASS; else tests_status=FAIL; tests_msg="pytest exit $test_ec"; fi
 
   # Dependencies security check

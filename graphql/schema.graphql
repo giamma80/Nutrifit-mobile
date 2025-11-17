@@ -12,6 +12,75 @@ Workflow aggiornamento:
 Modifiche manuali devono essere replicate nel mirror prima del commit.
 Qualsiasi ricomparsa di backend/backend/graphql/schema.graphql è un errore e va rimossa.
 """
+type ActivityEvent {
+  userId: String!
+  ts: String!
+  steps: Int
+  caloriesOut: Float
+  hrAvg: Float
+  source: ActivitySource!
+}
+
+enum ActivityLevelEnum {
+  SEDENTARY
+  LIGHT
+  MODERATE
+  ACTIVE
+  VERY_ACTIVE
+}
+
+input ActivityMinuteInput {
+  ts: String!
+  steps: Int = 0
+  caloriesOut: Float = null
+  hrAvg: Float = null
+  source: ActivitySource! = MANUAL
+}
+
+type ActivityMutations {
+  """Sync batch minute activity events (idempotent)"""
+  syncActivityEvents(input: [ActivityMinuteInput!]!, idempotencyKey: String = null, userId: String = null): IngestActivityResult!
+}
+
+type ActivityPeriodSummary {
+  period: String!
+  startDate: String!
+  endDate: String!
+  totalSteps: Int!
+  totalCaloriesOut: Float!
+  totalActiveMinutes: Int!
+  avgHeartRate: Float
+  eventCount: Int!
+
+  """Has any activity data"""
+  hasActivity: Boolean!
+
+  """Avg steps per day in period"""
+  avgDailySteps: Float!
+}
+
+type ActivityQueries {
+  """Lista eventi attività con paginazione"""
+  entries(limit: Int! = 100, after: String = null, before: String = null, userId: String = null): [ActivityEvent!]!
+
+  """Lista delta sync health totals per giorno"""
+  syncEntries(date: String!, userId: String = null, after: String = null, limit: Int! = 200): [HealthTotalsDelta!]!
+
+  """Aggrega attività per range con raggruppamento"""
+  aggregateRange(userId: String!, startDate: String!, endDate: String!, groupBy: GroupByPeriod! = DAY): ActivityRangeResult!
+}
+
+type ActivityRangeResult {
+  periods: [ActivityPeriodSummary!]!
+  total: ActivityPeriodSummary!
+}
+
+enum ActivitySource {
+  APPLE_HEALTH
+  GOOGLE_FIT
+  MANUAL
+}
+
 type AggregateQueries {
   meal(mealId: String!, userId: String!): Meal
   mealHistory(userId: String!, startDate: DateTime = null, endDate: DateTime = null, mealType: String = null, limit: Int! = 20, offset: Int! = 0): MealHistoryResult!
@@ -52,6 +121,10 @@ type AtomicQueries {
   searchFoodByBarcode(barcode: String!): BarcodeProduct
 }
 
+type BMRType {
+  value: Float!
+}
+
 type BarcodeProduct {
   barcode: String!
   name: String!
@@ -59,6 +132,12 @@ type BarcodeProduct {
   nutrients: NutrientProfile
   servingSizeG: Float
   imageUrl: String
+}
+
+type CacheStats {
+  keys: Int!
+  hits: Int!
+  misses: Int!
 }
 
 type ConfirmAnalysisError {
@@ -80,6 +159,14 @@ type ConfirmAnalysisSuccess {
 
 union ConfirmAnalysisSuccessConfirmAnalysisError = ConfirmAnalysisSuccess | ConfirmAnalysisError
 
+input CreateProfileInput {
+  userId: String!
+  userData: UserDataInput!
+  goal: GoalEnum!
+  initialWeight: Float!
+  initialDate: Date = null
+}
+
 type DailySummary {
   date: DateTime!
   totalCalories: Float!
@@ -93,6 +180,9 @@ type DailySummary {
   breakdownByType: String!
   hasMeals: Boolean!
 }
+
+"""Date (isoformat)"""
+scalar Date
 
 """Date with time (isoformat)"""
 scalar DateTime
@@ -119,16 +209,56 @@ type FoodRecognitionResult {
   averageConfidence: Float!
 }
 
+enum GoalEnum {
+  CUT
+  MAINTAIN
+  BULK
+}
+
 enum GroupByPeriod {
   DAY
   WEEK
   MONTH
 }
 
+type HealthTotalsDelta {
+  id: String!
+  userId: String!
+  date: String!
+  timestamp: String!
+  stepsDelta: Int!
+  caloriesOutDelta: Float!
+  stepsTotal: Int!
+  caloriesOutTotal: Float!
+  hrAvgSession: Float
+}
+
+input HealthTotalsInput {
+  timestamp: String!
+  date: String!
+  steps: Int!
+  caloriesOut: Float!
+  hrAvgSession: Float = null
+  userId: String = null
+}
+
+type IngestActivityResult {
+  accepted: Int!
+  duplicates: Int!
+  rejected: [RejectedActivityEvent!]!
+  idempotencyKeyUsed: String
+}
+
 """
 The `JSON` scalar type represents JSON values as specified by [ECMA-404](https://ecma-international.org/wp-content/uploads/ECMA-404_2nd_edition_december_2017.pdf).
 """
 scalar JSON @specifiedBy(url: "https://ecma-international.org/wp-content/uploads/ECMA-404_2nd_edition_december_2017.pdf")
+
+type MacroSplitType {
+  proteinG: Int!
+  carbsG: Int!
+  fatG: Int!
+}
 
 type Meal {
   id: String!
@@ -212,8 +342,20 @@ enum MealType {
 }
 
 type Mutation {
-  meal: MealMutations!
+  """Meal domain mutations (CQRS commands)"""
+  meals: MealMutations!
+
+  """Activity domain mutations"""
+  activity: ActivityMutations!
+
+  """Nutritional profile mutations"""
+  nutritionalProfile: NutritionalProfileMutations!
+
+  """User domain mutations"""
   user: UserMutations!
+
+  """Sincronizza snapshot cumulativi attività"""
+  syncHealthTotals(input: HealthTotalsInput!, idempotencyKey: String = null, userId: String = null): SyncHealthTotalsResult!
 }
 
 type NutrientProfile {
@@ -225,6 +367,32 @@ type NutrientProfile {
   sugar: Float
   sodium: Float
   quantityG: Float!
+}
+
+type NutritionalProfileMutations {
+  createNutritionalProfile(input: CreateProfileInput!): NutritionalProfileType!
+  updateNutritionalProfile(input: UpdateProfileInput!): NutritionalProfileType!
+  recordProgress(input: RecordProgressInput!): ProgressRecordType!
+}
+
+type NutritionalProfileQueries {
+  nutritionalProfile(profileId: String = null, userId: String = null): NutritionalProfileType
+  progressScore(userId: String!, startDate: Date!, endDate: Date!): ProgressStatisticsType
+  forecastWeight(profileId: String!, daysAhead: Int! = 30, confidenceLevel: Float! = 0.95): WeightForecastType!
+}
+
+type NutritionalProfileType {
+  profileId: String!
+  userId: String!
+  userData: UserDataType!
+  goal: GoalEnum!
+  bmr: BMRType!
+  tdee: TDEEType!
+  caloriesTarget: Float!
+  macroSplit: MacroSplitType!
+  progressHistory: [ProgressRecordType!]!
+  createdAt: DateTime!
+  updatedAt: DateTime!
 }
 
 type PeriodSummary {
@@ -244,10 +412,52 @@ type PeriodSummary {
   avgDailyCalories: Float!
 }
 
+type ProgressRecordType {
+  date: Date!
+  weight: Float!
+  consumedCalories: Float
+  consumedProteinG: Float
+  consumedCarbsG: Float
+  consumedFatG: Float
+  caloriesBurnedBmr: Float
+  caloriesBurnedActive: Float
+  notes: String
+}
+
+type ProgressStatisticsType {
+  startDate: Date!
+  endDate: Date!
+  weightDelta: Float!
+  avgDailyCalories: Float
+  avgCaloriesBurned: Float
+  avgDeficit: Float
+  daysDeficitOnTrack: Int!
+  daysMacrosOnTrack: Int!
+  totalDays: Int!
+  adherenceRate: Float!
+}
+
 type Query {
+  serverTime: String!
+  health: String!
+
+  """Atomic utility queries for testing capabilities"""
   atomic: AtomicQueries!
+
+  """Aggregate meal data queries"""
   meals: AggregateQueries!
+
+  """Activity data queries"""
+  activity: ActivityQueries!
+
+  """Nutritional profile queries"""
+  nutritionalProfile: NutritionalProfileQueries!
+
+  """User domain queries"""
   user: UserQueries!
+
+  """Statistiche cache prodotto"""
+  cacheStats: CacheStats!
 }
 
 type RangeSummaryResult {
@@ -260,6 +470,43 @@ type RecognizedFood {
   displayName: String!
   quantityG: Float!
   confidence: Float!
+}
+
+input RecordProgressInput {
+  profileId: String!
+  date: Date!
+  weight: Float!
+  consumedCalories: Float = null
+  consumedProteinG: Float = null
+  consumedCarbsG: Float = null
+  consumedFatG: Float = null
+  caloriesBurnedBmr: Float = null
+  caloriesBurnedActive: Float = null
+  notes: String = null
+}
+
+type RejectedActivityEvent {
+  index: Int!
+  reason: String!
+}
+
+enum SexEnum {
+  M
+  F
+}
+
+type SyncHealthTotalsResult {
+  accepted: Boolean!
+  duplicate: Boolean!
+  reset: Boolean!
+  idempotencyKeyUsed: String
+  idempotencyConflict: Boolean!
+  delta: HealthTotalsDelta
+}
+
+type TDEEType {
+  value: Float!
+  activityLevel: ActivityLevelEnum!
 }
 
 type UpdateMealError {
@@ -280,6 +527,28 @@ type UpdateMealSuccess {
 }
 
 union UpdateMealSuccessUpdateMealError = UpdateMealSuccess | UpdateMealError
+
+input UpdateProfileInput {
+  profileId: String!
+  userData: UserDataInput = null
+  goal: GoalEnum = null
+}
+
+input UserDataInput {
+  weight: Float!
+  height: Float!
+  age: Int!
+  sex: SexEnum!
+  activityLevel: ActivityLevelEnum!
+}
+
+type UserDataType {
+  weight: Float!
+  height: Float!
+  age: Int!
+  sex: SexEnum!
+  activityLevel: ActivityLevelEnum!
+}
 
 type UserMutations {
   authenticate: UserType!
@@ -309,4 +578,22 @@ type UserType {
   updatedAt: DateTime!
   lastAuthenticatedAt: DateTime
   isActive: Boolean!
+}
+
+type WeightForecastType {
+  profileId: String!
+  generatedAt: DateTime!
+  predictions: [WeightPredictionPointType!]!
+  modelUsed: String!
+  confidenceLevel: Float!
+  dataPointsUsed: Int!
+  trendDirection: String!
+  trendMagnitude: Float!
+}
+
+type WeightPredictionPointType {
+  date: Date!
+  predictedWeight: Float!
+  lowerBound: Float!
+  upperBound: Float!
 }

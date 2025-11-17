@@ -1,146 +1,29 @@
-"""Main GraphQL schema for Nutrifit backend.
+"""Main GraphQL schema factory for Nutrifit backend.
 
-Integrates CQRS query and mutation resolvers for the meal domain:
-- AtomicQueries: Atomic utility queries for testing capabilities in isolation
-- AggregateQueries: Aggregate queries for meal data operations
-- MealMutations: Commands for meal creation, updates, and deletes
+This module provides a factory function to create the complete GraphQL schema.
+The actual Query and Mutation classes are defined in app.py to avoid circular
+imports and maintain a single source of truth.
 
-Context Dependencies:
-- meal_repository: IMealRepository implementation
-- event_bus: IEventBus implementation
-- idempotency_cache: IIdempotencyCache implementation
-- photo_orchestrator: PhotoOrchestrator instance
-- barcode_orchestrator: BarcodeOrchestrator instance
-- recognition_service: IVisionProvider implementation
-- enrichment_service: INutritionProvider implementation
-- barcode_service: IBarcodeProvider implementation
+Usage:
+    from graphql.schema import create_schema
+    schema = create_schema()
 """
 
 import strawberry
 
-from graphql.resolvers.meal.atomic_queries import AtomicQueries
-from graphql.resolvers.meal.aggregate_queries import AggregateQueries
-from graphql.resolvers.meal.mutations import MealMutations
-from graphql.resolvers.user.queries import UserQueries
-from graphql.resolvers.user.mutations import UserMutations
-
-
-@strawberry.type
-class Query:
-    """Root query type combining all query resolvers."""
-
-    # Atomic queries (testing capabilities in isolation)
-    @strawberry.field
-    def atomic(self) -> AtomicQueries:
-        """Atomic utility queries for testing individual capabilities.
-
-        Returns:
-            AtomicQueries resolver instance
-
-        Example:
-            query {
-              atomic {
-                recognizeFood(photoUrl: "https://...") {
-                  items { label, displayName, confidence }
-                }
-              }
-            }
-        """
-        return AtomicQueries()
-
-    # Aggregate queries (meal data operations)
-    @strawberry.field
-    def meals(self) -> AggregateQueries:
-        """Aggregate queries for meal data operations.
-
-        Returns:
-            AggregateQueries resolver instance
-
-        Example:
-            query {
-              meals {
-                meal(mealId: "...", userId: "user123") {
-                  id, timestamp, totalCalories
-                }
-              }
-            }
-        """
-        return AggregateQueries()
-
-    # User queries (user profile and preferences)
-    @strawberry.field
-    def user(self) -> UserQueries:
-        """User domain queries (profile, preferences).
-
-        Returns:
-            UserQueries resolver instance
-
-        Example:
-            query {
-              user {
-                me {
-                  userId, preferences { data }
-                }
-              }
-            }
-        """
-        return UserQueries()
-
-
-@strawberry.type
-class Mutation:
-    """Root mutation type combining all mutation resolvers."""
-
-    # Meal mutations (commands)
-    @strawberry.field
-    def meal(self) -> MealMutations:
-        """Meal domain mutations (CQRS commands).
-
-        Returns:
-            MealMutations resolver instance
-
-        Example:
-            mutation {
-              meal {
-                analyzeMealPhoto(input: {...}) {
-                  ... on MealAnalysisSuccess {
-                    meal { id, entries { name, calories } }
-                  }
-                  ... on MealAnalysisError {
-                    message, code
-                  }
-                }
-              }
-            }
-        """
-        return MealMutations()
-
-    # User mutations (authentication, preferences)
-    @strawberry.field
-    def user(self) -> UserMutations:
-        """User domain mutations (auth, preferences, account).
-
-        Returns:
-            UserMutations resolver instance
-
-        Example:
-            mutation {
-              user {
-                updatePreferences(preferences: { theme: "dark" }) {
-                  userId, preferences { data }
-                }
-              }
-            }
-        """
-        return UserMutations()
-
 
 def create_schema() -> strawberry.Schema:
-    """Create Strawberry schema with integrated resolvers.
+    """Create Strawberry schema with all integrated resolvers.
+
+    The Query and Mutation classes are imported from app.py to ensure
+    all resolvers (Meal, User, Activity, NutritionalProfile) are included.
 
     Returns:
-        Configured Strawberry Schema instance
+        Configured Strawberry Schema instance with all domains
     """
+    # Import here to avoid circular dependency
+    from app import Query, Mutation
+
     return strawberry.Schema(
         query=Query,
         mutation=Mutation,

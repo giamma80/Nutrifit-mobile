@@ -38,6 +38,8 @@ from graphql.resolvers.nutritional_profile import (
     NutritionalProfileQueries,
     NutritionalProfileMutations,
 )
+from graphql.resolvers.user.queries import UserQueries
+from graphql.resolvers.user.mutations import UserMutations
 from graphql.context import create_context
 from infrastructure.persistence.factory import get_meal_repository
 from infrastructure.user.repository_factory import get_user_repository
@@ -298,6 +300,20 @@ class Query:
         """
         return NutritionalProfileQueries()
 
+    @strawberry.field(description="User domain queries")  # type: ignore[misc]
+    def user(self) -> UserQueries:
+        """User queries for authentication and profile data.
+
+        Example:
+            query {
+              user {
+                exists(auth0Sub: "auth0|123") { exists }
+                byId(userId: "user-uuid") { email }
+              }
+            }
+        """
+        return UserQueries()
+
     # ============================================
     # Legacy Resolvers (MOVED TO AGGREGATES)
     # ============================================
@@ -513,6 +529,20 @@ class Mutation:
             }
         """
         return NutritionalProfileMutations()
+
+    @strawberry.field(description="User domain mutations")  # type: ignore[misc]
+    def user(self) -> UserMutations:
+        """User mutations for authentication and profile management.
+
+        Example:
+            mutation {
+              user {
+                authenticateOrCreate(input: {...}) { userId }
+                updatePreferences(input: {...}) { success }
+              }
+            }
+        """
+        return UserMutations()
 
     @strawberry.mutation(  # type: ignore[misc]
         description="Sincronizza snapshot cumulativi attività"
