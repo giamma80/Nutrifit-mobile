@@ -8,8 +8,9 @@ Provides all required dependencies for GraphQL resolvers:
 - Caches (idempotency, results)
 """
 
-from typing import Any
+from typing import Any, Optional, Dict
 from strawberry.fastapi import BaseContext
+from fastapi import Request
 
 from domain.shared.ports.meal_repository import IMealRepository
 from domain.shared.ports.event_bus import IEventBus
@@ -54,6 +55,8 @@ class GraphQLContext(BaseContext):
         recognition_service: Vision provider (OpenAI GPT-4V)
         enrichment_service: Nutrition enrichment service (wraps USDA)
         barcode_service: Barcode lookup service
+        request: FastAPI request object (for accessing auth_claims from middleware)
+        auth_claims: JWT claims from Auth0 middleware (None if not authenticated)
     """
 
     def __init__(
@@ -70,6 +73,7 @@ class GraphQLContext(BaseContext):
         enrichment_service: NutritionEnrichmentService,
         barcode_service: BarcodeService,
         meal_orchestrator: "MealAnalysisOrchestrator | None" = None,
+        request: Optional[Request] = None,
     ) -> None:
         """Initialize GraphQL context with all dependencies."""
         super().__init__()
@@ -85,6 +89,11 @@ class GraphQLContext(BaseContext):
         self.recognition_service = recognition_service
         self.enrichment_service = enrichment_service
         self.barcode_service = barcode_service
+        self.request = request
+        # Extract auth_claims from request.state if available
+        self.auth_claims: Optional[Dict[str, Any]] = (
+            getattr(request.state, "auth_claims", None) if request else None
+        )
 
     def get(self, key: str) -> Any:
         """Get dependency by name (for resolver compatibility).
@@ -115,6 +124,7 @@ def create_context(
     enrichment_service: NutritionEnrichmentService,
     barcode_service: BarcodeService,
     meal_orchestrator: "MealAnalysisOrchestrator | None" = None,
+    request: Optional[Request] = None,
 ) -> GraphQLContext:
     """Create GraphQL context with all dependencies.
 
@@ -163,5 +173,6 @@ def create_context(
         recognition_service=recognition_service,
         enrichment_service=enrichment_service,
         barcode_service=barcode_service,
+        request=request,
     )
     return ctx

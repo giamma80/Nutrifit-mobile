@@ -1,5 +1,6 @@
 """Unit tests for Auth0Provider with mocked HTTP calls."""
 
+import os
 import pytest
 from unittest.mock import AsyncMock, patch, MagicMock
 from datetime import datetime, timedelta
@@ -41,13 +42,15 @@ class TestAuth0Provider:
 
     def test_init_without_domain_raises_error(self):
         """Test that missing domain raises ValueError."""
-        with pytest.raises(ValueError, match="AUTH0_DOMAIN is required"):
-            Auth0Provider(domain=None, audience="https://api.test.com")
+        with patch.dict(os.environ, {}, clear=True):
+            with pytest.raises(ValueError, match="AUTH0_DOMAIN is required"):
+                Auth0Provider(domain=None, audience="https://api.test.com")
 
     def test_init_without_audience_raises_error(self):
         """Test that missing audience raises ValueError."""
-        with pytest.raises(ValueError, match="AUTH0_AUDIENCE is required"):
-            Auth0Provider(domain="test.auth0.com", audience=None)
+        with patch.dict(os.environ, {}, clear=True):
+            with pytest.raises(ValueError, match="AUTH0_AUDIENCE is required"):
+                Auth0Provider(domain="test.auth0.com", audience=None)
 
     @pytest.mark.asyncio
     async def test_verify_token_success(self, provider):

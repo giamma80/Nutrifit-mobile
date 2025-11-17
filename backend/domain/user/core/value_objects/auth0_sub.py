@@ -26,13 +26,20 @@ class Auth0Sub:
     value: str
 
     def __post_init__(self) -> None:
-        """Validate Auth0 sub format."""
+        """Validate Auth0 sub format.
+
+        Supports two formats:
+        1. User authentication: <provider>|<id> (e.g., "auth0|123", "google-oauth2|456")
+        2. Client credentials (M2M): <client_id>@clients (e.g., "abc123@clients")
+        """
         if not self.value:
             raise ValueError("Auth0 sub cannot be empty")
 
-        if "|" not in self.value:
+        # Accept both formats: provider|id OR client_id@clients
+        if "|" not in self.value and "@clients" not in self.value:
             raise ValueError(
-                f"Invalid Auth0 sub format: {self.value}. " "Expected format: <provider>|<id>"
+                f"Invalid Auth0 sub format: {self.value}. "
+                "Expected format: <provider>|<id> or <client_id>@clients"
             )
 
         if len(self.value) > 255:
@@ -45,14 +52,18 @@ class Auth0Sub:
         """Extract provider from Auth0 sub.
 
         Returns:
-            Provider name (e.g., 'auth0', 'google-oauth2', 'facebook')
+            Provider name (e.g., 'auth0', 'google-oauth2', 'facebook', 'clients')
 
         Examples:
             >>> Auth0Sub("auth0|123").provider
             'auth0'
             >>> Auth0Sub("google-oauth2|456").provider
             'google-oauth2'
+            >>> Auth0Sub("abc123@clients").provider
+            'clients'
         """
+        if "@clients" in self.value:
+            return "clients"
         return self.value.split("|", 1)[0]
 
     @property
@@ -60,13 +71,32 @@ class Auth0Sub:
         """Extract external ID from Auth0 sub.
 
         Returns:
-            External provider's user ID
+            External provider's user ID or client ID
 
         Examples:
             >>> Auth0Sub("auth0|123").external_id
             '123'
+            >>> Auth0Sub("abc123@clients").external_id
+            'abc123'
         """
+        if "@clients" in self.value:
+            return self.value.split("@", 1)[0]
         return self.value.split("|", 1)[1]
+
+    @property
+    def is_client(self) -> bool:
+        """Check if this sub represents a client credentials (M2M) token.
+
+        Returns:
+            True if sub is from client_credentials grant, False otherwise
+
+        Examples:
+            >>> Auth0Sub("auth0|123").is_client
+            False
+            >>> Auth0Sub("abc123@clients").is_client
+            True
+        """
+        return "@clients" in self.value
 
     def __str__(self) -> str:
         """String representation returns the value."""

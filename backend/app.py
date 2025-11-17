@@ -10,13 +10,15 @@ from typing import Final, Any, Optional
 
 # Third-party
 import strawberry
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from strawberry.fastapi import GraphQLRouter
 from strawberry.types import Info
 
 # Local application imports
 from cache import cache
 from repository.health_totals import health_totals_repo  # NEW
+from infrastructure.user.auth_middleware import AuthMiddleware
+from infrastructure.user.auth0_provider import Auth0Provider
 
 # TEMPORARILY DISABLED DURING REFACTOR - Phase 0
 # from graphql.types_meal import (
@@ -764,6 +766,14 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# Add Auth0 JWT middleware
+# AUTH_REQUIRED=false per permettere query pubbliche (health, version, GraphQL playground)
+# Il middleware setta request.state.auth_claims se il token è presente e valido
+# Skip middleware during tests if AUTH0_AUDIENCE not configured
+os.environ.setdefault("AUTH_REQUIRED", "false")  # Permetti query senza auth
+if os.getenv("AUTH0_AUDIENCE"):
+    app.add_middleware(AuthMiddleware, auth_provider=Auth0Provider())
+
 
 @app.get("/health")
 async def health() -> dict[str, str]:
@@ -842,14 +852,33 @@ _profile_orchestrator = ProfileOrchestrator(
 )
 
 
-def get_graphql_context() -> Any:
+async def get_graphql_context(request: Request) -> Any:
     """Create GraphQL context with all dependencies.
+
+    Args:
+        request: FastAPI request (injected by Strawberry)
 
     Returns dict-like context for resolver dependency injection.
 
-    Note: Uses singleton instances for testing (persistent across requests).
-    In production, these should be request-scoped or use proper connection pooling.
+    Note: Auth0 JWT verification done here since middleware doesn't execute for GraphQL.
     """
+    # Extract and verify JWT token (middleware doesn't execute for GraphQL routes)
+    auth_claims = None
+    auth_header = request.headers.get("Authorization")
+
+    if auth_header and auth_header.startswith("Bearer ") and os.getenv("AUTH0_AUDIENCE"):
+        token = auth_header.split(" ", 1)[1]
+        try:
+            # Use Auth0Provider to verify token (only if Auth0 is configured)
+            auth_provider = Auth0Provider()
+            auth_claims = await auth_provider.verify_token(token)
+        except Exception:
+            # Token verification failed - user is not authenticated
+            auth_claims = None
+
+    # Set auth_claims in request.state so GraphQLContext can extract it
+    request.state.auth_claims = auth_claims
+
     return create_context(
         meal_repository=_meal_repository,
         profile_repository=_profile_repository,
@@ -863,11 +892,13 @@ def get_graphql_context() -> Any:
         recognition_service=_recognition_service,
         enrichment_service=_nutrition_service,
         barcode_service=_barcode_service,
+        request=request,  # Pass request to access auth_claims from middleware
     )
 
 
 graphql_app: Final[GraphQLRouter[Any, Any]] = GraphQLRouter(
-    schema, context_getter=get_graphql_context
+    schema,
+    context_getter=get_graphql_context,
 )
 app.include_router(graphql_app, prefix="/graphql")
 

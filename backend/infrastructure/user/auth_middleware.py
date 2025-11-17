@@ -1,6 +1,7 @@
 """FastAPI authentication middleware."""
 
 import os
+import logging
 from typing import Optional, Any
 from fastapi import Request, status
 from fastapi.responses import JSONResponse
@@ -8,6 +9,8 @@ from starlette.middleware.base import BaseHTTPMiddleware
 
 from infrastructure.user.auth0_provider import Auth0Provider
 from domain.user.auth.ports.auth_provider import InvalidTokenError, JWKSError
+
+logger = logging.getLogger(__name__)
 
 
 class AuthMiddleware(BaseHTTPMiddleware):
@@ -60,32 +63,49 @@ class AuthMiddleware(BaseHTTPMiddleware):
         # Handle missing token
         if not token:
             if self.auth_required:
+                logger.warning("Missing authorization token")
                 return JSONResponse(
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     content={"error": "unauthorized", "message": "Missing authorization token"},
                 )
             # Auth not required - proceed without claims
+            logger.debug("No token provided, auth not required - proceeding without claims")
             request.state.auth_claims = None
             return await call_next(request)
 
         # Verify token
         try:
+            logger.debug(f"Verifying JWT token (first 20 chars): {token[:20]}...")
             claims = await self.auth_provider.verify_token(token)
+            logger.info(f"JWT verified successfully for sub: {claims.get('sub', 'unknown')}")
             request.state.auth_claims = claims
 
         except InvalidTokenError as e:
+            logger.error(f"Invalid token error: {str(e)}")
             return JSONResponse(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 content={"error": "invalid_token", "message": str(e)},
             )
 
-        except JWKSError:
+        except JWKSError as e:
             # JWKS error is a server error (not client's fault)
+            logger.error(f"JWKS error: {str(e)}")
             return JSONResponse(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 content={
                     "error": "authentication_error",
                     "message": "Authentication service error",
+                },
+            )
+
+        except Exception as e:
+            # Catch-all for unexpected errors
+            logger.exception(f"Unexpected error during JWT verification: {str(e)}")
+            return JSONResponse(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                content={
+                    "error": "authentication_error",
+                    "message": "Unexpected authentication error",
                 },
             )
 

@@ -14,10 +14,15 @@ from dataclasses import dataclass
 from pathlib import Path
 from dotenv import load_dotenv
 
-# Load .env.test for integration_real tests
+# Load .env first (default environment variables)
+env_path = Path(__file__).parent.parent / ".env"
+if env_path.exists():
+    load_dotenv(env_path)
+
+# Load .env.test for integration_real tests (overrides .env values)
 env_test_path = Path(__file__).parent.parent / ".env.test"
 if env_test_path.exists():
-    load_dotenv(env_test_path)
+    load_dotenv(env_test_path, override=True)
 
 # Type-only imports for proper type hints
 if TYPE_CHECKING:

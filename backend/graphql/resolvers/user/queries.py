@@ -53,14 +53,13 @@ class UserQueries:
                 }
               }
             }
-        """
-        # Get auth0_sub from JWT claims
-        auth_claims = getattr(info.context.get("request"), "state", None)
-        if not auth_claims or not hasattr(auth_claims, "auth_claims"):
+            }"""
+        # Get auth0_sub from JWT claims (set by AuthMiddleware)
+        auth_claims = info.context.auth_claims
+        if not auth_claims:
             return None
 
-        claims = auth_claims.auth_claims
-        auth0_sub_str = claims.get("sub")
+        auth0_sub_str = auth_claims.get("sub")
         if not auth0_sub_str:
             return None
 
@@ -94,14 +93,13 @@ class UserQueries:
                 exists
               }
             }
-        """
-        # Get auth0_sub from JWT claims
-        auth_claims = getattr(info.context.get("request"), "state", None)
-        if not auth_claims or not hasattr(auth_claims, "auth_claims"):
+            }"""
+        # Get auth0_sub from JWT claims (set by AuthMiddleware)
+        auth_claims = info.context.auth_claims
+        if not auth_claims:
             return False
 
-        claims = auth_claims.auth_claims
-        auth0_sub_str = claims.get("sub")
+        auth0_sub_str = auth_claims.get("sub")
         if not auth0_sub_str:
             return False
 

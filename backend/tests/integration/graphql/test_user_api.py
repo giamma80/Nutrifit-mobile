@@ -6,6 +6,7 @@ from unittest.mock import MagicMock
 
 from graphql.resolvers.user.queries import UserQueries
 from graphql.resolvers.user.mutations import UserMutations
+from graphql.context import GraphQLContext
 from domain.user.core.entities.user import User
 from domain.user.core.value_objects.auth0_sub import Auth0Sub
 from domain.user.core.value_objects.user_preferences import UserPreferences
@@ -17,11 +18,24 @@ class MockInfo:
     """Mock GraphQL Info object."""
 
     def __init__(self, repository, auth0_sub=None):
-        self.context = {"user_repository": repository}
-        if auth0_sub:
-            mock_request = MagicMock()
-            mock_request.state.auth_claims = {"sub": auth0_sub}
-            self.context["request"] = mock_request
+        # Create GraphQLContext instead of dict
+        mock_request = MagicMock()
+        mock_request.state.auth_claims = {"sub": auth0_sub} if auth0_sub else None
+
+        self.context = GraphQLContext(
+            meal_repository=MagicMock(),
+            profile_repository=MagicMock(),
+            user_repository=repository,
+            event_bus=MagicMock(),
+            idempotency_cache=MagicMock(),
+            photo_orchestrator=MagicMock(),
+            barcode_orchestrator=MagicMock(),
+            profile_orchestrator=MagicMock(),
+            recognition_service=MagicMock(),
+            enrichment_service=MagicMock(),
+            barcode_service=MagicMock(),
+            request=mock_request,
+        )
 
 
 @pytest.fixture
