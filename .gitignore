@@ -156,3 +156,4 @@ backend/.server.pid
 mobile/DOCS/draft.md
 backend/.coverage
 .server.pid
+backend/.env.prod
