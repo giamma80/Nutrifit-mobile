@@ -17,6 +17,7 @@ from domain.shared.ports.idempotency_cache import IIdempotencyCache
 from domain.nutritional_profile.core.ports.repository import (
     IProfileRepository,
 )
+from domain.user.core.ports.user_repository import IUserRepository
 from application.meal.orchestrators.photo_orchestrator import (
     MealAnalysisOrchestrator,
     PhotoOrchestrator,
@@ -44,6 +45,7 @@ class GraphQLContext(BaseContext):
     Attributes:
         meal_repository: Repository for meal persistence
         profile_repository: Repository for nutritional profile persistence
+        user_repository: Repository for user data
         event_bus: Event bus for domain events
         idempotency_cache: Cache for idempotent command processing
         photo_orchestrator: Orchestrator for photo analysis workflow
@@ -58,6 +60,7 @@ class GraphQLContext(BaseContext):
         self,
         meal_repository: IMealRepository,
         profile_repository: IProfileRepository,
+        user_repository: IUserRepository,
         event_bus: IEventBus,
         idempotency_cache: IIdempotencyCache,
         photo_orchestrator: PhotoOrchestrator,
@@ -67,11 +70,12 @@ class GraphQLContext(BaseContext):
         enrichment_service: NutritionEnrichmentService,
         barcode_service: BarcodeService,
         meal_orchestrator: "MealAnalysisOrchestrator | None" = None,
-    ):
+    ) -> None:
         """Initialize GraphQL context with all dependencies."""
         super().__init__()
         self.meal_repository = meal_repository
         self.profile_repository = profile_repository
+        self.user_repository = user_repository
         self.event_bus = event_bus
         self.idempotency_cache = idempotency_cache
         self.photo_orchestrator = photo_orchestrator
@@ -101,6 +105,7 @@ class GraphQLContext(BaseContext):
 def create_context(
     meal_repository: IMealRepository,
     profile_repository: IProfileRepository,
+    user_repository: IUserRepository,
     event_bus: IEventBus,
     idempotency_cache: IIdempotencyCache,
     photo_orchestrator: PhotoOrchestrator,
@@ -116,6 +121,7 @@ def create_context(
     Args:
         meal_repository: Repository implementation
         profile_repository: Profile repository implementation
+        user_repository: User repository implementation
         event_bus: Event bus implementation
         idempotency_cache: Idempotency cache implementation
         photo_orchestrator: Photo orchestrator instance
@@ -134,6 +140,7 @@ def create_context(
         >>> context = create_context(
         ...     meal_repository=InMemoryMealRepository(),
         ...     profile_repository=InMemoryProfileRepository(),
+        ...     user_repository=InMemoryUserRepository(),
         ...     event_bus=InMemoryEventBus(),
         ...     # ... other dependencies
         ... )
@@ -146,6 +153,7 @@ def create_context(
     ctx = GraphQLContext(
         meal_repository=meal_repository,
         profile_repository=profile_repository,
+        user_repository=user_repository,
         event_bus=event_bus,
         idempotency_cache=idempotency_cache,
         photo_orchestrator=photo_orchestrator,

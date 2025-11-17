@@ -40,6 +40,7 @@ from graphql.resolvers.nutritional_profile import (
 )
 from graphql.context import create_context
 from infrastructure.persistence.factory import get_meal_repository
+from infrastructure.user.in_memory_user_repository import InMemoryUserRepository
 from infrastructure.persistence.nutritional_profile_factory import (
     get_profile_repository,
 )
@@ -755,8 +756,10 @@ async def version() -> dict[str, str]:
 # Environment variable controls repository selection:
 # - MEAL_REPOSITORY: "inmemory" (default) | "mongodb" (P7.1)
 # - PROFILE_REPOSITORY: "inmemory" (default) | "mongodb" (P7.1)
+# - USER_REPOSITORY: "inmemory" (default) | "mongodb"
 _meal_repository = get_meal_repository()
 _profile_repository = get_profile_repository()
+_user_repository = InMemoryUserRepository()
 
 _event_bus = InMemoryEventBus()
 _idempotency_cache = InMemoryIdempotencyCache()
@@ -820,6 +823,7 @@ def get_graphql_context() -> Any:
     return create_context(
         meal_repository=_meal_repository,
         profile_repository=_profile_repository,
+        user_repository=_user_repository,
         event_bus=_event_bus,
         idempotency_cache=_idempotency_cache,
         meal_orchestrator=_photo_orchestrator,  # Supports both photo and text

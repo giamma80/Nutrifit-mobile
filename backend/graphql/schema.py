@@ -21,6 +21,8 @@ import strawberry
 from graphql.resolvers.meal.atomic_queries import AtomicQueries
 from graphql.resolvers.meal.aggregate_queries import AggregateQueries
 from graphql.resolvers.meal.mutations import MealMutations
+from graphql.resolvers.user.queries import UserQueries
+from graphql.resolvers.user.mutations import UserMutations
 
 
 @strawberry.type
@@ -65,6 +67,25 @@ class Query:
         """
         return AggregateQueries()
 
+    # User queries (user profile and preferences)
+    @strawberry.field
+    def user(self) -> UserQueries:
+        """User domain queries (profile, preferences).
+
+        Returns:
+            UserQueries resolver instance
+
+        Example:
+            query {
+              user {
+                me {
+                  userId, preferences { data }
+                }
+              }
+            }
+        """
+        return UserQueries()
+
 
 @strawberry.type
 class Mutation:
@@ -93,6 +114,25 @@ class Mutation:
             }
         """
         return MealMutations()
+
+    # User mutations (authentication, preferences)
+    @strawberry.field
+    def user(self) -> UserMutations:
+        """User domain mutations (auth, preferences, account).
+
+        Returns:
+            UserMutations resolver instance
+
+        Example:
+            mutation {
+              user {
+                updatePreferences(preferences: { theme: "dark" }) {
+                  userId, preferences { data }
+                }
+              }
+            }
+        """
+        return UserMutations()
 
 
 def create_schema() -> strawberry.Schema:
