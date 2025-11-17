@@ -29,6 +29,8 @@ dependencies = [
   "statsmodels>=0.14.0",
   "apscheduler>=3.10.0",
   "motor>=3.7.1",
+  "python-jose[cryptography]>=3.3.0",
+  "cachetools>=5.5.0",
 ]
 
 [project.optional-dependencies]
@@ -40,7 +42,8 @@ dev = [
   "flake8>=7.0.0",
   "black>=25.9.0",
   "ruff>=0.14.2",
-  "types-PyYAML"
+  "types-PyYAML",
+  "freezegun>=1.5.1"
 ]
 
 [tool.mypy]
