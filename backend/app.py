@@ -576,7 +576,8 @@ class Mutation:
 
 
 # Use create_schema() to ensure all resolvers are included
-from graphql.schema import create_schema
+from graphql.schema import create_schema  # noqa: E402
+
 schema = create_schema()
 
 # Explicit export per mypy/tests

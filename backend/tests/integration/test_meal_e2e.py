@@ -39,7 +39,7 @@ async def test_photo_analysis_workflow_success(client: AsyncClient) -> None:
     mutation = _q(
         """
         mutation {
-          meals {
+          meal {
             analyzeMealPhoto(input: {
               userId: "test_user"
               photoUrl: "https://example.com/chicken.jpg"
@@ -98,7 +98,7 @@ async def test_photo_analysis_workflow_success(client: AsyncClient) -> None:
     confirm_mutation = _q(
         f"""
         mutation {{
-          meals {{
+          meal {{
             confirmMealAnalysis(input: {{
               mealId: "{meal_id_str}"
               userId: "test_user"
@@ -132,7 +132,7 @@ async def test_photo_analysis_workflow_success(client: AsyncClient) -> None:
     query = _q(
         f"""
         query {{
-          meals {{
+          meal {{
             meal(mealId: "{meal_id_str}", userId: "test_user") {{
               id
               totalCalories
@@ -177,7 +177,7 @@ async def test_barcode_analysis_workflow_success(client: AsyncClient) -> None:
     mutation = _q(
         """
         mutation {
-          meals {
+          meal {
             analyzeMealBarcode(input: {
               userId: "test_user"
               barcode: "8001505005707"
@@ -235,7 +235,7 @@ async def test_meal_lifecycle_crud(client: AsyncClient) -> None:
     create_mutation = _q(
         """
         mutation {
-          meals {
+          meal {
             analyzeMealPhoto(input: {
               userId: "test_user"
               photoUrl: "https://example.com/pasta.jpg"
@@ -259,7 +259,7 @@ async def test_meal_lifecycle_crud(client: AsyncClient) -> None:
     read_query = _q(
         f"""
         query {{
-          meals {{
+          meal {{
             meal(mealId: "{meal_id_str}", userId: "test_user") {{
               id
               totalCalories
@@ -280,7 +280,7 @@ async def test_meal_lifecycle_crud(client: AsyncClient) -> None:
     update_mutation = _q(
         f"""
         mutation {{
-          meals {{
+          meal {{
             updateMeal(input: {{
               mealId: "{meal_id_str}"
               userId: "test_user"
@@ -304,7 +304,7 @@ async def test_meal_lifecycle_crud(client: AsyncClient) -> None:
     delete_mutation = _q(
         f"""
         mutation {{
-          meals {{
+          meal {{
             deleteMeal(input: {{
               mealId: "{meal_id_str}"
               userId: "test_user"
@@ -351,7 +351,7 @@ async def test_aggregate_search_meals_with_filters(client: AsyncClient) -> None:
     meal1_mutation = _q(
         """
         mutation {
-          meals {
+          meal {
             analyzeMealPhoto(input: {
               userId: "search_test_user"
               photoUrl: "https://example.com/chicken.jpg"
@@ -370,7 +370,7 @@ async def test_aggregate_search_meals_with_filters(client: AsyncClient) -> None:
     update_mutation = _q(
         f"""
         mutation {{
-          meals {{
+          meal {{
             updateMeal(input: {{
               mealId: "{meal1_id}"
               userId: "search_test_user"
@@ -388,7 +388,7 @@ async def test_aggregate_search_meals_with_filters(client: AsyncClient) -> None:
     meal2_mutation = _q(
         """
         mutation {
-          meals {
+          meal {
             analyzeMealPhoto(input: {
               userId: "search_test_user"
               photoUrl: "https://example.com/chicken.jpg"
@@ -406,7 +406,7 @@ async def test_aggregate_search_meals_with_filters(client: AsyncClient) -> None:
     meal3_mutation = _q(
         """
         mutation {
-          meals {
+          meal {
             analyzeMealPhoto(input: {
               userId: "other_user"
               photoUrl: "https://example.com/chicken.jpg"
@@ -424,14 +424,14 @@ async def test_aggregate_search_meals_with_filters(client: AsyncClient) -> None:
     search_query = _q(
         """
         query {
-          meals {
+          meal {
             search(
               userId: "search_test_user"
               queryText: "oatmeal"
               limit: 10
               offset: 0
             ) {
-              meals { id notes }
+              meal { id notes }
               totalCount
             }
           }
@@ -451,14 +451,14 @@ async def test_aggregate_search_meals_with_filters(client: AsyncClient) -> None:
     search_query2 = _q(
         """
         query {
-          meals {
+          meal {
             search(
               userId: "search_test_user"
               queryText: "chicken"
               limit: 10
               offset: 0
             ) {
-              meals { id entries { name } }
+              meal { id entries { name } }
               totalCount
             }
           }
@@ -482,14 +482,14 @@ async def test_aggregate_search_meals_with_filters(client: AsyncClient) -> None:
     pagination_query = _q(
         """
         query {
-          meals {
+          meal {
             search(
               userId: "search_test_user"
               queryText: "chicken"
               limit: 1
               offset: 0
             ) {
-              meals { id }
+              meal { id }
               totalCount
             }
           }
@@ -522,7 +522,7 @@ async def test_aggregate_daily_summary(client: AsyncClient) -> None:
     breakfast_mutation = _q(
         f"""
         mutation {{
-          meals {{
+          meal {{
             analyzeMealPhoto(input: {{
               userId: "{user_id}"
               photoUrl: "https://example.com/chicken.jpg"
@@ -554,7 +554,7 @@ async def test_aggregate_daily_summary(client: AsyncClient) -> None:
     confirm_breakfast = _q(
         f"""
         mutation {{
-          meals {{
+          meal {{
             confirmMealAnalysis(input: {{
               mealId: "{breakfast_data['id']}"
               userId: "{user_id}"
@@ -573,7 +573,7 @@ async def test_aggregate_daily_summary(client: AsyncClient) -> None:
     lunch_mutation = _q(
         f"""
         mutation {{
-          meals {{
+          meal {{
             analyzeMealBarcode(input: {{
               userId: "{user_id}"
               barcode: "8001505005707"
@@ -606,7 +606,7 @@ async def test_aggregate_daily_summary(client: AsyncClient) -> None:
     confirm_lunch = _q(
         f"""
         mutation {{
-          meals {{
+          meal {{
             confirmMealAnalysis(input: {{
               mealId: "{lunch_data['id']}"
               userId: "{user_id}"
@@ -624,7 +624,7 @@ async def test_aggregate_daily_summary(client: AsyncClient) -> None:
     dinner_mutation = _q(
         f"""
         mutation {{
-          meals {{
+          meal {{
             analyzeMealPhoto(input: {{
               userId: "{user_id}"
               photoUrl: "https://example.com/pasta.jpg"
@@ -656,7 +656,7 @@ async def test_aggregate_daily_summary(client: AsyncClient) -> None:
     confirm_dinner = _q(
         f"""
         mutation {{
-          meals {{
+          meal {{
             confirmMealAnalysis(input: {{
               mealId: "{dinner_data['id']}"
               userId: "{user_id}"
@@ -674,7 +674,7 @@ async def test_aggregate_daily_summary(client: AsyncClient) -> None:
     summary_query = _q(
         f"""
         query {{
-          meals {{
+          meal {{
             dailySummary(userId: "{user_id}", date: "2025-10-25T00:00:00Z") {{
               date
               totalCalories
@@ -783,7 +783,7 @@ async def test_meal_history_pagination(client: AsyncClient) -> None:
         mutation = _q(
             f"""
             mutation {{
-              meals {{
+              meal {{
                 analyzeMealPhoto(input: {{
                   userId: "{user_id}"
                   photoUrl: "https://example.com/test{i}.jpg"
@@ -811,7 +811,7 @@ async def test_meal_history_pagination(client: AsyncClient) -> None:
         confirm_mutation = _q(
             f"""
             mutation {{
-              meals {{
+              meal {{
                 confirmMealAnalysis(input: {{
                   mealId: "{meal_id}"
                   userId: "{user_id}"
@@ -829,9 +829,9 @@ async def test_meal_history_pagination(client: AsyncClient) -> None:
     page1_query = _q(
         f"""
         query {{
-          meals {{
+          meal {{
             mealHistory(userId: "{user_id}", limit: 2, offset: 0) {{
-              meals {{ id mealType }}
+              meal {{ id mealType }}
               totalCount
               hasMore
             }}
@@ -852,9 +852,9 @@ async def test_meal_history_pagination(client: AsyncClient) -> None:
     page2_query = _q(
         f"""
         query {{
-          meals {{
+          meal {{
             mealHistory(userId: "{user_id}", limit: 2, offset: 2) {{
-              meals {{ id }}
+              meal {{ id }}
               totalCount
               hasMore
             }}
@@ -875,9 +875,9 @@ async def test_meal_history_pagination(client: AsyncClient) -> None:
     page3_query = _q(
         f"""
         query {{
-          meals {{
+          meal {{
             mealHistory(userId: "{user_id}", limit: 2, offset: 4) {{
-              meals {{ id }}
+              meal {{ id }}
               totalCount
               hasMore
             }}
@@ -898,9 +898,9 @@ async def test_meal_history_pagination(client: AsyncClient) -> None:
     filter_query = _q(
         f"""
         query {{
-          meals {{
+          meal {{
             mealHistory(userId: "{user_id}", mealType: "BREAKFAST", limit: 10, offset: 0) {{
-              meals {{ id mealType }}
+              meal {{ id mealType }}
               totalCount
             }}
           }}
@@ -975,7 +975,7 @@ async def test_confirm_analysis_partial_rejection(client: AsyncClient) -> None:
     create_mutation = _q(
         """
         mutation {
-          meals {
+          meal {
             analyzeMealPhoto(input: {
               userId: "partial_confirm_user"
               photoUrl: "https://example.com/chicken.jpg"
@@ -1009,7 +1009,7 @@ async def test_confirm_analysis_partial_rejection(client: AsyncClient) -> None:
     confirm_mutation = _q(
         f"""
         mutation {{
-          meals {{
+          meal {{
             confirmMealAnalysis(input: {{
               mealId: "{meal_id}"
               userId: "partial_confirm_user"
@@ -1062,7 +1062,7 @@ async def test_update_meal_validation_errors(client: AsyncClient) -> None:
     create_mutation = _q(
         """
         mutation {
-          meals {
+          meal {
             analyzeMealPhoto(input: {
               userId: "validation_test_user"
               photoUrl: "https://example.com/chicken.jpg"
@@ -1082,7 +1082,7 @@ async def test_update_meal_validation_errors(client: AsyncClient) -> None:
     future_mutation = _q(
         f"""
         mutation {{
-          meals {{
+          meal {{
             updateMeal(input: {{
               mealId: "{meal_id}"
               userId: "validation_test_user"
@@ -1108,7 +1108,7 @@ async def test_update_meal_validation_errors(client: AsyncClient) -> None:
     wrong_user_mutation = _q(
         f"""
         mutation {{
-          meals {{
+          meal {{
             updateMeal(input: {{
               mealId: "{meal_id}"
               userId: "wrong_user"
@@ -1149,7 +1149,7 @@ async def test_idempotency_key_behavior(client: AsyncClient) -> None:
     mutation1 = _q(
         f"""
         mutation {{
-          meals {{
+          meal {{
             analyzeMealPhoto(input: {{
               userId: "{user_id}"
               photoUrl: "https://example.com/chicken.jpg"
@@ -1189,7 +1189,7 @@ async def test_idempotency_key_behavior(client: AsyncClient) -> None:
     mutation3 = _q(
         f"""
         mutation {{
-          meals {{
+          meal {{
             analyzeMealPhoto(input: {{
               userId: "{user_id}"
               photoUrl: "https://example.com/chicken.jpg"
