@@ -64,15 +64,22 @@ class TestAuth0Provider:
         }
 
         with patch("infrastructure.user.auth0_provider.jwt.get_unverified_header") as mock_header:
-            with patch("infrastructure.user.auth0_provider.jwt.decode") as mock_decode:
-                mock_header.return_value = {"kid": "test_kid"}
-                mock_decode.return_value = mock_claims
-                provider.jwks_cache["test_kid"] = {"kty": "RSA", "kid": "test_kid"}
+            with patch("infrastructure.user.auth0_provider.PyJWK") as mock_pyjwk:
+                with patch("infrastructure.user.auth0_provider.jwt.decode") as mock_decode:
+                    mock_header.return_value = {"kid": "test_kid"}
+                    mock_decode.return_value = mock_claims
 
-                claims = await provider.verify_token("test_token")
+                    # Mock PyJWK.from_dict to return a mock with .key attribute
+                    mock_jwk_instance = MagicMock()
+                    mock_jwk_instance.key = "mock_key"
+                    mock_pyjwk.from_dict.return_value = mock_jwk_instance
 
-                assert claims == mock_claims
-                mock_decode.assert_called_once()
+                    provider.jwks_cache["test_kid"] = {"kty": "RSA", "kid": "test_kid"}
+
+                    claims = await provider.verify_token("test_token")
+
+                    assert claims == mock_claims
+                    mock_decode.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_verify_token_missing_kid(self, provider):
@@ -87,15 +94,22 @@ class TestAuth0Provider:
     async def test_verify_token_expired(self, provider):
         """Test token verification fails for expired token."""
         with patch("infrastructure.user.auth0_provider.jwt.get_unverified_header") as mock_header:
-            with patch("infrastructure.user.auth0_provider.jwt.decode") as mock_decode:
-                from jose.exceptions import ExpiredSignatureError
+            with patch("infrastructure.user.auth0_provider.PyJWK") as mock_pyjwk:
+                with patch("infrastructure.user.auth0_provider.jwt.decode") as mock_decode:
+                    from jwt.exceptions import ExpiredSignatureError
 
-                mock_header.return_value = {"kid": "test_kid"}
-                mock_decode.side_effect = ExpiredSignatureError("Token expired")
-                provider.jwks_cache["test_kid"] = {"kty": "RSA"}
+                    mock_header.return_value = {"kid": "test_kid"}
+                    mock_decode.side_effect = ExpiredSignatureError("Token expired")
 
-                with pytest.raises(InvalidTokenError, match="expired"):
-                    await provider.verify_token("test_token")
+                    # Mock PyJWK.from_dict
+                    mock_jwk_instance = MagicMock()
+                    mock_jwk_instance.key = "mock_key"
+                    mock_pyjwk.from_dict.return_value = mock_jwk_instance
+
+                    provider.jwks_cache["test_kid"] = {"kty": "RSA"}
+
+                    with pytest.raises(InvalidTokenError, match="expired"):
+                        await provider.verify_token("test_token")
 
     @pytest.mark.asyncio
     async def test_refresh_jwks_success(self, provider):

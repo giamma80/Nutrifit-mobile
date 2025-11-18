@@ -4,8 +4,9 @@ import os
 from typing import Dict, Any, Optional
 from datetime import datetime, timedelta
 import aiohttp
-from jose import jwt, JWTError
-from jose.exceptions import ExpiredSignatureError
+import jwt
+from jwt import PyJWK
+from jwt.exceptions import InvalidTokenError as JWTError, ExpiredSignatureError
 from cachetools import TTLCache
 
 from domain.user.auth.ports.auth_provider import (
@@ -112,15 +113,18 @@ class Auth0Provider(IAuthProvider):
             if kid not in self.jwks_cache:
                 await self._refresh_jwks()
 
-            rsa_key = self.jwks_cache.get(kid)
-            if not rsa_key:
+            rsa_key_dict = self.jwks_cache.get(kid)
+            if not rsa_key_dict:
                 raise InvalidTokenError(f"JWKS key {kid} not found")
+
+            # Convert JWK dict to PyJWT format
+            jwk = PyJWK.from_dict(rsa_key_dict)
 
             # Verify and decode token
             issuer = f"https://{self.domain}/"
             payload: Dict[str, Any] = jwt.decode(
                 token,
-                rsa_key,
+                jwk.key,  # Use the key object from PyJWK
                 algorithms=["RS256"],
                 audience=self.audience,
                 issuer=issuer,
@@ -204,14 +208,9 @@ class Auth0Provider(IAuthProvider):
                 if not kid:
                     continue
 
-                # Build RSA key dict for python-jose
-                rsa_key = {
-                    "kty": key.get("kty"),
-                    "kid": kid,
-                    "use": key.get("use"),
-                    "n": key.get("n"),
-                    "e": key.get("e"),
-                }
+                # Build RSA key dict for PyJWT (compatible format)
+                # PyJWT accetta direttamente il dict JWK
+                rsa_key = key
 
                 self.jwks_cache[kid] = rsa_key
 
