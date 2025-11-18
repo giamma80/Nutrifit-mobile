@@ -1,0 +1,18 @@
+[project]
+name = "nutrifit-user-mcp"
+version = "1.0.0"
+description = "MCP server for Nutrifit User domain - authentication and profile management"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "mcp>=0.9.0",
+    "httpx>=0.27.0",
+    "pydantic>=2.0.0",
+]
+
+[project.scripts]
+nutrifit-user-mcp = "server:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
