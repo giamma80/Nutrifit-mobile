@@ -143,7 +143,7 @@ Note: ActivityEvent contains optional fields (steps, caloriesOut, hrAvg)
                         "type": "string",
                         "description": "Cursor for pagination"
                     },
-                    "userId": {
+                    "user_id": {
                         "type": "string",
                         "description": "Filter by user ID"
                     },
@@ -174,7 +174,7 @@ Returns list of HealthTotalsDelta with:
                         "type": "string",
                         "description": "Date (YYYY-MM-DD)"
                     },
-                    "userId": {
+                    "user_id": {
                         "type": "string",
                         "description": "Filter by user ID"
                     },
@@ -218,25 +218,25 @@ Use cases:
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "userId": {
+                    "user_id": {
                         "type": "string",
                         "description": "User ID"
                     },
-                    "startDate": {
+                    "start_date": {
                         "type": "string",
                         "description": "Start date (YYYY-MM-DD)"
                     },
-                    "endDate": {
+                    "end_date": {
                         "type": "string",
                         "description": "End date (YYYY-MM-DD)"
                     },
-                    "groupBy": {
+                    "group_by": {
                         "type": "string",
                         "enum": ["DAY", "WEEK", "MONTH"],
                         "description": "Aggregation period"
                     },
                 },
-                "required": ["userId", "startDate", "endDate", "groupBy"],
+                "required": ["user_id", "start_date", "end_date", "group_by"],
             },
         ),
         Tool(
@@ -263,7 +263,7 @@ Use for:
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "userId": {
+                    "user_id": {
                         "type": "string",
                         "description": "User ID (optional)"
                     },
@@ -379,7 +379,7 @@ Difference from syncActivityEvents:
                         "type": "string",
                         "description": "Idempotency key (optional)"
                     },
-                    "userId": {
+                    "user_id": {
                         "type": "string",
                         "description": "User ID override (optional)"
                     },
@@ -399,7 +399,7 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent]:
         limit = arguments.get("limit", 100)
         after = arguments.get("after")
         before = arguments.get("before")
-        user_id = arguments.get("userId")
+        user_id = arguments.get("user_id")
 
         query = """
         query GetActivityEntries(
@@ -452,7 +452,7 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent]:
 
     elif name == "get_activity_sync_entries":
         date = arguments["date"]
-        user_id = arguments.get("userId")
+        user_id = arguments.get("user_id")
         after = arguments.get("after")
         limit = arguments.get("limit", 200)
 
@@ -504,10 +504,10 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent]:
         ]
 
     elif name == "aggregate_activity_range":
-        user_id = arguments["userId"]
-        start_date = arguments["startDate"]
-        end_date = arguments["endDate"]
-        group_by = arguments["groupBy"]
+        user_id = arguments.get("user_id")
+        start_date = arguments.get("start_date")
+        end_date = arguments.get("end_date")
+        group_by = arguments.get("group_by")
 
         query = """
         query AggregateActivityRange(
@@ -579,7 +579,7 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent]:
         ]
 
     elif name == "sync_activity_events":
-        user_id = arguments.get("userId")
+        user_id = arguments.get("user_id")
         events = arguments["events"]
         idempotency_key = arguments.get("idempotencyKey")
 
@@ -639,7 +639,7 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent]:
     elif name == "sync_health_totals":
         input_data = arguments["input"]
         idempotency_key = arguments.get("idempotencyKey")
-        user_id = arguments.get("userId")
+        user_id = arguments.get("user_id")
 
         mutation = """
         mutation SyncHealthTotals(

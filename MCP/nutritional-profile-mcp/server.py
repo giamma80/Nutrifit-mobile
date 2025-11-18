@@ -119,12 +119,12 @@ Use for:
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "userId": {
+                    "user_id": {
                         "type": "string",
                         "description": "User ID"
                     },
                 },
-                "required": ["userId"],
+                "required": ["user_id"],
             },
         ),
         Tool(
@@ -154,20 +154,20 @@ Date range defaults to last 30 days if not specified.
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "userId": {
+                    "user_id": {
                         "type": "string",
                         "description": "User ID"
                     },
-                    "startDate": {
+                    "start_date": {
                         "type": "string",
                         "description": "Start date (YYYY-MM-DD format, e.g., '2025-10-01')"
                     },
-                    "endDate": {
+                    "end_date": {
                         "type": "string",
                         "description": "End date (YYYY-MM-DD format, e.g., '2025-10-31')"
                     },
                 },
-                "required": ["userId", "startDate", "endDate"],
+                "required": ["user_id", "start_date", "end_date"],
             },
         ),
         Tool(
@@ -214,7 +214,7 @@ Returns created profile with all calculated values.
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "userId": {
+                    "user_id": {
                         "type": "string",
                         "description": "User ID"
                     },
@@ -228,15 +228,15 @@ Returns created profile with all calculated values.
                         "type": "number",
                         "description": "Height in cm"
                     },
-                    "currentWeight": {
+                    "current_weight": {
                         "type": "number",
                         "description": "Current weight in kg"
                     },
-                    "goalWeight": {
+                    "goal_weight": {
                         "type": "number",
                         "description": "Goal weight in kg (optional for MAINTAIN)"
                     },
-                    "activityLevel": {
+                    "activity_level": {
                         "type": "string",
                         "enum": [
                             "SEDENTARY",
@@ -247,19 +247,19 @@ Returns created profile with all calculated values.
                         ],
                         "description": "Activity level"
                     },
-                    "goalType": {
+                    "goal_type": {
                         "type": "string",
                         "enum": ["CUT", "MAINTAIN", "BULK"],
                     },
                 },
                 "required": [
-                    "userId",
+                    "user_id",
                     "age",
                     "gender",
                     "height",
-                    "currentWeight",
-                    "activityLevel",
-                    "goalType",
+                    "current_weight",
+                    "activity_level",
+                    "goal_type",
                 ],
             },
         ),
@@ -288,11 +288,11 @@ Note: To update userData, provide all 5 fields (weight, height, age, sex, activi
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "profileId": {
+                    "profile_id": {
                         "type": "string",
                         "description": "Profile ID"
                     },
-                    "currentWeight": {
+                    "current_weight": {
                         "type": "number",
                         "description": "Current weight in kg"
                     },
@@ -309,7 +309,7 @@ Note: To update userData, provide all 5 fields (weight, height, age, sex, activi
                         "enum": ["M", "F"],
                         "description": "Sex (M or F)"
                     },
-                    "activityLevel": {
+                    "activity_level": {
                         "type": "string",
                         "enum": [
                             "SEDENTARY",
@@ -320,13 +320,13 @@ Note: To update userData, provide all 5 fields (weight, height, age, sex, activi
                         ],
                         "description": "Activity level"
                     },
-                    "goalType": {
+                    "goal_type": {
                         "type": "string",
                         "enum": ["CUT", "MAINTAIN", "BULK"],
                         "description": "Nutrition goal"
                     },
                 },
-                "required": ["profileId"],
+                "required": ["profile_id"],
             },
         ),
         Tool(
@@ -364,7 +364,7 @@ Integration with other domains:
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "profileId": {
+                    "profile_id": {
                         "type": "string",
                         "description": "Profile ID"
                     },
@@ -376,27 +376,27 @@ Integration with other domains:
                         "type": "number",
                         "description": "Weight in kg"
                     },
-                    "caloriesConsumed": {
+                    "calories_consumed": {
                         "type": "number",
                         "description": "Total calories from meals"
                     },
-                    "consumedProtein": {
+                    "consumed_protein": {
                         "type": "number",
                         "description": "Protein consumed in grams"
                     },
-                    "consumedCarbs": {
+                    "consumed_carbs": {
                         "type": "number",
                         "description": "Carbs consumed in grams"
                     },
-                    "consumedFat": {
+                    "consumed_fat": {
                         "type": "number",
                         "description": "Fat consumed in grams"
                     },
-                    "caloriesBurnedBmr": {
+                    "calories_burned_bmr": {
                         "type": "number",
                         "description": "BMR calories burned"
                     },
-                    "caloriesBurnedActive": {
+                    "calories_burned_active": {
                         "type": "number",
                         "description": "Active calories burned"
                     },
@@ -405,7 +405,7 @@ Integration with other domains:
                         "description": "Optional notes"
                     },
                 },
-                "required": ["profileId", "date", "weight"],
+                "required": ["profile_id", "date", "weight"],
             },
         ),
         Tool(
@@ -453,25 +453,25 @@ Performance: 30-170ms response time
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "profileId": {
+                    "profile_id": {
                         "type": "string",
                         "description": "Profile ID"
                     },
-                    "daysAhead": {
+                    "days_ahead": {
                         "type": "integer",
                         "minimum": 1,
                         "maximum": 90,
                         "default": 30,
                         "description": "Number of days to forecast (1-90, default: 30)"
                     },
-                    "confidenceLevel": {
+                    "confidence_level": {
                         "type": "number",
                         "enum": [0.68, 0.95, 0.99],
                         "default": 0.95,
                         "description": "Confidence level for intervals (0.68=1σ, 0.95=2σ, 0.99=3σ)"
                     },
                 },
-                "required": ["profileId"],
+                "required": ["profile_id"],
             },
         ),
     ]
@@ -483,7 +483,7 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent]:
     """Handle tool calls"""
 
     if name == "get_nutritional_profile":
-        user_id = arguments["userId"]
+        user_id = arguments["user_id"]
 
         query = """
         query GetNutritionalProfile($userId: String!) {
@@ -532,9 +532,9 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent]:
         ]
 
     elif name == "get_progress_score":
-        user_id = arguments["userId"]
-        start_date = arguments.get("startDate")
-        end_date = arguments.get("endDate")
+        user_id = arguments["user_id"]
+        start_date = arguments.get("start_date")
+        end_date = arguments.get("end_date")
 
         query = """
         query GetProgressScore(
@@ -580,13 +580,13 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent]:
         ]
 
     elif name == "create_nutritional_profile":
-        user_id = arguments["userId"]
+        user_id = arguments["user_id"]
         age = arguments["age"]
         sex = arguments["gender"]  # Map to 'sex' for schema
         height = arguments["height"]
-        weight = arguments["currentWeight"]
-        activity_level = arguments["activityLevel"]
-        goal = arguments["goalType"]
+        weight = arguments["current_weight"]
+        activity_level = arguments["activity_level"]
+        goal = arguments["goal_type"]
 
         mutation = """
         mutation CreateNutritionalProfile($input: CreateProfileInput!) {
@@ -649,33 +649,33 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent]:
         ]
 
     elif name == "update_nutritional_profile":
-        profile_id = arguments["profileId"]
+        profile_id = arguments["profile_id"]
         
         # Build input based on provided fields
         input_data = {"profileId": profile_id}
         
         # Handle userData updates
-        if any(k in arguments for k in ["currentWeight", "height", "age", 
-                                         "gender", "activityLevel"]):
+        if any(k in arguments for k in ["current_weight", "height", "age", 
+                                         "gender", "activity_level"]):
             user_data = {}
-            if "currentWeight" in arguments:
-                user_data["weight"] = arguments["currentWeight"]
+            if "current_weight" in arguments:
+                user_data["weight"] = arguments["current_weight"]
             if "height" in arguments:
                 user_data["height"] = arguments["height"]
             if "age" in arguments:
                 user_data["age"] = arguments["age"]
             if "gender" in arguments:
                 user_data["sex"] = arguments["gender"]
-            if "activityLevel" in arguments:
-                user_data["activityLevel"] = arguments["activityLevel"]
+            if "activity_level" in arguments:
+                user_data["activityLevel"] = arguments["activity_level"]
             
             # If partial userData, need to get current profile first
             # For now, require all userData fields
             if len(user_data) == 5:
                 input_data["userData"] = user_data
         
-        if "goalType" in arguments:
-            input_data["goal"] = arguments["goalType"]
+        if "goal_type" in arguments:
+            input_data["goal"] = arguments["goal_type"]
 
         mutation = """
         mutation UpdateNutritionalProfile($input: UpdateProfileInput!) {
@@ -723,15 +723,15 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent]:
         ]
 
     elif name == "record_progress":
-        profile_id = arguments["profileId"]
+        profile_id = arguments["profile_id"]
         date = arguments["date"]
         weight = arguments["weight"]
-        consumed_calories = arguments.get("caloriesConsumed")
-        consumed_protein = arguments.get("consumedProtein")
-        consumed_carbs = arguments.get("consumedCarbs")
-        consumed_fat = arguments.get("consumedFat")
-        calories_burned_bmr = arguments.get("caloriesBurnedBmr")
-        calories_burned_active = arguments.get("caloriesBurnedActive")
+        consumed_calories = arguments.get("calories_consumed")
+        consumed_protein = arguments.get("consumed_protein")
+        consumed_carbs = arguments.get("consumed_carbs")
+        consumed_fat = arguments.get("consumed_fat")
+        calories_burned_bmr = arguments.get("calories_burned_bmr")
+        calories_burned_active = arguments.get("calories_burned_active")
         notes = arguments.get("notes")
 
         mutation = """
@@ -783,9 +783,9 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent]:
         ]
 
     elif name == "forecast_weight":
-        profile_id = arguments.get("profileId")
-        days_ahead = arguments.get("daysAhead", 30)
-        confidence_level = arguments.get("confidenceLevel", 0.95)
+        profile_id = arguments.get("profile_id")
+        days_ahead = arguments.get("days_ahead", 30)
+        confidence_level = arguments.get("confidence_level", 0.95)
 
         query = """
         query ForecastWeight($profileId: ID!, $daysAhead: Int!, $confidenceLevel: Float!) {
