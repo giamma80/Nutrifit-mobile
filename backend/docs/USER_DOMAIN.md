@@ -73,17 +73,14 @@ Implementazione completa del dominio **User** con Clean Architecture + DDD patte
 ### 1. Environment Setup
 
 ```bash
-# Copy template
-cp .env.user.template .env
-
-# Configure Auth0
+# Configure Auth0 in .env
 AUTH0_DOMAIN=your-tenant.us.auth0.com
-AUTH0_AUDIENCE=https://api.nutrifit.com
-AUTH0_CLIENT_ID=your_client_id
-AUTH0_CLIENT_SECRET=your_client_secret
+AUTH0_AUDIENCE=https://api.nutrifit.app
+AUTH0_ALGORITHMS=["RS256"]
 
-# Choose repository (inmemory | mongodb)
-USER_REPOSITORY=inmemory
+# Choose repository backend
+REPOSITORY_BACKEND=mongodb  # or "inmemory" for testing
+MONGODB_URI=mongodb://localhost:27017/nutrifit  # if using mongodb
 ```
 
 ### 2. Run Tests
@@ -117,11 +114,8 @@ uvicorn app:app --host 0.0.0.0 --port 8000
 ### 4. Initialize MongoDB
 
 ```bash
-# Create indexes
-python -m scripts.init_user_schema
-
-# Verify schema
-python -m scripts.check_user_env
+# Initialize MongoDB (if using Atlas)
+uv run python scripts/init_mongodb_atlas.py
 ```
 
 ### 5. Run E2E Tests
@@ -263,9 +257,8 @@ backend/
 │       └── mutations.py              # UserMutations
 │
 ├── scripts/
-│   ├── init_user_schema.py           # MongoDB setup
-│   ├── check_user_env.py             # Config validator
-│   └── test_user_e2e.sh              # E2E test suite
+│   ├── init_mongodb_atlas.py         # MongoDB Atlas setup
+│   └── test_auth0.sh                 # Auth0 integration tests
 │
 └── tests/
     ├── unit/domain/user/             # 94 tests
@@ -475,13 +468,13 @@ curl -X POST http://localhost:8000/graphql \
 #### 1. JWT Validation Failed
 
 ```bash
-# Check Auth0 configuration
-python -m scripts.check_user_env
+# Test Auth0 integration
+ENDPOINT=http://localhost:8080 ./scripts/test_auth0.sh
 
-# Verify JWT token
-curl -X POST http://localhost:8000/graphql \
+# Or manually verify JWT token
+curl -X POST http://localhost:8080/graphql \
   -H "Authorization: Bearer $JWT" \
-  -d '{"query": "{ __schema { queryType { name } } }"}'
+  -d '{"query": "{ user { me { userId } } }"}'
 ```
 
 #### 2. MongoDB Connection Error
