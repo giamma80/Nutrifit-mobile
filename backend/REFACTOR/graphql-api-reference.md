@@ -5,6 +5,7 @@ Documentazione completa delle query e mutation disponibili nell'API GraphQL di N
 ## Indice
 
 - [Struttura dell'API](#struttura-dellapi)
+- [Namespace: User](#namespace-user)
 - [Namespace: Meals](#namespace-meals)
 - [Namespace: Activity](#namespace-activity)
 - [Namespace: Nutritional Profile](#namespace-nutritional-profile)
@@ -23,6 +24,7 @@ type Query {
   health: String!
   
   # Namespace domains
+  user: UserQueries!                        # Query user
   atomic: AtomicQueries!                    # Query atomiche meal
   meals: AggregateQueries!                  # Query aggregate meal
   activity: ActivityQueries!                # Query activity
@@ -32,12 +34,251 @@ type Query {
 }
 
 type Mutation {
+  user: UserMutations!                      # Mutations user
   meals: MealMutations!                     # Mutations meal
   activity: ActivityMutations!              # Mutations activity
   nutritionalProfile: NutritionalProfileMutations!  # Mutations profilo
   syncHealthTotals(...)                     # Mutation root (legacy)
 }
 ```
+
+---
+
+## Namespace: User
+
+### Query: `user`
+
+Query per gestione utenti e autenticazione.
+
+#### `user.me`
+
+Recupera i dati dell'utente corrente autenticato.
+
+**Uso**:
+
+```graphql
+query {
+  user {
+    me {
+      userId
+      auth0Sub
+      createdAt
+      lastAuthenticatedAt
+      isActive
+      preferences {
+        language
+        theme
+        notificationsEnabled
+      }
+    }
+  }
+}
+```
+
+**Autenticazione**: Richiede JWT Auth0 valido nell'header `Authorization: Bearer <token>`
+
+**Ritorna**: `User` con dati completi dell'utente
+
+**Errori**:
+
+- `MISSING_AUTHENTICATION`: Token JWT mancante
+- `INVALID_TOKEN`: Token non valido o scaduto
+- `USER_NOT_FOUND`: Utente non esiste nel database
+
+---
+
+#### `user.exists`
+
+Verifica se un utente esiste dato l'Auth0 sub.
+
+**Uso**:
+
+```graphql
+query {
+  user {
+    exists(auth0Sub: "auth0|123456") {
+      exists
+      userId
+    }
+  }
+}
+```
+
+**Parametri**:
+
+- `auth0Sub` (String!): Subject identifier da Auth0
+
+**Ritorna**: `UserExistsResult`
+
+- `exists` (Boolean!): True se l'utente esiste
+- `userId` (String): UUID utente (null se non esiste)
+
+**Autenticazione**: Non richiesta (query pubblica per onboarding)
+
+---
+
+#### `user.byId`
+
+Recupera un utente per ID.
+
+**Uso**:
+
+```graphql
+query {
+  user {
+    byId(userId: "uuid-here") {
+      userId
+      auth0Sub
+      isActive
+      preferences {
+        language
+      }
+    }
+  }
+}
+```
+
+**Parametri**:
+
+- `userId` (String!): UUID dell'utente
+
+**Ritorna**: `User` o `null` se non trovato
+
+**Autenticazione**: Richiede JWT Auth0 valido
+
+**Note**: In futuro potrebbe richiedere permessi admin per accedere ad altri utenti
+
+---
+
+### Mutations: `user`
+
+#### `user.authenticateOrCreate`
+
+Autentica l'utente o lo crea se è il primo login.
+
+**Uso**:
+
+```graphql
+mutation {
+  user {
+    authenticateOrCreate(input: {
+      auth0Sub: "auth0|123456"
+    }) {
+      userId
+      isNewUser
+      user {
+        userId
+        auth0Sub
+        createdAt
+        lastAuthenticatedAt
+      }
+    }
+  }
+}
+```
+
+**Parametri**:
+
+- `input.auth0Sub` (String!): Subject identifier da Auth0
+
+**Ritorna**: `AuthenticateResult`
+
+- `userId` (String!): UUID utente
+- `isNewUser` (Boolean!): True se utente appena creato
+- `user` (User!): Dati completi utente
+
+**Comportamento**:
+
+- Se utente non esiste → crea nuovo utente con preferences di default
+- Se utente esiste → aggiorna `lastAuthenticatedAt` timestamp
+
+**Autenticazione**: Richiede JWT Auth0 valido (il token deve contenere lo stesso `sub`)
+
+**Eventi generati**:
+
+- `UserCreated` (se nuovo utente)
+- `UserAuthenticated` (sempre)
+
+---
+
+#### `user.updatePreferences`
+
+Aggiorna le preferenze dell'utente.
+
+**Uso**:
+
+```graphql
+mutation {
+  user {
+    updatePreferences(input: {
+      language: "it"
+      theme: "dark"
+      notificationsEnabled: true
+    }) {
+      success
+      user {
+        userId
+        preferences {
+          language
+          theme
+          notificationsEnabled
+        }
+      }
+    }
+  }
+}
+```
+
+**Parametri**:
+
+- `input.language` (String, opzionale): Codice lingua ISO (es. "it", "en")
+- `input.theme` (String, opzionale): Tema UI ("light", "dark", "auto")
+- `input.notificationsEnabled` (Boolean, opzionale): Stato notifiche
+
+**Ritorna**: `UpdatePreferencesResult`
+
+- `success` (Boolean!): True se update riuscito
+- `user` (User): Dati utente aggiornati
+
+**Autenticazione**: Richiede JWT Auth0 valido
+
+**Eventi generati**:
+
+- `UserProfileUpdated`
+
+---
+
+#### `user.deactivate`
+
+Disattiva l'account utente (soft delete).
+
+**Uso**:
+
+```graphql
+mutation {
+  user {
+    deactivate {
+      success
+      userId
+    }
+  }
+}
+```
+
+**Ritorna**: `DeactivateResult`
+
+- `success` (Boolean!): True se disattivazione riuscita
+- `userId` (String!): UUID utente disattivato
+
+**Comportamento**:
+
+- Imposta `isActive = false`
+- Non elimina i dati (GDPR compliance)
+- L'utente può riattivare l'account al prossimo login
+
+**Autenticazione**: Richiede JWT Auth0 valido
+
+**Note**: Per eliminazione permanente dati, contattare support team
 
 ---
 
@@ -52,6 +293,7 @@ Query atomiche per operazioni singole sui meal.
 Cerca un prodotto per barcode nell'enrichment service.
 
 **Uso**:
+
 ```graphql
 query {
   atomic {
@@ -77,6 +319,7 @@ query {
 ```
 
 **Parametri**:
+
 - `barcode` (String!): Codice a barre del prodotto
 
 **Ritorna**: `BarcodeProduct` o `null` se non trovato
@@ -88,6 +331,7 @@ query {
 Riconosce cibi da foto o testo con AI vision.
 
 **Uso**:
+
 ```graphql
 query {
   atomic {
@@ -108,6 +352,7 @@ query {
 ```
 
 **Parametri**:
+
 - `photoUrl` (String, opzionale): URL immagine
 - `text` (String, opzionale): Descrizione testuale
 - `dishHint` (String, opzionale): Suggerimento sul piatto
@@ -121,6 +366,7 @@ query {
 Arricchisce un cibo con dati nutrizionali da USDA.
 
 **Uso**:
+
 ```graphql
 query {
   atomic {
@@ -139,6 +385,7 @@ query {
 ```
 
 **Parametri**:
+
 - `label` (String!): Nome del cibo
 - `quantityG` (Float!): Quantità in grammi
 
@@ -155,6 +402,7 @@ Query aggregate per operazioni complesse sui meal.
 Recupera un singolo meal per ID.
 
 **Uso**:
+
 ```graphql
 query {
   meals {
@@ -197,6 +445,7 @@ query {
 ```
 
 **Parametri**:
+
 - `mealId` (String!): UUID del meal
 - `userId` (String!): ID utente (autorizzazione)
 
@@ -209,6 +458,7 @@ query {
 Recupera storico meal con filtri e paginazione.
 
 **Uso**:
+
 ```graphql
 query {
   meals {
@@ -240,6 +490,7 @@ query {
 ```
 
 **Parametri**:
+
 - `userId` (String!): ID utente
 - `startDate` (DateTime, opzionale): Data inizio filtro
 - `endDate` (DateTime, opzionale): Data fine filtro
@@ -256,6 +507,7 @@ query {
 Ricerca full-text nei meal (entries e notes).
 
 **Uso**:
+
 ```graphql
 query {
   meals {
@@ -283,6 +535,7 @@ query {
 ```
 
 **Parametri**:
+
 - `userId` (String!): ID utente
 - `queryText` (String!): Testo di ricerca
 - `limit` (Int, default: 20): Risultati per pagina
@@ -297,6 +550,7 @@ query {
 Riepilogo nutrizionale giornaliero aggregato dai meal.
 
 **Uso**:
+
 ```graphql
 query {
   meals {
@@ -318,6 +572,7 @@ query {
 ```
 
 **Parametri**:
+
 - `userId` (String!): ID utente
 - `date` (DateTime!): Data per il summary
 
@@ -326,6 +581,7 @@ query {
 **Note**: Aggrega solo dati meal, non include dati activity (activitySteps, caloriesDeficit, ecc.)
 
 **Differenze con altre query meals**:
+
 - **vs `summaryRange`**: `dailySummary` ritorna dati per UN SOLO giorno, mentre `summaryRange` permette di aggregare su intervalli multi-giorno con grouping flessibile (DAY/WEEK/MONTH)
 - **vs `mealHistory`**: `dailySummary` ritorna solo AGGREGATI (totali nutrizionali), mentre `mealHistory` ritorna lista dettagliata di singoli meal
 - **Caso d'uso**: Dashboard giornaliero, widget "Today's Nutrition", notifiche fine giornata
@@ -337,6 +593,7 @@ query {
 Riepilogo nutrizionale per intervalli di date con grouping flessibile (DAY/WEEK/MONTH).
 
 **Uso**:
+
 ```graphql
 query {
   meals {
@@ -378,32 +635,38 @@ query {
 ```
 
 **Parametri**:
+
 - `userId` (String!): ID utente
 - `startDate` (DateTime!): Inizio range (inclusivo)
 - `endDate` (DateTime!): Fine range (inclusivo)
 - `groupBy` (GroupByPeriod!): Raggruppa per DAY, WEEK o MONTH
 
 **Ritorna**: `RangeSummaryResult`
+
 - `periods`: Array di `PeriodSummary`, uno per ogni periodo (giorno/settimana/mese) nel range
 - `total`: `PeriodSummary` aggregato con somma di tutti i periods
 
 **Formato period label**:
+
 - `DAY`: "2025-10-28" (ISO date)
 - `WEEK`: "2025-W43" (ISO week)
 - `MONTH`: "2025-10" (anno-mese)
 
 **Differenze con altre query meals**:
+
 - **vs `dailySummary`**: `summaryRange` supporta intervalli MULTI-GIORNO con grouping flessibile (giorno/settimana/mese), mentre `dailySummary` è limitato a UN SOLO giorno
 - **vs `mealHistory`**: `summaryRange` ritorna solo AGGREGATI per periodo, mentre `mealHistory` ritorna lista dettagliata dei singoli meal
 - **Vantaggio chiave**: Ritorna sia breakdown per periodo CHE totale aggregato in una sola query, evitando N+1 queries per dashboard settimanali/mensili
 
 **Casi d'uso**:
+
 - Dashboard settimanale: "Nutrition this week" con grafico giornaliero
 - Report mensile: "October summary" con breakdown per settimana
 - Trend analysis: Ultimi 30 giorni raggruppati per settimana
 - Confronto periodi: "Questa settimana vs settimana scorsa"
 
 **Esempio pratico - Dashboard settimanale**:
+
 ```graphql
 query WeeklyDashboard {
   meals {
@@ -429,6 +692,7 @@ query WeeklyDashboard {
 ```
 
 **Esempio pratico - Report mensile**:
+
 ```graphql
 query MonthlyReport {
   meals {
@@ -461,6 +725,7 @@ query MonthlyReport {
 Analizza una foto di cibo con AI per riconoscimento e arricchimento nutrizionale.
 
 **Uso**:
+
 ```graphql
 mutation {
   meals {
@@ -501,6 +766,7 @@ mutation {
 ```
 
 **Parametri**:
+
 - `input.userId` (String!): ID utente
 - `input.photoUrl` (String!): URL immagine meal
 - `input.dishHint` (String, opzionale): Suggerimento sul nome del piatto
@@ -509,6 +775,7 @@ mutation {
 - `input.idempotencyKey` (String, opzionale): Chiave per deduplicazione
 
 **Ritorna**: Union type `MealAnalysisSuccessMealAnalysisError`
+
 - `MealAnalysisSuccess`: Analisi completata con successo
 - `MealAnalysisError`: Errore durante l'analisi
 
@@ -521,6 +788,7 @@ mutation {
 Conferma un'analisi meal creata da photo/barcode, rendendola definitiva.
 
 **Uso**:
+
 ```graphql
 mutation {
   meals {
@@ -551,6 +819,7 @@ mutation {
 ```
 
 **Parametri**:
+
 - `input.mealId` (String!): ID del meal da confermare
 - `input.userId` (String!): ID utente (autorizzazione)
 - `input.confirmedEntryIds` ([String!]!): Lista ID degli entry da confermare
@@ -564,6 +833,7 @@ mutation {
 Analizza un meal da barcode con arricchimento nutrizionale.
 
 **Uso**:
+
 ```graphql
 mutation {
   meals {
@@ -601,6 +871,7 @@ mutation {
 ```
 
 **Parametri**:
+
 - `input.userId` (String!): ID utente
 - `input.barcode` (String!): Codice a barre prodotto
 - `input.quantityG` (Float!): Quantità in grammi
@@ -616,6 +887,7 @@ mutation {
 Analizza un meal da descrizione testuale con AI per riconoscimento e arricchimento nutrizionale.
 
 **Uso**:
+
 ```graphql
 mutation {
   meals {
@@ -658,6 +930,7 @@ mutation {
 ```
 
 **Parametri**:
+
 - `input.userId` (String!): ID utente
 - `input.textDescription` (String!): Descrizione testuale del meal (es. "2 uova strapazzate con toast")
 - `input.timestamp` (DateTime!): Timestamp del meal
@@ -665,10 +938,12 @@ mutation {
 - `input.idempotencyKey` (String, opzionale): Chiave per deduplicazione
 
 **Ritorna**: Union type `MealAnalysisSuccess | MealAnalysisError`
+
 - `MealAnalysisSuccess`: Analisi completata con successo
 - `MealAnalysisError`: Errore durante l'analisi
 
 **Comportamento**:
+
 1. **Riconoscimento AI**: Usa GPT-4o per identificare cibi e quantità dalla descrizione testuale
 2. **Arricchimento nutrizionale**: Per ogni cibo riconosciuto, recupera dati nutrizionali da USDA
 3. **Creazione meal**: Crea meal con source="DESCRIPTION" in stato PENDING
@@ -676,13 +951,15 @@ mutation {
 
 **Source value**: Il campo `source` del meal sarà impostato a `"DESCRIPTION"` (non "TEXT")
 
-**Note**: 
+**Note**:
+
 - Il meal viene creato in stato PENDING, richiede conferma con `confirmMealAnalysis`
 - L'AI può stimare quantità se non specificate (es. "una mela" → ~182g)
 - Supporta descrizioni complesse con più ingredienti (es. "pasta con pomodoro e basilico" → 3 entries)
 - Idempotency key opzionale: se omessa, viene auto-generata da payload
 
 **Esempi di input supportati**:
+
 ```text
 # Con quantità esplicite
 "150g di pasta al pomodoro con basilico"
@@ -702,11 +979,13 @@ mutation {
 ```
 
 **Differenze con altre analyze mutations**:
+
 - **vs `analyzeMealPhoto`**: `analyzeMealText` non richiede immagine, usa solo descrizione testuale
 - **vs `analyzeMealBarcode`**: `analyzeMealText` riconosce più alimenti da testo libero, non singolo prodotto
 - **Vantaggio chiave**: Veloce e conveniente per meal semplici o quando non è possibile scattare foto
 
 **Casi d'uso**:
+
 - Quick logging di meal semplici ("colazione standard: latte e cereali")
 - Retroactive logging di meal passati
 - Meal consumati fuori casa dove fotografare è scomodo
@@ -714,6 +993,7 @@ mutation {
 - Voice-to-text integration (utente detta meal, app converte e analizza)
 
 **Workflow tipico**:
+
 ```graphql
 # Step 1: Analizza testo
 mutation {
@@ -770,6 +1050,7 @@ mutation {
 Aggiorna un meal esistente (tipo, timestamp, note).
 
 **Uso**:
+
 ```graphql
 mutation {
   meals {
@@ -801,6 +1082,7 @@ mutation {
 ```
 
 **Parametri**:
+
 - `input.mealId` (String!): UUID del meal da aggiornare
 - `input.userId` (String!): ID utente (autorizzazione)
 - `input.mealType` (MealType, opzionale): Nuovo tipo meal
@@ -818,6 +1100,7 @@ mutation {
 Elimina un meal.
 
 **Uso**:
+
 ```graphql
 mutation {
   meals {
@@ -836,6 +1119,7 @@ mutation {
 ```
 
 **Parametri**:
+
 - `mealId` (String!): UUID del meal da eliminare
 - `userId` (String!): ID utente (autorizzazione)
 
@@ -852,6 +1136,7 @@ mutation {
 Lista eventi di attività minute-by-minute.
 
 **Uso**:
+
 ```graphql
 query {
   activity {
@@ -873,12 +1158,14 @@ query {
 ```
 
 **Parametri**:
+
 - `userId` (String, opzionale): ID utente (default: "default")
 - `limit` (Int, default: 100, max: 500): Numero risultati
 - `after` (String, opzionale): Timestamp inizio periodo (ISO 8601)
 - `before` (String, opzionale): Timestamp fine periodo (ISO 8601)
 
 **Ritorna**: Lista di `ActivityEvent`
+
 - `userId` (String!): ID utente
 - `ts` (String!): Timestamp evento (ISO 8601)
 - `steps` (Int): Passi nel minuto
@@ -887,6 +1174,7 @@ query {
 - `source` (ActivitySource!): Fonte dati
 
 **Quando usarla**:
+
 - Per visualizzare dati granulari dell'attività
 - Per costruire grafici temporali
 - Per analizzare pattern di movimento durante la giornata
@@ -898,6 +1186,7 @@ query {
 Lista delta di sincronizzazione dei totali giornalieri.
 
 **Uso**:
+
 ```graphql
 query {
   activity {
@@ -917,18 +1206,21 @@ query {
 ```
 
 **Parametri**:
+
 - `date` (String!): Data in formato YYYY-MM-DD
 - `userId` (String, opzionale): ID utente (default: "default")
 - `after` (String, opzionale): After timestamp (ISO 8601)
 - `limit` (Int, default: 200, max: 500): Numero risultati
 
 **Ritorna**: Lista di `HealthTotalsDelta`
+
 - `timestamp` (String!): Timestamp della sync
 - `steps` (Int!): Incremento passi
 - `caloriesOut` (Float!): Incremento calorie
 - `hrAvgSession` (Float): Frequenza cardiaca media sessione
 
 **Differenze con altre query activity**:
+
 - **vs `aggregateRange`**: `syncEntries` ritorna DELTA incrementali delle sincronizzazioni (snapshot progressivi), mentre `aggregateRange` aggrega eventi minute-by-minute con grouping flessibile
 - **vs `entries`**: `syncEntries` ritorna snapshot di sincronizzazione cumulative, mentre `entries` ritorna eventi granulari minute-by-minute
 - **Caso d'uso**: Debugging sync issues, visualizzazione timeline sincronizzazioni, audit trail
@@ -940,6 +1232,7 @@ query {
 Aggregati di attività per intervalli di date con grouping flessibile (DAY/WEEK/MONTH).
 
 **Uso**:
+
 ```graphql
 query {
   activity {
@@ -973,26 +1266,31 @@ query {
 ```
 
 **Parametri**:
+
 - `userId` (String!): ID utente
 - `startDate` (String!): Inizio range in formato ISO 8601 (inclusivo)
 - `endDate` (String!): Fine range in formato ISO 8601 (inclusivo)
 - `groupBy` (GroupByPeriod!): Raggruppa per DAY, WEEK o MONTH
 
 **Ritorna**: `ActivityRangeResult`
+
 - `periods`: Array di `ActivityPeriodSummary`, uno per ogni periodo nel range
 - `total`: `ActivityPeriodSummary` aggregato con somma/media di tutti i periods
 
 **Formato period label**:
+
 - `DAY`: "2025-10-28" (ISO date)
 - `WEEK`: "2025-W43" (ISO week)
 - `MONTH`: "2025-10" (anno-mese)
 
 **Differenze con altre query activity**:
+
 - **vs `entries`**: `aggregateRange` ritorna AGGREGATI per periodo (totali/medie), mentre `entries` ritorna eventi GRANULARI minute-by-minute
 - **vs `syncEntries`**: `aggregateRange` aggrega eventi activity reali, mentre `syncEntries` ritorna delta delle sincronizzazioni (snapshot cumulativi)
 - **Vantaggio chiave**: Ritorna sia breakdown per periodo CHE totale aggregato in una sola query, ottimizzato per dashboard multi-giorno
 
 **Casi d'uso**:
+
 - Dashboard settimanale: "Activity this week" con grafico giornaliero passi/calorie
 - Report mensile: "October activity" con breakdown per settimana
 - Trend analysis: Ultimi 30 giorni raggruppati per settimana
@@ -1000,6 +1298,7 @@ query {
 - Progress tracking: Goal settimanali/mensili con visualizzazione progresso
 
 **Esempio pratico - Dashboard settimanale**:
+
 ```graphql
 query WeeklyActivity {
   activity {
@@ -1029,6 +1328,7 @@ query WeeklyActivity {
 ```
 
 **Esempio pratico - Report mensile**:
+
 ```graphql
 query MonthlyActivity {
   activity {
@@ -1055,6 +1355,7 @@ query MonthlyActivity {
 ```
 
 **Esempio pratico - Confronto periodi**:
+
 ```graphql
 query CompareWeeks {
   thisWeek: activity {
@@ -1090,6 +1391,7 @@ query CompareWeeks {
 Sincronizza batch di eventi attività minute-by-minute con idempotenza.
 
 **Uso**:
+
 ```graphql
 mutation {
   activity {
@@ -1125,6 +1427,7 @@ mutation {
 ```
 
 **Parametri**:
+
 - `input` (List[ActivityMinuteInput]!): Lista eventi da sincronizzare
   - `ts` (String!): Timestamp evento in formato ISO 8601
   - `steps` (Int, default: 0): Passi in quel minuto
@@ -1135,12 +1438,14 @@ mutation {
 - `idempotencyKey` (String, opzionale): Chiave per deduplicazione
 
 **Ritorna**: `IngestActivityResult`
+
 - `accepted`: Numero eventi accettati
 - `duplicates`: Numero eventi duplicati (già presenti con stesso timestamp)
 - `rejected`: Lista eventi rifiutati con motivo
 - `idempotencyKeyUsed`: Chiave usata (auto-generata se non fornita)
 
 **Idempotenza**:
+
 - Se non fornisci `idempotencyKey`, viene auto-generata da payload (esclusi timestamp)
 - Formato auto-key: `auto-{hash16}`
 - **Deduplicazione primaria** su `(user_id, timestamp)`: eventi con stesso timestamp vengono sempre contati come `duplicates`
@@ -1148,11 +1453,13 @@ mutation {
 - Conflict detection se stessa key con payload diverso
 
 **Note**:
+
 - Gli eventi vengono sempre deduplicated su `(userId, timestamp)` indipendentemente dall'idempotency key
 - L'idempotency key serve per garantire che un retry di invio (es. per errore di rete) non causi effetti collaterali
 - Se invii gli stessi eventi con chiave diversa, verranno comunque deduplicated come `duplicates` ma la mutation sarà accettata
 
 **Quando usarla**:
+
 - Per sincronizzare dati granulari da wearable
 - Quando hai dettagli minute-by-minute
 - Per analisi dettagliate dell'attività
@@ -1170,6 +1477,7 @@ Query per gestione profilo nutrizionale, calcoli BMR/TDEE e tracking progresso.
 Recupera il profilo nutrizionale di un utente.
 
 **Uso**:
+
 ```graphql
 query {
   nutritionalProfile {
@@ -1216,6 +1524,7 @@ query {
 ```
 
 **Parametri**:
+
 - `profileId` (String, opzionale): ID del profilo
 - `userId` (String, opzionale): ID utente
 
@@ -1224,6 +1533,7 @@ query {
 **Ritorna**: `NutritionalProfileType` o `null` se non trovato
 
 **Campi Ritornati**:
+
 - `profileId`: UUID del profilo
 - `userId`: ID utente proprietario
 - `goal`: Obiettivo (CUT, MAINTAIN, BULK)
@@ -1245,6 +1555,7 @@ query {
 - `updatedAt`: Data ultimo aggiornamento
 
 **Calcoli Automatici**:
+
 - **BMR** (Basal Metabolic Rate): Calcolato con formula Mifflin-St Jeor
   - Maschi: `10 * weight + 6.25 * height - 5 * age + 5`
   - Femmine: `10 * weight + 6.25 * height - 5 * age - 161`
@@ -1264,6 +1575,7 @@ query {
   - BULK: Proteine alte (2.0g/kg), carboidrati molto alti, grassi moderati
 
 **Quando usarla**:
+
 - Dashboard profilo utente
 - Visualizzazione obiettivi nutrizionali
 - Tracking progresso giornaliero
@@ -1276,6 +1588,7 @@ query {
 Calcola statistiche di progresso su un intervallo di date.
 
 **Uso**:
+
 ```graphql
 query {
   nutritionalProfile {
@@ -1300,6 +1613,7 @@ query {
 ```
 
 **Parametri**:
+
 - `userId` (String!): ID utente
 - `startDate` (Date!): Data inizio periodo (formato: YYYY-MM-DD)
 - `endDate` (Date!): Data fine periodo (formato: YYYY-MM-DD)
@@ -1307,6 +1621,7 @@ query {
 **Ritorna**: `ProgressStatisticsType` o `null` se profilo non trovato
 
 **Campi Ritornati**:
+
 - `startDate`: Data inizio analisi
 - `endDate`: Data fine analisi
 - `weightDelta`: Variazione peso in kg (negativo = perdita, positivo = aumento)
@@ -1319,6 +1634,7 @@ query {
 - `adherenceRate`: Percentuale aderenza complessiva (0.0-1.0)
 
 **Calcoli**:
+
 - **Weight Delta**: `peso_finale - peso_iniziale` (dai progressHistory nel periodo)
 - **Avg Daily Calories**: Media delle `consumedCalories` registrate
 - **Avg Deficit**: Media di `(consumedCalories - (caloriesBurnedBmr + caloriesBurnedActive))`
@@ -1327,17 +1643,20 @@ query {
 - **Adherence Rate**: `min(daysDeficitOnTrack, daysMacrosOnTrack) / totalDays`
 
 **Casi d'uso**:
+
 - Report settimanale progressi
 - Calcolo aderenza a piano nutrizionale
 - Validazione efficacia strategia (deficit reale vs atteso)
 - Dashboard "This Week" con metriche aggregate
 
 **Differenze con altre query**:
+
 - **vs `nutritionalProfile`**: Questa query ritorna AGGREGATI su range, mentre `nutritionalProfile` ritorna dati grezzi completi
 - **vs `meals.summaryRange`**: `progressScore` include anche dati peso/deficit/aderenza, non solo nutrizione
 - **Vantaggio**: Combina dati profilo + progress tracking + validazione aderenza in una query
 
 **Esempio pratico - Report settimanale**:
+
 ```graphql
 query WeeklyProgress {
   nutritionalProfile {
@@ -1363,6 +1682,7 @@ query WeeklyProgress {
 Genera previsioni di peso future usando modelli di machine learning su serie temporali.
 
 **Uso**:
+
 ```graphql
 query {
   nutritionalProfile {
@@ -1390,6 +1710,7 @@ query {
 ```
 
 **Parametri**:
+
 - `profileId` (String!): ID del profilo nutrizionale
 - `daysAhead` (Int, opzionale, default: 30): Giorni futuri da prevedere (1-90)
 - `confidenceLevel` (Float, opzionale, default: 0.95): Livello confidenza intervalli (0.68, 0.95, 0.99)
@@ -1397,6 +1718,7 @@ query {
 **Ritorna**: `WeightForecastType` con previsioni e metadati
 
 **Campi Ritornati**:
+
 - `profileId`: ID profilo utilizzato
 - `generatedAt`: Timestamp generazione forecast
 - `modelUsed`: Modello ML utilizzato (SimpleTrend, LinearRegression, ExponentialSmoothing, ARIMA)
@@ -1411,12 +1733,14 @@ query {
   - `upperBound`: Limite superiore intervallo confidenza
 
 **Selezione Automatica Modello** (data-driven):
+
 - **SimpleTrend** (<7 data points): Estrapolazione lineare con intervalli espansi
 - **LinearRegression** (7-13 points): Regressione lineare OLS con intervalli predizione
 - **ExponentialSmoothing** (14-29 points): Holt's method per trend + stagionalità
 - **ARIMA(1,1,1)** (30+ points): Modello time series completo con fallback
 
 **Trend Analysis** 🎯:
+
 - **Stable** (`|magnitude| < 0.5 kg`): Plateau rilevato
   - Insight: Considera aggiustare calorie per rompere plateau
 - **Decreasing** (`magnitude < -0.5 kg`): Perdita peso prevista
@@ -1425,32 +1749,38 @@ query {
   - Insight: Trend coerente con obiettivo BULK o verifica deficit
 
 **Requisiti Minimi**:
+
 - Almeno 2 record di progresso nel profilo
 - Record ordinati cronologicamente
 - Peso sempre positivo
 
 **Validazione**:
+
 - `daysAhead` deve essere tra 1 e 90
 - `confidenceLevel` deve essere 0.68, 0.95 o 0.99
 - Se dati insufficienti → errore esplicativo
 
 **Confidenza Intervalli**:
+
 - **95%**: Intervallo standard, 95% probabilità peso reale sia nell'intervallo
 - **68%**: Intervallo stretto, ~1 deviazione standard
 - **99%**: Intervallo largo, massima confidenza
 
 **Performance**:
+
 - Response time tipico: 30-170ms
 - Cache: Non implementata (calcoli veloci)
 - Background job: Nessuno (on-demand)
 
 **Casi d'uso**:
+
 - Dashboard "Goal Prediction": "You'll reach 75kg by 2025-12-15"
 - Motivazione utente: Visualizzare progresso futuro
 - Validazione piano: "At current rate, you'll lose 5kg in 60 days"
 - Plateau detection: "Weight stable for 14 days, consider calorie adjustment"
 
 **Esempio pratico - Previsione 2 settimane**:
+
 ```graphql
 query ShortTermForecast {
   nutritionalProfile {
@@ -1474,6 +1804,7 @@ query ShortTermForecast {
 ```
 
 **Esempio pratico - Plateau Detection**:
+
 ```graphql
 query CheckPlateau {
   nutritionalProfile {
@@ -1487,11 +1818,13 @@ query CheckPlateau {
 ```
 
 **Differenze con altre query**:
+
 - **vs `progressScore`**: `forecastWeight` prevede FUTURO, `progressScore` analizza PASSATO
 - **vs `nutritionalProfile`**: `forecastWeight` usa ML per predizioni, `nutritionalProfile` mostra dati attuali
 - **Vantaggio**: Predizioni scientifiche con intervalli confidenza, non semplici trend lineari
 
 **Note ML**:
+
 - ARIMA può fallire convergenza → graceful fallback a ExponentialSmoothing
 - Intervalli confidenza si espandono nel tempo (maggiore incertezza)
 - Peso costante → SimpleTrend con previsioni stabili
@@ -1506,6 +1839,7 @@ query CheckPlateau {
 Crea un nuovo profilo nutrizionale per un utente.
 
 **Uso**:
+
 ```graphql
 mutation {
   nutritionalProfile {
@@ -1545,6 +1879,7 @@ mutation {
 ```
 
 **Parametri**:
+
 - `input.userId` (String!): ID utente
 - `input.userData` (UserDataInput!): Dati biometrici e attività
   - `weight` (Float!): Peso attuale in kg (range: 30-300)
@@ -1559,11 +1894,13 @@ mutation {
 **Ritorna**: `NutritionalProfileType` - Profilo completo con calcoli BMR/TDEE/macros
 
 **Validazioni**:
+
 - Un utente può avere solo un profilo attivo (vincolo unicità su `user_id`)
 - Se esiste già un profilo, la mutation fallisce
 - Tutti i valori biometrici devono essere nei range consentiti
 
 **Comportamento**:
+
 1. Calcola BMR con formula Mifflin-St Jeor
 2. Calcola TDEE moltiplicando BMR per activity multiplier
 3. Calcola calorie target aggiustando TDEE per goal
@@ -1572,6 +1909,7 @@ mutation {
 6. Ritorna profilo completo
 
 **Quando usarla**:
+
 - Onboarding nuovo utente
 - Setup iniziale profilo fitness
 - Prima configurazione obiettivi nutrizionali
@@ -1583,6 +1921,7 @@ mutation {
 Aggiorna un profilo esistente (goal o dati biometrici).
 
 **Uso**:
+
 ```graphql
 mutation {
   nutritionalProfile {
@@ -1607,6 +1946,7 @@ mutation {
 ```
 
 **Parametri**:
+
 - `input.profileId` (String!): UUID del profilo da aggiornare
 - `input.userData` (UserDataInput, opzionale): Nuovi dati biometrici
   - Se fornito, ricalcola BMR/TDEE/target con nuovi valori
@@ -1616,18 +1956,21 @@ mutation {
 **Ritorna**: `NutritionalProfileType` - Profilo aggiornato con nuovi calcoli
 
 **Comportamento**:
+
 - Se cambi `goal`: Ricalcola `caloriesTarget` e `macroSplit` mantenendo stesso BMR/TDEE
 - Se cambi `userData`: Ricalcola BMR, TDEE, caloriesTarget e macroSplit da zero
 - Se cambi entrambi: Ricalcola tutto con nuovi dati
 - Aggiorna `updatedAt` timestamp
 
 **Quando usarla**:
+
 - Cambio obiettivo (da cut a maintain, da bulk a cut, ecc.)
 - Aggiornamento peso dopo periodo di tracking
 - Modifica livello attività (es. inizio nuovo programma allenamento)
 - Ricalcolo dopo milestone raggiunta
 
 **Esempio pratico - Cambio goal dopo target raggiunto**:
+
 ```graphql
 mutation SwitchToMaintenance {
   nutritionalProfile {
@@ -1662,6 +2005,7 @@ mutation SwitchToMaintenance {
 Registra progresso giornaliero (peso, calorie, macros).
 
 **Uso**:
+
 ```graphql
 mutation {
   nutritionalProfile {
@@ -1693,6 +2037,7 @@ mutation {
 ```
 
 **Parametri**:
+
 - `input.profileId` (String!): UUID del profilo
 - `input.date` (Date!): Data registrazione (formato: YYYY-MM-DD)
 - `input.weight` (Float!): Peso del giorno in kg
@@ -1707,23 +2052,27 @@ mutation {
 **Ritorna**: `ProgressRecordType` - Record registrato
 
 **Comportamento**:
+
 - Se esiste già un record per stessa data: **UPDATE** (sovrascrive)
 - Se `caloriesBurnedBmr` è null: Usa automaticamente BMR del profilo
 - Tutti i campi nutrizionali sono opzionali (permette tracking parziale)
 - Record viene aggiunto a `progressHistory` del profilo
 
 **Validazioni**:
+
 - `date` deve essere una data valida (non futura)
 - `weight` deve essere ragionevole (30-300 kg)
 - Valori nutrizionali devono essere non negativi se forniti
 
 **Quando usarla**:
+
 - Check-in giornaliero peso
 - Log dati nutrizionali fine giornata
 - Registrazione calorie attività da wearable
 - Tracking aderenza piano
 
 **Workflow tipico**:
+
 ```graphql
 # Ogni mattina: registra peso
 mutation MorningWeighIn {
@@ -1765,6 +2114,7 @@ mutation EveningUpdate {
 ```
 
 **Integrazione cross-domain**:
+
 ```typescript
 // Esempio: Popola automaticamente da meal domain
 const dailySummary = await meals.dailySummary({ userId, date });
@@ -1790,6 +2140,7 @@ await nutritionalProfile.recordProgress({
 Sincronizza snapshot cumulativi giornalieri di attività.
 
 **Uso**:
+
 ```graphql
 mutation {
   syncHealthTotals(
@@ -1819,6 +2170,7 @@ mutation {
 ```
 
 **Parametri**:
+
 - `input.date` (String!): Data in formato YYYY-MM-DD
 - `input.timestamp` (DateTime!): Timestamp della sync
 - `input.steps` (Int!): **Totale cumulativo** passi della giornata
@@ -1828,23 +2180,27 @@ mutation {
 - `idempotencyKey` (String, opzionale): Chiave per deduplicazione
 
 **Ritorna**: `SyncHealthTotalsResult`
+
 - `accepted`: true se accettato
 - `duplicate`: true se già processato (stessa idempotency key)
 - `reset`: true se totale è MINORE del precedente (reset device)
 - `delta`: Incremento calcolato rispetto all'ultima sync
 
 **Idempotenza**:
+
 - L'`idempotencyKey` è **obbligatoria** per funzionamento corretto
 - Stessa key con stesso payload → `duplicate: true`, ritorna risultato cached
 - Key diversa con stesso timestamp/dati → viene accettata come nuova sync (il sistema calcola i delta)
 - L'idempotency key ha TTL di 24 ore
 
 **Differenza con `activity.syncActivityEvents`**:
+
 - Questa mutation accetta **totali cumulativi** della giornata
 - Il sistema calcola automaticamente i **delta** rispetto alla sync precedente
 - Ideale per sincronizzazioni periodiche da app (ogni ora, ogni apertura)
 
 **Quando usarla**:
+
 - Quando hai totali giornalieri progressivi da Fitbit/Apple Health/Google Fit
 - Per sync periodiche (ogni ora, ogni apertura app)
 - NON quando hai dati minute-by-minute (usa `activity.syncActivityEvents`)
@@ -1858,6 +2214,7 @@ mutation {
 Ritorna timestamp corrente del server.
 
 **Uso**:
+
 ```graphql
 query {
   serverTime
@@ -1873,6 +2230,7 @@ query {
 Health check endpoint.
 
 **Uso**:
+
 ```graphql
 query {
   health
@@ -1888,6 +2246,7 @@ query {
 Statistiche della cache prodotti.
 
 **Uso**:
+
 ```graphql
 query {
   cacheStats {
@@ -1915,10 +2274,12 @@ query {
 | `progressScore` | Statistiche aggregate su range | Metriche aderenza + peso | Report settimanale, validazione piano, trend analysis |
 
 **Regola pratica**:
+
 - Serve **dati completi** del profilo? → `nutritionalProfile` (settings, targets, history raw)
 - Serve **report aggregato** con aderenza? → `progressScore` (weekly stats, compliance)
 
 **Workflow consigliato**:
+
 ```typescript
 // Dashboard profilo: Usa nutritionalProfile per dati completi
 const profile = await query.nutritionalProfile.nutritionalProfile({ userId });
@@ -1940,6 +2301,7 @@ query WeeklyDashboard {
 ```
 
 **Integrazione cross-domain**:
+
 ```typescript
 // Pattern: Popola automaticamente progressRecord da altri domini
 async function dailyCheckIn(userId: string, weight: number, date: string) {
@@ -1981,11 +2343,13 @@ async function dailyCheckIn(userId: string, weight: number, date: string) {
 | `summaryRange` | Aggregati multi-giorno | N giorni/settimane/mesi | Periods + Total | Dashboard settimanale/mensile, grafici trend |
 
 **Regola pratica**:
+
 - Serve **dettagli** di meal singoli? → `meal` / `mealHistory` / `search`
 - Serve **aggregati** nutrizionali? → `dailySummary` (1 giorno) o `summaryRange` (range)
 - Hai un **range di date**? → Sempre `summaryRange` (evita loop di N `dailySummary`)
 
 **Esempio anti-pattern** ❌:
+
 ```typescript
 // SBAGLIATO: Loop di 7 query per dashboard settimanale
 for (let i = 0; i < 7; i++) {
@@ -1998,6 +2362,7 @@ for (let i = 0; i < 7; i++) {
 ```
 
 **Esempio corretto** ✅:
+
 ```typescript
 // GIUSTO: 1 query per dashboard settimanale
 const weeklySummary = await client.query.meals.summaryRange({
@@ -2020,11 +2385,13 @@ const weeklySummary = await client.query.meals.summaryRange({
 | `aggregateRange` | Aggregati multi-giorno | N giorni/settimane/mesi | Periods + Total | Dashboard settimanale/mensile, goal tracking |
 
 **Regola pratica**:
+
 - Serve **granularità minuto-per-minuto**? → `entries` (grafici intraday)
 - Serve **debugging sync**? → `syncEntries` (delta timeline)
 - Serve **aggregati per dashboard**? → `aggregateRange` (totali/medie per periodo)
 
 **Esempio anti-pattern** ❌:
+
 ```typescript
 // SBAGLIATO: Fetch tutti gli eventi e aggrega lato client
 const events = await client.query.activity.entries({
@@ -2038,6 +2405,7 @@ const totalSteps = events.reduce((sum, e) => sum + e.steps, 0);
 ```
 
 **Esempio corretto** ✅:
+
 ```typescript
 // GIUSTO: Usa aggregateRange per totali pre-calcolati
 const weeklyActivity = await client.query.activity.aggregateRange({
@@ -2054,16 +2422,19 @@ const weeklyActivity = await client.query.activity.aggregateRange({
 ### Idempotenza
 
 **Mutations idempotenti**:
+
 - `activity.syncActivityEvents`
 - `syncHealthTotals`
 
 **Come funziona**:
+
 1. Fornisci una `idempotencyKey` univoca per richiesta
 2. Se omessa, viene auto-generata da payload (esclusi timestamp)
 3. Stessa key con stesso payload → ritorna risultato cached
 4. Stessa key con payload diverso → errore IdempotencyConflict
 
 **Esempio**:
+
 ```graphql
 mutation {
   activity {
@@ -2083,12 +2454,14 @@ mutation {
 ### Paginazione
 
 **Query con paginazione**:
+
 - `meals.mealHistory`
 - `meals.search`
 - `activity.entries`
 - `activity.syncEntries`
 
 **Pattern**:
+
 ```graphql
 query {
   meals {
@@ -2117,6 +2490,7 @@ query {
 ### Error Handling
 
 **Union types per errori**:
+
 ```graphql
 mutation {
   meals {
@@ -2134,6 +2508,7 @@ mutation {
 ```
 
 **Gestione in client**:
+
 ```typescript
 const result = await client.mutation.meals.analyzeMealPhoto({...});
 
@@ -2253,6 +2628,7 @@ mutation {
 ```
 
 **Esempi di descrizioni supportate**:
+
 ```text
 # Con quantità esplicite
 "150g di pasta al pomodoro con basilico"
@@ -2438,6 +2814,7 @@ query WeeklyDashboard {
 ```
 
 **Implementazione UI**:
+
 ```typescript
 // Component: WeeklyDashboard.tsx
 const { data } = useQuery(WEEKLY_DASHBOARD_QUERY);
@@ -2532,6 +2909,7 @@ query MonthlyReport {
 ```
 
 **Implementazione UI**:
+
 ```typescript
 // Component: MonthlyReport.tsx
 const { data } = useQuery(MONTHLY_REPORT_QUERY);
@@ -2601,6 +2979,7 @@ query GoalTracking {
 ```
 
 **Implementazione UI**:
+
 ```typescript
 // Component: GoalsWidget.tsx
 const { data } = useQuery(GOAL_TRACKING_QUERY);
@@ -2789,6 +3168,7 @@ mutation SwitchToMaintain {
 ```
 
 **Implementazione UI - Dashboard Profilo**:
+
 ```typescript
 // Component: NutritionProfileDashboard.tsx
 const { data } = useQuery(NUTRITION_PROFILE_QUERY);
