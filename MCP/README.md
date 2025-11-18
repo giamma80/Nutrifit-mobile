@@ -2,77 +2,119 @@
 
 Model Context Protocol servers for the Nutrifit GraphQL API.
 
-This directory contains 3 MCP servers, each exposing a distinct domain of the Nutrifit backend as AI-accessible tools.
+This directory contains 4 MCP servers, each exposing a distinct domain of the Nutrifit backend as AI-accessible tools.
 
 ## 🏗️ Architecture
 
 ```
-┌─────────────────────────────────────────────────────┐
-│         AI Assistants (Claude, GPT, etc.)          │
-└──────────────┬──────────────────────────────────────┘
-               │ MCP Protocol (stdio)
-               │
-┌──────────────▼──────────────────────────────────────┐
-│                  MCP Servers                        │
-│  ┌──────────┐  ┌──────────┐  ┌─────────────────┐  │
-│  │  Meal    │  │ Activity │  │    Nutritional  │  │
-│  │   MCP    │  │   MCP    │  │   Profile MCP   │  │
-│  └─────┬────┘  └─────┬────┘  └────────┬────────┘  │
-└────────┼─────────────┼────────────────┼────────────┘
-         │             │                │
-         │ GraphQL     │ GraphQL        │ GraphQL
-         │             │                │
-┌────────▼─────────────▼────────────────▼────────────┐
-│             Nutrifit GraphQL Backend               │
-│  ┌──────────┐  ┌──────────┐  ┌─────────────────┐  │
-│  │   Meal   │  │ Activity │  │   Nutritional   │  │
-│  │  Domain  │  │  Domain  │  │ Profile Domain  │  │
-│  └──────────┘  └──────────┘  └─────────────────┘  │
-└────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────┐
+│            AI Assistants (Claude, GPT, etc.)                │
+└────────────────────┬─────────────────────────────────────────┘
+                     │ MCP Protocol (stdio)
+                     │
+┌────────────────────▼─────────────────────────────────────────┐
+│                       MCP Servers                            │
+│  ┌───────┐  ┌──────────┐  ┌──────────┐  ┌───────────────┐  │
+│  │ User  │  │   Meal   │  │ Activity │  │  Nutritional  │  │
+│  │  MCP  │  │   MCP    │  │   MCP    │  │  Profile MCP  │  │
+│  └───┬───┘  └─────┬────┘  └─────┬────┘  └───────┬───────┘  │
+└──────┼────────────┼─────────────┼────────────────┼──────────┘
+       │            │             │                │
+       │ GraphQL    │ GraphQL     │ GraphQL        │ GraphQL
+       │            │             │                │
+┌──────▼────────────▼─────────────▼────────────────▼──────────┐
+│               Nutrifit GraphQL Backend                       │
+│  ┌──────┐  ┌──────────┐  ┌──────────┐  ┌───────────────┐  │
+│  │ User │  │   Meal   │  │ Activity │  │  Nutritional  │  │
+│  │Domain│  │  Domain  │  │  Domain  │  │Profile Domain │  │
+│  └──────┘  └──────────┘  └──────────┘  └───────────────┘  │
+└──────────────────────────────────────────────────────────────┘
 ```
 
 ## 📦 Servers
 
-### 1. Meal MCP (`meal-mcp/`)
+### 1. User MCP (`user-mcp/`)
+
+**6 tools** for user authentication and profile management.
+
+**Capabilities:**
+
+- 🔐 Authentication (JWT token validation, user creation)
+- 👤 User management (profile retrieval, preferences update)
+- 🔍 User lookup (by ID, email, Auth0 sub)
+
+**Tool Parameter Convention:**
+All MCP tools use **snake_case** for input parameters, which are automatically converted to **camelCase** for GraphQL variables.
+
+**Example:**
+
+```python
+# MCP Tool Call (snake_case)
+get_user_by_id(user_id="550e8400-e29b-41d4-a716-446655440000")
+
+# GraphQL Variable (camelCase)
+{"userId": "550e8400-e29b-41d4-a716-446655440000"}
+```
+
+This convention applies to all 4 MCP servers for consistency.
+
+**Usage Example:**
+
+```
+User: "Get my profile"
+→ get_current_user()
+→ Returns: {id, email, name, preferences}
+```
+
+### 2. Meal MCP (`meal-mcp/`)
+
 **14 tools** for comprehensive meal tracking and nutrition analysis.
 
 **Capabilities:**
+
 - 🔍 Food discovery (barcode lookup, AI recognition, USDA enrichment)
 - 🍽️ Meal analysis (photo/barcode → nutrition data)
 - 📊 Query meals (history, search, daily/range summaries)
 - ✏️ Meal management (update, delete)
 
 **Example:**
+
 ```
 User: "Analyze this meal photo"
 → analyze_meal_photo
 → Returns: chicken breast (250 kcal), rice (130 kcal), broccoli (55 kcal)
 ```
 
-### 2. Activity MCP (`activity-mcp/`)
+### 3. Activity MCP (`activity-mcp/`)
+
 **5 tools** for activity tracking and health data synchronization.
 
 **Capabilities:**
+
 - 📊 Query activity (granular events, aggregated summaries)
 - 🔄 Sync from devices (HealthKit/GoogleFit batch import)
 - 📈 Trend analysis (daily/weekly/monthly grouping)
 
 **Example:**
+
 ```
 User: "How many steps did I walk this week?"
 → aggregate_activity_range (groupBy: DAY)
 → Returns: 67,234 steps total, 2,450 calories burned
 ```
 
-### 3. Nutritional Profile MCP (`nutritional-profile-mcp/`)
+### 4. Nutritional Profile MCP (`nutritional-profile-mcp/`)
+
 **5 tools** for profile management and progress tracking.
 
 **Capabilities:**
+
 - 👤 Profile CRUD (create, read, update with BMR/TDEE calculations)
 - 📈 Progress tracking (daily weight + calories + macros)
 - 📊 Progress analysis (adherence rate, weight trends)
 
 **Example:**
+
 ```
 User: "How's my progress this month?"
 → get_progress_score (last 30 days)
@@ -108,13 +150,22 @@ Per cambiare endpoint, imposta la variabile d'ambiente `GRAPHQL_ENDPOINT` nella 
 
 ### Claude Desktop Setup
 
-Aggiungi i 3 server alla config di Claude Desktop:
+Aggiungi i 4 server alla config di Claude Desktop:
 
 **Location:** `~/Library/Application Support/Claude/claude_desktop_config.json`
 
 ```json
 {
   "mcpServers": {
+    "nutrifit-user": {
+      "command": "/Users/giamma/workspace/Nutrifit-mobile/MCP/.venv/bin/python",
+      "args": [
+        "/Users/giamma/workspace/Nutrifit-mobile/MCP/user-mcp/server.py"
+      ],
+      "env": {
+        "GRAPHQL_ENDPOINT": "http://localhost:8080/graphql"
+      }
+    },
     "nutrifit-meal": {
       "command": "/Users/giamma/workspace/Nutrifit-mobile/MCP/.venv/bin/python",
       "args": [
@@ -146,7 +197,8 @@ Aggiungi i 3 server alla config di Claude Desktop:
 }
 ```
 
-**Importante:** 
+**Importante:**
+
 - Usa il path assoluto al Python del venv: `/Users/giamma/workspace/Nutrifit-mobile/MCP/.venv/bin/python`
 - Usa path assoluti agli script server.py
 - Dopo aver aggiornato la config, riavvia Claude Desktop completamente
@@ -158,6 +210,7 @@ Aggiungi i 3 server alla config di Claude Desktop:
 The MCP servers integrate seamlessly to provide comprehensive nutrition tracking:
 
 #### Daily Nutrition Tracking
+
 ```
 1. User: "I just ate this meal [photo]"
    → Meal MCP: analyze_meal_photo
@@ -173,6 +226,7 @@ The MCP servers integrate seamlessly to provide comprehensive nutrition tracking
 ```
 
 #### Weekly Review
+
 ```
 1. User: "Show my nutrition this week"
    → Meal MCP: get_summary_range (groupBy: DAY, 7 days)
@@ -188,6 +242,7 @@ The MCP servers integrate seamlessly to provide comprehensive nutrition tracking
 ```
 
 #### Goal Adjustment
+
 ```
 1. User: "I want to increase my daily target by 200 kcal"
    → Profile MCP: update_nutritional_profile
@@ -205,6 +260,7 @@ The MCP servers integrate seamlessly to provide comprehensive nutrition tracking
 
 ```bash
 # Test each server
+cd MCP/user-mcp && pytest
 cd MCP/meal-mcp && pytest
 cd MCP/activity-mcp && pytest
 cd MCP/nutritional-profile-mcp && pytest
@@ -237,6 +293,7 @@ Enable MCP debug logging in Claude Desktop config:
 ```
 
 Check logs:
+
 - **macOS:** `~/Library/Logs/Claude/mcp*.log`
 - **Windows:** `%APPDATA%\Claude\logs\mcp*.log`
 
@@ -247,6 +304,7 @@ Each MCP server maps directly to the GraphQL API documented in:
 **`/backend/REFACTOR/graphql-api-reference.md`**
 
 This 2,500+ line document contains:
+
 - Complete query/mutation signatures
 - Input/output type definitions
 - Workflow examples
@@ -326,6 +384,7 @@ When adding new tools:
 ## 📧 Support
 
 For issues or questions:
+
 - **GraphQL API:** See `/backend/REFACTOR/graphql-api-reference.md`
 - **MCP Protocol:** https://modelcontextprotocol.io/docs
 - **Repository Issues:** GitHub issue tracker
