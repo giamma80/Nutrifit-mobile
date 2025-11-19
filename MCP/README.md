@@ -125,7 +125,19 @@ User: "How's my progress this month?"
 
 ### Installation
 
-**Step 1:** Crea un virtual environment condiviso e installa le dipendenze:
+**Metodo Consigliato: FastMCP (Refactored)**
+
+FastMCP offre un'implementazione più pulita e mantenibile con -60% di codice:
+
+```bash
+cd /Users/giamma/workspace/Nutrifit-mobile/MCP
+uv venv
+uv pip install fastmcp httpx pydantic
+```
+
+**Metodo Legacy: Vanilla MCP (server.py)**
+
+Per retrocompatibilità, i server vanilla sono ancora disponibili:
 
 ```bash
 cd /Users/giamma/workspace/Nutrifit-mobile/MCP
@@ -133,13 +145,60 @@ uv venv
 uv pip install mcp httpx pydantic
 ```
 
-Questo crea un `.venv/` nella cartella MCP con tutte le dipendenze necessarie per i 3 server.
+### FastMCP vs Vanilla: Comparison
+
+| Feature | Vanilla MCP (server.py) | FastMCP (server_fastmcp.py) |
+|---------|-------------------------|------------------------------|
+| **Code Lines** | 534-1166 lines per server | 265-315 lines (-60%) |
+| **Boilerplate** | Manual Tool schemas, list_tools(), call_tool() | Auto-generated via decorators |
+| **Type Safety** | Manual validation | Pydantic models |
+| **Documentation** | Separate docstrings | Docstrings → tool descriptions |
+| **Maintenance** | Higher complexity | Cleaner, easier to extend |
+| **Performance** | Same runtime performance | Same runtime performance |
+
+**Esempio Confronto (user-mcp):**
+
+```python
+# ❌ Vanilla MCP (534 lines)
+class GraphQLClient:
+    def __init__(self): ...
+    async def execute(self, query, variables): ...
+    async def close(self): ...
+
+async def list_tools():
+    return [Tool(name="get_current_user", inputSchema={...})]
+
+async def call_tool(name, arguments):
+    if name == "get_current_user":
+        # 50+ lines of routing logic
+
+# ✅ FastMCP (265 lines)
+from fastmcp import FastMCP
+from pydantic import BaseModel
+
+mcp = FastMCP("Nutrifit User")
+
+@mcp.tool()
+async def get_current_user() -> dict:
+    """Get authenticated user profile."""
+    return await graphql_query(query)
+```
+
+**Vantaggi FastMCP:**
+
+- ✅ **Type-safe:** Pydantic valida automaticamente gli input
+- ✅ **Auto-schema:** Type hints → JSON schema automatico
+- ✅ **DRY:** Elimina duplicazione tra docstrings e tool descriptions
+- ✅ **Manutenibilità:** Codice più leggibile e facile da estendere
+- ✅ **Testing:** Funzioni standalone più facili da testare
 
 **Step 2:** Verifica l'installazione:
 
 ```bash
 source .venv/bin/activate
-python meal-mcp/server.py --help  # Dovrebbe avviarsi senza errori
+python meal-mcp/server_fastmcp.py  # FastMCP
+# oppure
+python meal-mcp/server.py          # Vanilla
 ```
 
 ### Configuration
@@ -150,9 +209,56 @@ Per cambiare endpoint, imposta la variabile d'ambiente `GRAPHQL_ENDPOINT` nella 
 
 ### Claude Desktop Setup
 
-Aggiungi i 4 server alla config di Claude Desktop:
+#### Config FastMCP (Consigliata)
 
 **Location:** `~/Library/Application Support/Claude/claude_desktop_config.json`
+
+```json
+{
+  "mcpServers": {
+    "nutrifit-user": {
+      "command": "/Users/giamma/workspace/Nutrifit-mobile/MCP/.venv/bin/python",
+      "args": [
+        "/Users/giamma/workspace/Nutrifit-mobile/MCP/user-mcp/server_fastmcp.py"
+      ],
+      "env": {
+        "GRAPHQL_ENDPOINT": "http://localhost:8080/graphql"
+      }
+    },
+    "nutrifit-meal": {
+      "command": "/Users/giamma/workspace/Nutrifit-mobile/MCP/.venv/bin/python",
+      "args": [
+        "/Users/giamma/workspace/Nutrifit-mobile/MCP/meal-mcp/server_fastmcp.py"
+      ],
+      "env": {
+        "GRAPHQL_ENDPOINT": "http://localhost:8080/graphql"
+      }
+    },
+    "nutrifit-activity": {
+      "command": "/Users/giamma/workspace/Nutrifit-mobile/MCP/.venv/bin/python",
+      "args": [
+        "/Users/giamma/workspace/Nutrifit-mobile/MCP/activity-mcp/server_fastmcp.py"
+      ],
+      "env": {
+        "GRAPHQL_ENDPOINT": "http://localhost:8080/graphql"
+      }
+    },
+    "nutrifit-profile": {
+      "command": "/Users/giamma/workspace/Nutrifit-mobile/MCP/.venv/bin/python",
+      "args": [
+        "/Users/giamma/workspace/Nutrifit-mobile/MCP/nutritional-profile-mcp/server_fastmcp.py"
+      ],
+      "env": {
+        "GRAPHQL_ENDPOINT": "http://localhost:8080/graphql"
+      }
+    }
+  }
+}
+```
+
+#### Config Vanilla MCP (Legacy)
+
+Per usare i server vanilla `server.py`, cambia semplicemente i path:
 
 ```json
 {
@@ -165,45 +271,128 @@ Aggiungi i 4 server alla config di Claude Desktop:
       "env": {
         "GRAPHQL_ENDPOINT": "http://localhost:8080/graphql"
       }
-    },
-    "nutrifit-meal": {
-      "command": "/Users/giamma/workspace/Nutrifit-mobile/MCP/.venv/bin/python",
-      "args": [
-        "/Users/giamma/workspace/Nutrifit-mobile/MCP/meal-mcp/server.py"
-      ],
-      "env": {
-        "GRAPHQL_ENDPOINT": "http://localhost:8080/graphql"
-      }
-    },
-    "nutrifit-activity": {
-      "command": "/Users/giamma/workspace/Nutrifit-mobile/MCP/.venv/bin/python",
-      "args": [
-        "/Users/giamma/workspace/Nutrifit-mobile/MCP/activity-mcp/server.py"
-      ],
-      "env": {
-        "GRAPHQL_ENDPOINT": "http://localhost:8080/graphql"
-      }
-    },
-    "nutrifit-profile": {
-      "command": "/Users/giamma/workspace/Nutrifit-mobile/MCP/.venv/bin/python",
-      "args": [
-        "/Users/giamma/workspace/Nutrifit-mobile/MCP/nutritional-profile-mcp/server.py"
-      ],
-      "env": {
-        "GRAPHQL_ENDPOINT": "http://localhost:8080/graphql"
-      }
     }
   }
 }
 ```
 
-**Importante:**
+**Note Importanti:**
 
-- Usa il path assoluto al Python del venv: `/Users/giamma/workspace/Nutrifit-mobile/MCP/.venv/bin/python`
-- Usa path assoluti agli script server.py
-- Dopo aver aggiornato la config, riavvia Claude Desktop completamente
+- ✅ **FastMCP:** Usa `server_fastmcp.py` per implementazione moderna (consigliata)
+- 🔧 **Vanilla:** Usa `server.py` per implementazione legacy
+- 📌 Usa path assoluti per Python e script
+- 🔄 Riavvia Claude Desktop dopo modifiche alla config
+- 🔌 Verifica con icona 🔌 in Claude Desktop UI
 
 ## 💡 Usage Patterns
+
+### FastMCP Tool Examples
+
+**user-mcp** (6 tools):
+
+```python
+# Get authenticated user
+await get_current_user()
+
+# Create user with preferences
+await authenticate_or_create(input=AuthenticateOrCreateInput(
+    auth0_sub="auth0|123",
+    email="user@example.com",
+    name="John Doe"
+))
+
+# Update preferences
+await update_preferences(input=UpdatePreferencesInput(
+    language="it",
+    theme="dark",
+    notifications=True
+))
+```
+
+**activity-mcp** (5 tools):
+
+```python
+# Query activities
+await get_activity_entries(input=GetActivityEntriesInput(
+    user_id="550e8400-...",
+    start_date="2025-11-10",
+    end_date="2025-11-17"
+))
+
+# Sync from HealthKit
+await sync_activity_events(input=SyncActivityEventsInput(
+    user_id="550e8400-...",
+    events=[
+        ActivityEventInput(timestamp="2025-11-17T10:00:00Z", steps=1500, calories_out=80),
+        ActivityEventInput(timestamp="2025-11-17T11:00:00Z", steps=2100, calories_out=110)
+    ],
+    source="APPLE_HEALTH",
+    idempotency_key="healthkit-sync-20251117"
+))
+
+# Aggregate weekly stats
+await aggregate_activity_range(input=AggregateActivityRangeInput(
+    user_id="550e8400-...",
+    start_date="2025-11-10",
+    end_date="2025-11-17",
+    group_by="DAY"
+))
+```
+
+**meal-mcp** (15 tools):
+
+```python
+# Analyze meal photo
+await analyze_meal_photo(input=AnalyzeMealPhotoInput(
+    user_id="550e8400-...",
+    image_url="https://storage.example.com/meals/photo.jpg"
+))
+
+# Search by barcode
+await search_food_by_barcode(barcode="8001505005707")
+
+# Get daily summary
+await get_daily_summary(user_id="550e8400-...", date="2025-11-17")
+```
+
+**nutritional-profile-mcp** (6 tools):
+
+```python
+# Create profile
+await create_nutritional_profile(input=CreateNutritionalProfileInput(
+    user_id="550e8400-...",
+    current_weight=85.0,
+    target_weight=75.0,
+    height=175,
+    age=30,
+    gender="MALE",
+    activity_level="MODERATELY_ACTIVE",
+    goal_type="LOSE_WEIGHT"
+))
+
+# Record progress
+await record_progress(input=RecordProgressInput(
+    user_id="550e8400-...",
+    date="2025-11-17",
+    weight=83.5,
+    calories_consumed=1850.0,
+    consumed_protein=120.0
+))
+
+# Get adherence score
+await get_progress_score(input=GetProgressScoreInput(
+    user_id="550e8400-...",
+    start_date="2025-10-01",
+    end_date="2025-10-31"
+))
+
+# ML forecast
+await forecast_weight(input=ForecastWeightInput(
+    profile_id="profile-uuid",
+    days_ahead=30,
+    confidence_level=0.95
+))
+```
 
 ### Cross-Domain Workflows
 
@@ -211,7 +400,7 @@ The MCP servers integrate seamlessly to provide comprehensive nutrition tracking
 
 #### Daily Nutrition Tracking
 
-```
+```text
 1. User: "I just ate this meal [photo]"
    → Meal MCP: analyze_meal_photo
    → Returns: 850 kcal detected
