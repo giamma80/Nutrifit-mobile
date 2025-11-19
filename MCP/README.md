@@ -284,6 +284,64 @@ Per usare i server vanilla `server.py`, cambia semplicemente i path:
 - 🔄 Riavvia Claude Desktop dopo modifiche alla config
 - 🔌 Verifica con icona 🔌 in Claude Desktop UI
 
+## 📚 Tool Description Best Practices
+
+**NEW:** Tutti i tool FastMCP seguono le [MCP Tool Description Best Practices](./MCP_TOOL_DESCRIPTION_BEST_PRACTICES.md).
+
+**Le 7 Regole per Descrizioni Efficaci:**
+1. **🎨 Visual Anchors** - Emoji strategici per attention bias
+2. **📋 Imperativi Chiari** - MUST/REQUIRED/BEFORE per disambiguare
+3. **🔄 Workflow Sequenziali** - Step-by-step per tool complessi
+4. **📊 Args Dettagliati** - Enum con pipe notation, formati, defaults
+5. **📦 Return Specifici** - Shape esatta dei dati, no "object"
+6. **💡 Esempi Concreti** - Codice reale con valori concreti
+7. **⚠️ Edge Cases** - Errori, idempotency, performance
+
+**Esempio descrizione ottimizzata:**
+
+```python
+@mcp.tool()
+async def sync_activity_events(input: SyncActivityEventsInput) -> dict:
+    """⬆️ Batch sync minute-level activity events (IDEMPOTENT).
+    
+    ⚠️ USE THIS for syncing data from HealthKit/GoogleFit.
+    
+    Idempotency guarantee:
+    - Same idempotency_key → skips duplicate events
+    - Safe to retry on network failure
+    
+    Workflow:
+    1. Collect events from device
+    2. Generate unique idempotency_key
+    3. Call sync_activity_events
+    4. If fails → retry with SAME key
+    
+    Args:
+        input: Batch sync data
+            - user_id: User UUID (required)
+            - events: Array of ActivityEventInput (required)
+                * timestamp: ISO 8601
+                * steps, calories_out: Optional metrics
+            - source: → "APPLE_HEALTH" | "GOOGLE_FIT" | "MANUAL"
+            - idempotency_key: Unique deduplication key (required)
+    
+    Returns:
+        SyncResult:
+        - syncedCount: NEW events created
+        - skippedCount: Duplicates skipped
+    
+    Example:
+        result = await sync_activity_events(
+            user_id="uuid",
+            events=[{"timestamp": "2025-11-17T10:00:00Z", "steps": 150}],
+            source="APPLE_HEALTH",
+            idempotency_key="healthkit-sync-20251117-100000"
+        )
+    """
+```
+
+Consulta il [documento completo](./MCP_TOOL_DESCRIPTION_BEST_PRACTICES.md) per template, esempi comparativi e checklist di validazione.
+
 ## 💡 Usage Patterns
 
 ### FastMCP Tool Examples

@@ -70,16 +70,35 @@ class GetActivityEntriesInput(BaseModel):
 
 @mcp.tool()
 async def get_activity_entries(input: GetActivityEntriesInput) -> dict:
-    """Query minute-level activity events with filtering.
+    """📊 Query minute-level activity events with filtering.
     
-    Returns individual data points (steps, calories, heart rate) within date range.
-    Supports pagination via limit parameter.
+    Returns granular data points (steps, calories, heart rate) for detailed analysis.
+    Use this for charts, detailed views, or exporting raw data.
     
     Args:
-        input: Query filters (user_id required, others optional)
+        input: Query filters
+            - user_id: User UUID (required)
+            - start_date: Start date YYYY-MM-DD (optional)
+            - end_date: End date YYYY-MM-DD (optional)
+            - source: Filter by source → APPLE_HEALTH | GOOGLE_FIT | MANUAL (optional)
+            - limit: Max results (default 100, max 1000)
     
     Returns:
-        List of activity events with optional fields (steps, caloriesOut, hrAvg)
+        Paginated activity events:
+        - edges: Array of activity nodes
+            * id, userId, timestamp, source
+            * steps, caloriesOut, hrAvg (optional fields)
+        - pageInfo: {hasNextPage, hasPreviousPage}
+    
+    Example:
+        # Last week of HealthKit data
+        entries = await get_activity_entries(
+            user_id="uuid",
+            start_date="2025-11-10",
+            end_date="2025-11-17",
+            source="APPLE_HEALTH",
+            limit=500
+        )
     """
     query = """
     query GetActivityEntries($userId: ID!, $startDate: String, $endDate: String, $source: ActivitySource, $limit: Int) {
@@ -115,16 +134,28 @@ async def get_activity_entries(input: GetActivityEntriesInput) -> dict:
 # Tool 2: Get Activity Sync Entries
 @mcp.tool()
 async def get_activity_sync_entries(user_id: str, date: str) -> dict:
-    """Get daily delta sync for activity data.
+    """🔄 Get daily delta sync for activity data (incremental sync).
     
-    Returns changes (deltas) for specific date. Used for incremental sync.
+    Returns CHANGES (deltas) for specific date since last sync.
+    Use this for efficient real-time updates without re-fetching all data.
+    
+    Workflow:
+    1. App syncs at 10:00 AM → stepsDelta: +3,500, stepsTotal: 3,500
+    2. User walks more, syncs at 2:00 PM → stepsDelta: +1,200, stepsTotal: 4,700
+    3. Each sync returns ONLY new data (delta) + current total
     
     Args:
         user_id: User UUID
-        date: Date in YYYY-MM-DD format
+        date: Date in YYYY-MM-DD format (typically today)
     
     Returns:
-        HealthTotalsDelta with stepsDelta, caloriesOutDelta, and totals
+        HealthTotalsDelta for specified date:
+        - date: Date queried
+        - stepsDelta: Steps added since last sync
+        - stepsTotal: Cumulative steps for the day
+        - caloriesOutDelta: New calories burned
+        - caloriesOutTotal: Total calories for the day
+        - syncedAt: Last sync timestamp
     """
     query = """
     query GetActivitySyncEntries($userId: ID!, $date: String!) {
@@ -156,16 +187,31 @@ class AggregateActivityRangeInput(BaseModel):
 
 @mcp.tool()
 async def aggregate_activity_range(input: AggregateActivityRangeInput) -> dict:
-    """Get aggregated activity summaries for date range.
+    """📈 Get aggregated activity summaries for date range.
     
     Returns summary statistics grouped by DAY, WEEK, or MONTH.
-    Optimized for charts and reports.
+    Optimized for charts, reports, and trend analysis.
+    
+    Use cases:
+    - Daily view: Last 7 days with group_by=DAY
+    - Weekly report: Last 3 months with group_by=WEEK
+    - Monthly trends: Last year with group_by=MONTH
     
     Args:
-        input: Date range and grouping parameters
+        input: Date range and grouping
+            - user_id: User UUID (required)
+            - start_date: Start date YYYY-MM-DD (required)
+            - end_date: End date YYYY-MM-DD (required)
+            - group_by: Grouping → "DAY" | "WEEK" | "MONTH" (default: "DAY")
     
     Returns:
-        List of ActivityPeriodSummary with totalSteps, totalCalories per period
+        Array of ActivityPeriodSummary:
+        - period: Period label (e.g., "2025-W46" for week)
+        - startDate, endDate: Period boundaries
+        - totalSteps, totalCalories: Sums for period
+        - avgHeartRate: Average HR (if available)
+    
+    Performance: Pre-aggregated data → fast queries even for large ranges.
     """
     query = """
     query AggregateActivityRange($userId: ID!, $startDate: String!, $endDate: String!, $groupBy: ActivityGroupBy!) {
@@ -207,10 +253,22 @@ class SyncActivityEventsInput(BaseModel):
 
 @mcp.tool()
 async def sync_activity_events(input: SyncActivityEventsInput) -> dict:
-    """Batch sync minute-level activity data from devices.
+    """⬆️ Batch sync minute-level activity events (IDEMPOTENT).
     
-    IDEMPOTENT: Provide idempotency_key for safe retries.
-    Use for syncing step count, calories, heart rate from HealthKit/GoogleFit.
+    ⚠️ USE THIS for syncing data from HealthKit/GoogleFit.
+    Upload multiple activity data points at once with automatic deduplication.
+    
+    Idempotency guarantee:
+    - Same idempotency_key → skips duplicate events
+    - Safe to retry on network failure
+    - Events matched by timestamp + user_id + source
+    
+    Workflow:
+    1. Collect activity events from device
+    2. Build events array with timestamps
+    3. Generate unique idempotency_key (e.g., "healthkit-sync-20251117-143000")
+    4. Call sync_activity_events
+    5. If fails → retry with SAME idempotency_key
     
     Args:
         input: User ID, events array, source, optional idempotency key

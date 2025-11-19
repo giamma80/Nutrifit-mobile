@@ -120,19 +120,60 @@ class CreateNutritionalProfileInput(BaseModel):
 
 @mcp.tool()
 async def create_nutritional_profile(input: CreateNutritionalProfileInput) -> dict:
-    """Create new nutritional profile with automatic BMR/TDEE calculation.
+    """👤 Create new nutritional profile with automatic BMR/TDEE calculation.
     
-    Creates profile and automatically calculates:
-    - BMR using Mifflin-St Jeor equation
-    - TDEE based on activity level
-    - Target calories based on goal type
-    - Recommended macro ratios
+    ⚠️ REQUIRED before tracking meals and progress.
+    Creates profile and automatically calculates personalized nutrition targets.
+    
+    Automatic calculations (Mifflin-St Jeor + Harris-Benedict):
+    1. BMR (Basal Metabolic Rate) → calories at rest
+    2. TDEE (Total Daily Energy Expenditure) → BMR × activity_level multiplier
+    3. Target calories → TDEE ± deficit/surplus based on goal_type
+    4. Macro ratios → protein/carbs/fat percentages
     
     Args:
-        input: Profile data (weight, height, age, gender, activity, goal)
+        input: Profile data
+            - user_id: User UUID (required)
+            - current_weight: Weight in kg (required, e.g., 85.0)
+            - target_weight: Goal weight in kg (optional, e.g., 75.0)
+            - height: Height in cm (required, e.g., 175)
+            - age: Age in years (required, e.g., 30)
+            - gender: Biological gender (required)
+                → "MALE" | "FEMALE"
+            - activity_level: Physical activity level (required)
+                → "SEDENTARY" (desk job, no exercise)
+                → "LIGHTLY_ACTIVE" (1-3 days/week)
+                → "MODERATELY_ACTIVE" (3-5 days/week)
+                → "VERY_ACTIVE" (6-7 days/week)
+                → "EXTRA_ACTIVE" (athlete, 2x/day training)
+            - goal_type: Weight goal (required)
+                → "LOSE_WEIGHT" (500 kcal deficit)
+                → "MAINTAIN_WEIGHT" (TDEE)
+                → "GAIN_WEIGHT" (500 kcal surplus)
     
     Returns:
-        Created NutritionalProfile with calculated metrics
+        Created profile with calculated metrics:
+        - id: Profile UUID
+        - userId, currentWeight, targetWeight, height, age, gender
+        - activityLevel, goalType: Input values
+        - bmr: Calculated resting metabolic rate
+        - tdee: Calculated total daily energy
+        - targetCalories: Daily calorie target
+        - targetProteinRatio, targetCarbsRatio, targetFatRatio: Macro %
+        - createdAt: Timestamp
+    
+    Example:
+        profile = await create_nutritional_profile(
+            user_id="uuid",
+            current_weight=85.0,
+            target_weight=75.0,
+            height=175,
+            age=30,
+            gender="MALE",
+            activity_level="MODERATELY_ACTIVE",
+            goal_type="LOSE_WEIGHT"
+        )
+        # Returns: bmr=1800, tdee=2700, targetCalories=2200 (-500 deficit)
     """
     query = """
     mutation CreateNutritionalProfile($input: CreateNutritionalProfileInput!) {
@@ -352,20 +393,57 @@ class ForecastWeightInput(BaseModel):
 
 @mcp.tool()
 async def forecast_weight(input: ForecastWeightInput) -> dict:
-    """ML-powered weight forecast using ARIMA model.
+    """🔮 ML-powered weight forecast using ARIMA time series model.
     
-    Predicts future weight trajectory based on:
-    - Historical weight measurements
+    Predicts future weight trajectory based on historical data.
+    Requires at least 14 days of progress records for accurate predictions.
+    
+    ML model analyzes:
+    - Historical weight measurements (daily records)
     - Calorie deficit/surplus patterns
     - Activity level trends
+    - Time-of-week effects (weekdays vs weekends)
     
-    Uses ARIMA time series model with confidence intervals.
+    Uses ARIMA (AutoRegressive Integrated Moving Average) with confidence intervals.
     
     Args:
-        input: Profile ID, forecast horizon, confidence level
+        input: Forecast parameters
+            - profile_id: Profile UUID (required)
+            - days_ahead: Forecast horizon (default 7, max 90)
+                Recommended: 7 for week, 30 for month
+            - confidence_level: Prediction confidence (default 0.95)
+                Range: 0.80-0.99 (0.95 = 95% confidence interval)
     
     Returns:
-        WeightForecast with predictions and confidence intervals
+        WeightForecast with predictions:
+        - predictions: Array of daily forecasts
+            * date: Prediction date (YYYY-MM-DD)
+            * predictedWeight: Most likely weight (kg)
+            * lowerBound: Lower CI (95% sure weight >= this)
+            * upperBound: Upper CI (95% sure weight <= this)
+        - confidence: Confidence level used (e.g., 0.95)
+        - model: Model name ("ARIMA")
+    
+    Raises:
+        Exception: If insufficient historical data (<14 days)
+    
+    Example:
+        # Forecast next 30 days
+        forecast = await forecast_weight(
+            profile_id="profile-uuid",
+            days_ahead=30,
+            confidence_level=0.95
+        )
+        # Returns: [
+        #   {date: "2025-11-18", predictedWeight: 84.2, lowerBound: 83.8, upperBound: 84.6},
+        #   {date: "2025-11-19", predictedWeight: 84.0, lowerBound: 83.5, upperBound: 84.5},
+        #   ...
+        # ]
+    
+    Interpretation:
+        - predictedWeight: Expected weight (centerline on chart)
+        - [lowerBound, upperBound]: 95% confidence zone (shaded area)
+        - Wider bounds = more uncertainty (normal for longer forecasts)
     """
     query = """
     query ForecastWeight($profileId: ID!, $daysAhead: Int!, $confidenceLevel: Float!) {

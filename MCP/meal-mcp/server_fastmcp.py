@@ -84,20 +84,44 @@ class UploadMealImageInput(BaseModel):
 
 @mcp.tool()
 async def upload_meal_image(input: UploadMealImageInput) -> dict:
-    """⚠️ REQUIRED FIRST STEP when user provides image file!
+    """📤 ⚠️ REQUIRED FIRST STEP when user provides image file!
     
     Upload meal image to Supabase Storage and get public URL.
-    MUST be called BEFORE analyze_meal_photo if user shares image directly.
+    MUST be called BEFORE analyze_meal_photo if user shares image directly (not URL).
     
-    Workflow:
-    1. User shares image → upload_meal_image
-    2. Get returned URL → use in analyze_meal_photo
+    Critical workflow:
+    1. User shares image file → upload_meal_image (get URL)
+    2. Use returned URL → analyze_meal_photo(photo_url=url)
+    3. Confirm analysis → confirm_meal_analysis
+    
+    DO NOT skip this if user provides image file attachment!
     
     Args:
-        input: User ID, base64 image data, filename
+        input: Upload data
+            - user_id: User UUID (required)
+            - image_data: Base64-encoded image (required)
+                Get from file attachment, NOT manual encoding
+            - filename: Original filename (e.g., "meal.jpg", "dinner.png")
     
     Returns:
-        {"url": "https://storage.../meal.jpg"}
+        Upload result:
+        - url: Public URL (e.g., "https://storage.supabase.co/.../meal.jpg")
+        Use this URL in analyze_meal_photo's photo_url parameter
+    
+    Example:
+        # Step 1: Upload image
+        upload_result = await upload_meal_image(
+            user_id="uuid",
+            image_data=base64_from_attachment,
+            filename="lunch.jpg"
+        )
+        
+        # Step 2: Analyze with returned URL
+        meal = await analyze_meal_photo(
+            user_id="uuid",
+            photo_url=upload_result["url"],
+            meal_type="LUNCH"
+        )
     """
     async with httpx.AsyncClient(timeout=DEFAULT_TIMEOUT) as client:
         response = await client.post(
@@ -243,21 +267,57 @@ class AnalyzeMealPhotoInput(BaseModel):
 
 @mcp.tool()
 async def analyze_meal_photo(input: AnalyzeMealPhotoInput) -> dict:
-    """Complete end-to-end meal analysis from photo.
+    """🍽️ Complete end-to-end meal analysis from photo.
     
-    Workflow:
-    1. AI recognizes food items
-    2. USDA enriches nutrition data
-    3. Creates PENDING meal
+    ⚠️ Photo URL must be from upload_meal_image if user provided file!
+    
+    AI-powered workflow (automatic):
+    1. Vision AI recognizes food items (e.g., "chicken breast 150g")
+    2. USDA enriches nutrition data (calories, protein, carbs, fat)
+    3. Creates PENDING meal with detected entries
     4. Returns meal for user confirmation
     
-    Use confirm_meal_analysis to mark as CONFIRMED.
+    IMPORTANT: Use confirm_meal_analysis to transition PENDING → CONFIRMED.
     
     Args:
-        input: User ID, photo URL, meal type
+        input: Analysis parameters
+            - user_id: User UUID (required)
+            - photo_url: Public image URL (required)
+                From upload_meal_image OR external URL
+            - meal_type: Meal category (required)
+                → "BREAKFAST" | "LUNCH" | "DINNER" | "SNACK"
     
     Returns:
-        Meal with detected entries (status: PENDING)
+        Meal with detected entries (status: PENDING):
+        - id: Meal UUID (use in confirm_meal_analysis)
+        - userId, mealType, timestamp: Metadata
+        - totalCalories, totalProtein, totalCarbs, totalFat: Sums
+        - status: "PENDING" (awaiting confirmation)
+        - photoUrl: Stored image URL
+        - entries: Array of detected food items
+            * id: Entry UUID (use in confirmed_entry_ids)
+            * foodLabel: Detected food name
+            * quantityG: Estimated quantity in grams
+            * calories, protein, carbs, fat: Nutrition data
+    
+    Example workflow:
+        # 1. Upload image
+        upload = await upload_meal_image(...)
+        
+        # 2. Analyze
+        meal = await analyze_meal_photo(
+            user_id="uuid",
+            photo_url=upload["url"],
+            meal_type="LUNCH"
+        )
+        # Returns: {id: "meal-123", entries: [{id: "entry-1", foodLabel: "chicken", ...}]}
+        
+        # 3. User reviews → confirm
+        confirmed = await confirm_meal_analysis(
+            meal_id=meal["id"],
+            user_id="uuid",
+            confirmed_entry_ids=[meal["entries"][0]["id"]]  # Keep only accurate entries
+        )
     """
     query = """
     mutation AnalyzeMealPhoto($input: AnalyzeMealPhotoInput!) {
@@ -413,16 +473,47 @@ class ConfirmMealAnalysisInput(BaseModel):
 
 @mcp.tool()
 async def confirm_meal_analysis(input: ConfirmMealAnalysisInput) -> dict:
-    """Confirm meal analysis and mark as CONFIRMED.
+    """✅ Confirm meal analysis and mark as CONFIRMED.
     
-    Transitions meal from PENDING → CONFIRMED.
-    Only confirmed_entry_ids are kept, others rejected.
+    ⚠️ REQUIRED after analyze_meal_* to finalize meal logging.
+    Transitions meal from PENDING → CONFIRMED state.
+    
+    User review process:
+    1. AI detects entries (e.g., chicken 150g, rice 200g, broccoli 100g)
+    2. User reviews → keeps accurate entries, rejects errors
+    3. Only confirmed_entry_ids are kept, others deleted
     
     Args:
-        input: Meal ID, user ID, list of entry IDs to keep
+        input: Confirmation data
+            - meal_id: Meal UUID from analyze_meal_* (required)
+            - user_id: User UUID (required)
+            - confirmed_entry_ids: Array of entry UUIDs to keep (required)
+                Empty array → rejects ALL entries (meal becomes empty)
+                All IDs → confirms entire meal
     
     Returns:
-        Updated meal (status: CONFIRMED)
+        Updated meal (status: CONFIRMED):
+        - id: Meal UUID (unchanged)
+        - status: "CONFIRMED"
+        - totalCalories, totalProtein, totalCarbs, totalFat: Recalculated
+        - entries: Only confirmed entries
+    
+    Example:
+        # Meal has 3 detected entries
+        meal = await analyze_meal_photo(...)
+        # entries: [
+        #   {id: "entry-1", foodLabel: "chicken"},
+        #   {id: "entry-2", foodLabel: "rice"},
+        #   {id: "entry-3", foodLabel: "mystery_item"}  # Wrong detection
+        # ]
+        
+        # User confirms only chicken + rice
+        confirmed = await confirm_meal_analysis(
+            meal_id=meal["id"],
+            user_id="uuid",
+            confirmed_entry_ids=["entry-1", "entry-2"]  # Rejects entry-3
+        )
+        # Returns: entries with only chicken + rice
     """
     query = """
     mutation ConfirmMealAnalysis($mealId: ID!, $userId: ID!, $confirmedEntryIds: [ID!]!) {

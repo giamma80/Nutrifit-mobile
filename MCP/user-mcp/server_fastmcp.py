@@ -71,10 +71,21 @@ async def graphql_query(
 # Tool 1: Get Current User
 @mcp.tool()
 async def get_current_user() -> dict:
-    """Get authenticated user profile with preferences and settings.
+    """🔐 Get authenticated user profile with preferences and settings.
     
-    Requires JWT token in AUTH0_TOKEN environment variable.
-    Returns complete user profile including preferences.
+    Use this to retrieve the current logged-in user's complete profile.
+    Requires valid JWT token in AUTH0_TOKEN environment variable.
+    
+    Returns:
+        Complete user profile:
+        - id: User UUID
+        - auth0Sub: Auth0 identifier
+        - email, name: Basic info
+        - language, theme, notificationsEnabled: Preferences
+        - isActive, createdAt, updatedAt: Metadata
+    
+    Raises:
+        Exception: If AUTH0_TOKEN is missing or invalid
     """
     query = """
     query GetCurrentUser {
@@ -99,13 +110,23 @@ async def get_current_user() -> dict:
 # Tool 2: Check User Exists
 @mcp.tool()
 async def check_user_exists(auth0_sub: str) -> bool:
-    """Check if user exists by Auth0 ID.
+    """✓ Check if user exists in database by Auth0 ID.
+    
+    Use this before authenticate_or_create to verify if account exists.
+    Does NOT require authentication - public query.
     
     Args:
-        auth0_sub: Auth0 subject identifier (e.g., "auth0|123456")
+        auth0_sub: Auth0 subject identifier
+            Format: "auth0|123456" or "google-oauth2|123456"
     
     Returns:
-        True if user exists, False otherwise
+        True if user exists in database
+        False if user needs to be created
+    
+    Example:
+        exists = await check_user_exists("auth0|67890")
+        if not exists:
+            await authenticate_or_create(...)
     """
     query = """
     query CheckUserExists($auth0Sub: String!) {
@@ -119,12 +140,23 @@ async def check_user_exists(auth0_sub: str) -> bool:
 # Tool 3: Get User By ID
 @mcp.tool()
 async def get_user_by_id(user_id: str) -> dict:
-    """Get user profile by UUID.
+    """👤 Get user profile by UUID.
+    
+    Use this to retrieve ANY user's profile by their unique ID.
+    Requires JWT token - authenticated query only.
     
     Args:
-        user_id: User UUID (e.g., "550e8400-e29b-41d4-a716-446655440000")
+        user_id: User UUID
+            Format: "550e8400-e29b-41d4-a716-446655440000" (RFC 4122)
     
-    Requires JWT token. Returns full user profile.
+    Returns:
+        Full user profile (same structure as get_current_user):
+        - id, auth0Sub, email, name
+        - language, theme, notificationsEnabled
+        - isActive, createdAt, updatedAt
+    
+    Raises:
+        Exception: If user_id not found or JWT invalid
     """
     query = """
     query GetUserById($userId: ID!) {
@@ -160,16 +192,35 @@ class AuthenticateOrCreateInput(BaseModel):
 
 @mcp.tool()
 async def authenticate_or_create(input: AuthenticateOrCreateInput) -> dict:
-    """Authenticate existing user or create new account on first login.
+    """🚀 Authenticate existing user OR create new account on first login.
     
-    Use this for first-time login after Auth0 authentication.
-    If user exists, returns existing profile. Otherwise creates new user.
+    ⚠️ REQUIRED for first-time login after Auth0 authentication.
+    Idempotent operation - safe to call multiple times.
+    
+    Workflow:
+    1. Check if user exists by auth0_sub
+    2. If exists → Return existing profile
+    3. If new → Create user with provided data
     
     Args:
-        input: Authentication data with auth0_sub, email, name
+        input: Authentication data
+            - auth0_sub: Auth0 ID (required, e.g., "auth0|123")
+            - email: Email address (optional but recommended)
+            - name: Display name (optional, default: email prefix)
     
     Returns:
-        User profile (new or existing)
+        User profile (new or existing):
+        - id: Newly generated UUID (if new user)
+        - auth0Sub, email, name: Provided data
+        - language: "en" (default), theme: "auto" (default)
+        - isActive: true, createdAt: Current timestamp
+    
+    Example:
+        user = await authenticate_or_create(
+            auth0_sub="auth0|123",
+            email="user@example.com",
+            name="John Doe"
+        )
     """
     query = """
     mutation AuthenticateOrCreate($auth0Sub: String!, $email: String, $name: String) {
@@ -209,15 +260,33 @@ class UpdatePreferencesInput(BaseModel):
 
 @mcp.tool()
 async def update_preferences(input: UpdatePreferencesInput) -> dict:
-    """Update user preferences and settings.
+    """⚙️ Update user preferences and settings.
     
-    All fields are optional - only provided fields will be updated.
+    Partial update operation - all fields are optional.
+    Only provided fields will be updated, others remain unchanged.
     
     Args:
-        input: Preferences to update (language, theme, notifications)
+        input: Preferences to update (all optional)
+            - language: ISO 639-1 code (e.g., "it", "en", "es")
+            - theme: UI theme → "light" | "dark" | "auto"
+            - notifications: Enable push notifications → true | false
     
     Returns:
-        Updated user profile
+        Updated user profile (partial):
+        - id: User UUID (unchanged)
+        - language, theme, notificationsEnabled: Updated values
+        - updatedAt: New timestamp
+    
+    Example:
+        # Update only theme
+        await update_preferences(theme="dark")
+        
+        # Update multiple fields
+        await update_preferences(
+            language="it",
+            theme="dark",
+            notifications=True
+        )
     """
     query = """
     mutation UpdatePreferences($language: String, $theme: String, $notifications: Boolean) {
