@@ -386,7 +386,7 @@ When adding new tools:
 For issues or questions:
 
 - **GraphQL API:** See `/backend/REFACTOR/graphql-api-reference.md`
-- **MCP Protocol:** https://modelcontextprotocol.io/docs
+- **MCP Protocol:** <https://modelcontextprotocol.io/docs>
 - **Repository Issues:** GitHub issue tracker
 
 ---
