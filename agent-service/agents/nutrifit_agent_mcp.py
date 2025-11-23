@@ -113,12 +113,14 @@ class NutrifitAgentManager:
                     continue
                 
                 # Configure STDIO transport with user's auth token
+                # CRITICAL: PYTHONUNBUFFERED=1 prevents blocking on subprocess communication
                 server_params = StdioServerParameters(
                     command=self.mcp_python_path,
-                    args=[str(server_path)],
+                    args=["-u", str(server_path)],  # -u flag for unbuffered Python
                     env={
                         "GRAPHQL_ENDPOINT": self.graphql_endpoint,
                         "AUTH0_TOKEN": auth_token,
+                        "PYTHONUNBUFFERED": "1",  # Ensure subprocess is unbuffered
                     }
                 )
                 

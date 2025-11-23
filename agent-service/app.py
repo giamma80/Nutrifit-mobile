@@ -5,6 +5,8 @@ This service provides an AI agent interface powered by Strands and MCP servers.
 
 import os
 import json
+import asyncio
+import logging
 from contextlib import asynccontextmanager
 from datetime import datetime
 from typing import Dict, Any, Optional
@@ -18,6 +20,10 @@ import redis.asyncio as redis
 from auth.middleware import get_current_user
 from agents.nutrifit_agent_mcp import agent_manager
 
+# Configure logging
+logger = logging.getLogger("nutrifit.agent")
+logger.setLevel(logging.INFO)
+
 
 # Redis client (optional)
 redis_client: Optional[redis.Redis] = None
@@ -25,14 +31,25 @@ redis_client: Optional[redis.Redis] = None
 # In-memory conversation storage (fallback se Redis non disponibile)
 conversation_store: Dict[str, Dict[str, Any]] = {}
 
+# Swarm execution timeout (seconds)
+SWARM_RUN_TIMEOUT = int(os.getenv("SWARM_RUN_TIMEOUT", "30"))
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifecycle management."""
-    print("🚀 Starting Nutrifit Agent Service...")
+    logger.info("🚀 Starting Nutrifit Agent Service...")
 
-    # Initialize MCP clients (native STDIO)
-    agent_manager.initialize_mcp_clients()
+    # Initialize MCP clients (native STDIO) - handle sync/async
+    try:
+        if asyncio.iscoroutinefunction(agent_manager.initialize_mcp_clients):
+            await agent_manager.initialize_mcp_clients()
+        else:
+            await asyncio.to_thread(agent_manager.initialize_mcp_clients)
+        logger.info("✅ MCP clients initialized")
+    except Exception as e:
+        logger.exception("Failed to initialize MCP clients")
+        raise
 
     # Initialize Redis (optional)
     redis_url = os.getenv("REDIS_URL")
@@ -48,26 +65,37 @@ async def lifespan(app: FastAPI):
                 decode_responses=True,
             )
             await redis_client.ping()
-            print("✅ Redis connected")
+            logger.info("✅ Redis connected")
         except Exception as e:
-            print(f"⚠️ Redis connection failed: {e}")
+            logger.warning(f"⚠️ Redis connection failed: {e}")
             redis_client = None
 
-    print("✅ Agent Service ready")
+    logger.info("✅ Agent Service ready")
 
     yield  # Application runs
 
     # Shutdown
-    print("🛑 Shutting down Agent Service...")
+    logger.info("🛑 Shutting down Agent Service...")
 
-    # Shutdown MCP clients
-    agent_manager.shutdown_mcp_clients()
+    # Shutdown MCP clients - handle sync/async
+    try:
+        if asyncio.iscoroutinefunction(agent_manager.shutdown_mcp_clients):
+            await agent_manager.shutdown_mcp_clients()
+        else:
+            await asyncio.to_thread(agent_manager.shutdown_mcp_clients)
+        logger.info("✅ MCP clients shutdown")
+    except Exception as e:
+        logger.exception("Error during MCP shutdown")
 
     # Close Redis
     if redis_client:
-        await redis_client.close()
+        try:
+            await redis_client.close()
+            logger.info("✅ Redis closed")
+        except Exception as e:
+            logger.warning(f"⚠️ Redis close error: {e}")
 
-    print("✅ Shutdown complete")
+    logger.info("✅ Shutdown complete")
 
 
 # Create FastAPI app
@@ -126,34 +154,65 @@ class HealthResponse(BaseModel):
 # Conversation State Management
 # ============================================
 
-async def get_conversation_state(conversation_id: str) -> Optional[Dict[str, Any]]:
-    """Retrieve conversation state from Redis or memory."""
+def _conversation_key(user_id: str, conversation_id: str) -> str:
+    """Generate consistent Redis key for conversation state.
+    
+    Args:
+        user_id: User identifier
+        conversation_id: Conversation identifier
+        
+    Returns:
+        Redis key in format conversation:{user_id}:{conversation_id}
+    """
+    return f"conversation:{user_id}:{conversation_id}"
+
+
+async def get_conversation_state(user_id: str, conversation_id: str) -> Optional[Dict[str, Any]]:
+    """Retrieve conversation state from Redis or memory.
+    
+    Args:
+        user_id: User identifier
+        conversation_id: Conversation identifier
+        
+    Returns:
+        Conversation state dictionary or None
+    """
+    key = _conversation_key(user_id, conversation_id)
+    
     if redis_client:
         try:
-            state_json = await redis_client.get(f"conv:{conversation_id}")
+            state_json = await redis_client.get(key)
             if state_json:
                 return json.loads(state_json)
         except Exception as e:
-            print(f"⚠️ Redis get failed: {e}")
+            logger.warning(f"Redis get failed for {key}: {e}")
     
-    return conversation_store.get(conversation_id)
+    return conversation_store.get(key)
 
 
-async def save_conversation_state(conversation_id: str, state: Dict[str, Any]) -> None:
-    """Save conversation state to Redis or memory."""
+async def save_conversation_state(user_id: str, conversation_id: str, state: Dict[str, Any]) -> None:
+    """Save conversation state to Redis or memory.
+    
+    Args:
+        user_id: User identifier
+        conversation_id: Conversation identifier
+        state: State dictionary to save
+    """
+    key = _conversation_key(user_id, conversation_id)
+    
     if redis_client:
         try:
             await redis_client.setex(
-                f"conv:{conversation_id}",
+                key,
                 3600,  # TTL 1 hour
                 json.dumps(state)
             )
             return
         except Exception as e:
-            print(f"⚠️ Redis save failed: {e}")
+            logger.warning(f"Redis save failed for {key}: {e}")
     
     # Fallback to memory
-    conversation_store[conversation_id] = state
+    conversation_store[key] = state
 
 
 # ============================================
@@ -207,7 +266,7 @@ async def chat(
 
     user_id = user["user_id"]
     auth_token = user["token"]
-    conversation_id = request.conversation_id or f"{user_id}:default"
+    conversation_id = request.conversation_id or "default"
 
     # Get swarm for user (router + nutrizionista + personal_trainer)
     swarm = agent_manager.get_swarm_for_user(user_id, auth_token)
@@ -225,25 +284,28 @@ IMPORTANTE: Usa SEMPRE questa data per calcoli e query. NON assumere che siamo n
 {request.message}"""
 
     # Restore conversation state if exists
-    prev_state = await get_conversation_state(conversation_id)
+    prev_state = await get_conversation_state(user_id, conversation_id)
     if prev_state:
         try:
             swarm.deserialize_state(prev_state)
-            print(f"♻️ Restored conversation state for {conversation_id}")
+            logger.info(f"♻️ Restored conversation state for {user_id}:{conversation_id}")
         except Exception as e:
-            print(f"⚠️ Failed to restore state: {e}")
+            logger.warning(f"Failed to restore state for {user_id}:{conversation_id}: {e}")
 
-    # Run swarm
+    # Run swarm (sync operation) - wrap in thread to avoid blocking event loop
     try:
-        result = swarm(enriched_message)
+        result = await asyncio.wait_for(
+            asyncio.to_thread(swarm, enriched_message),
+            timeout=SWARM_RUN_TIMEOUT,
+        )
         
         # Save conversation state after execution
         try:
             new_state = swarm.serialize_state()
-            await save_conversation_state(conversation_id, new_state)
-            print(f"💾 Saved conversation state for {conversation_id}")
+            await save_conversation_state(user_id, conversation_id, new_state)
+            logger.info(f"💾 Saved conversation state for {user_id}:{conversation_id}")
         except Exception as e:
-            print(f"⚠️ Failed to save state: {e}")
+            logger.warning(f"Failed to save state for {user_id}:{conversation_id}: {e}")
 
         # Extract response from swarm result
         # The final agent's message contains the response
@@ -296,8 +358,12 @@ IMPORTANTE: Usa SEMPRE questa data per calcoli e query. NON assumere che siamo n
             processing_time_ms=processing_time,
         )
 
+    except asyncio.TimeoutError:
+        logger.warning(f"Swarm timeout after {SWARM_RUN_TIMEOUT}s for user {user_id}")
+        raise HTTPException(status_code=504, detail="Agent processing timeout")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Agent error: {str(e)}") from e
+        logger.exception(f"Swarm execution failed for user {user_id}")
+        raise HTTPException(status_code=500, detail="Agent internal error") from e
 
 
 # SSE streaming not yet implemented with Swarm
