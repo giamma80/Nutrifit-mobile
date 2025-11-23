@@ -24,13 +24,17 @@ ENUM VALUES:
 """
 
 import os
+import logging
 from typing import Optional, List
-from datetime import date
+from datetime import datetime
 
 import httpx
 from fastmcp import FastMCP
 from pydantic import BaseModel, Field
 
+# Configure logging
+logger = logging.getLogger("nutrifit.mcp.activity")
+logger.setLevel(logging.INFO)
 
 # Configuration
 GRAPHQL_ENDPOINT = os.getenv("GRAPHQL_ENDPOINT", "http://localhost:8080/graphql")
@@ -41,18 +45,23 @@ mcp = FastMCP("Nutrifit Activity Tracking")
 
 
 async def graphql_query(query: str, variables: Optional[dict] = None) -> dict:
-    """Execute GraphQL query."""
+    """Execute GraphQL query with error logging."""
     payload = {"query": query}
     if variables:
         payload["variables"] = variables
 
     async with httpx.AsyncClient(timeout=DEFAULT_TIMEOUT) as client:
-        response = await client.post(GRAPHQL_ENDPOINT, json=payload)
-        response.raise_for_status()
-        result = response.json()
+        try:
+            response = await client.post(GRAPHQL_ENDPOINT, json=payload)
+            response.raise_for_status()
+            result = response.json()
+        except httpx.HTTPError as e:
+            logger.exception(f"HTTP error calling GraphQL: {e}")
+            raise
 
     if "errors" in result:
         errors = [err.get("message", str(err)) for err in result["errors"]]
+        logger.error(f"GraphQL errors: {errors} -- query: {query[:200]}")
         raise Exception(f"GraphQL errors: {'; '.join(errors)}")
 
     return result["data"]

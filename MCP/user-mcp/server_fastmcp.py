@@ -23,12 +23,16 @@ CRITICAL: Most tools require JWT token via AUTH0_TOKEN environment variable.
 """
 
 import os
+import logging
 from typing import Optional
 
 import httpx
 from fastmcp import FastMCP
 from pydantic import BaseModel, Field
 
+# Configure logging
+logger = logging.getLogger("nutrifit.mcp.user")
+logger.setLevel(logging.INFO)
 
 # Configuration
 GRAPHQL_ENDPOINT = os.getenv("GRAPHQL_ENDPOINT", "http://localhost:8080/graphql")
