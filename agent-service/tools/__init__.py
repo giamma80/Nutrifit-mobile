@@ -1,5 +1,5 @@
-"""Tools module for Nutrifit agent service."""
+"""Tools package for agent-service."""
 
-from .http_tool_adapter import create_graphql_tool
+from .http_tool_adapter import HTTPToolAdapter, load_tools_from_url
 
-__all__ = ["create_graphql_tool"]
+__all__ = ["HTTPToolAdapter", "load_tools_from_url"]

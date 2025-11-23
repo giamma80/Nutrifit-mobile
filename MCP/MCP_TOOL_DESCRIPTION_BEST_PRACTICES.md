@@ -19,6 +19,7 @@ Guida per scrivere descrizioni tool MCP efficaci per LLM (Large Language Models)
 Gli LLM selezionano i tool basandosi SOLO sulle descrizioni. Una descrizione debole = tool ignorato o usato male.
 
 **Obiettivi:**
+
 - ✅ LLM capisce QUANDO usare il tool
 - ✅ LLM sa COME chiamarlo correttamente
 - ✅ LLM prevede COSA aspettarsi come output
@@ -56,6 +57,7 @@ Gli LLM leggono descrizioni in ordine sequenziale. Priorità:
 ```
 
 **Emoji Consigliati:**
+
 - 🔐 Autenticazione
 - 👤 User profile
 - 📊 Query/Read
@@ -73,6 +75,7 @@ Gli LLM leggono descrizioni in ordine sequenziale. Priorità:
 ### 2. Imperativi Chiari
 
 **Pattern:**
+
 - `MUST` = Requisito bloccante
 - `REQUIRED` = Input obbligatorio
 - `BEFORE/AFTER` = Ordine temporale
@@ -114,6 +117,7 @@ Critical: DO NOT skip step 1 if user provides file attachment!
 ### 4. Args Dettagliati (Non Astrazioni)
 
 ❌ **MALE:**
+
 ```python
 """Args:
     input: User preferences
@@ -121,6 +125,7 @@ Critical: DO NOT skip step 1 if user provides file attachment!
 ```
 
 ✅ **BENE:**
+
 ```python
 """Args:
     input: Preferences to update (all optional)
@@ -131,6 +136,7 @@ Critical: DO NOT skip step 1 if user provides file attachment!
 ```
 
 **Convenzioni:**
+
 - `→` = "must be one of"
 - `|` = OR logico per enum
 - `(e.g., ...)` = Esempi concreti
@@ -141,6 +147,7 @@ Critical: DO NOT skip step 1 if user provides file attachment!
 ### 5. Return Values Specifici
 
 ❌ **MALE:**
+
 ```python
 """Returns:
     User object
@@ -148,6 +155,7 @@ Critical: DO NOT skip step 1 if user provides file attachment!
 ```
 
 ✅ **BENE:**
+
 ```python
 """Returns:
     Complete user profile:
@@ -160,6 +168,7 @@ Critical: DO NOT skip step 1 if user provides file attachment!
 ```
 
 **Per return complessi:**
+
 ```python
 """Returns:
     Paginated activity events:
@@ -187,6 +196,7 @@ Sempre includere almeno UN esempio con valori reali:
 ```
 
 **Per workflow complessi:**
+
 ```python
 """Example workflow:
     # Step 1: Upload image
@@ -215,6 +225,7 @@ Sempre includere almeno UN esempio con valori reali:
 ### 7. Edge Cases e Performance
 
 Documentare:
+
 - Errori comuni
 - Idempotency
 - Performance notes
@@ -302,6 +313,7 @@ async def {action}_{entity}(input: {Entity}Input) -> dict:
 ### Esempio 1: Query Semplice
 
 #### ❌ DEBOLE
+
 ```python
 @mcp.tool()
 async def get_user(user_id: str) -> dict:
@@ -309,12 +321,14 @@ async def get_user(user_id: str) -> dict:
 ```
 
 **Problemi:**
+
 - Nessun contesto (quando usarlo?)
 - Return value vago
 - Nessun esempio
 - Missing error cases
 
 #### ✅ OTTIMIZZATA
+
 ```python
 @mcp.tool()
 async def get_user_by_id(user_id: str) -> dict:
@@ -346,6 +360,7 @@ async def get_user_by_id(user_id: str) -> dict:
 ### Esempio 2: Mutation Complessa
 
 #### ❌ DEBOLE
+
 ```python
 @mcp.tool()
 async def sync_events(events: List[dict]) -> dict:
@@ -353,12 +368,14 @@ async def sync_events(events: List[dict]) -> dict:
 ```
 
 **Problemi:**
+
 - Nessuna info su idempotency
 - Tipo `List[dict]` troppo vago
 - Nessun workflow
 - Missing deduplication logic
 
 #### ✅ OTTIMIZZATA
+
 ```python
 @mcp.tool()
 async def sync_activity_events(input: SyncActivityEventsInput) -> dict:
@@ -416,6 +433,7 @@ async def sync_activity_events(input: SyncActivityEventsInput) -> dict:
 ### Esempio 3: ML/AI Tool
 
 #### ❌ DEBOLE
+
 ```python
 @mcp.tool()
 async def forecast(profile_id: str, days: int) -> dict:
@@ -423,12 +441,14 @@ async def forecast(profile_id: str, days: int) -> dict:
 ```
 
 **Problemi:**
+
 - Nessuna info sul modello ML
 - Missing confidence intervals
 - Nessun requisito sui dati
 - Nessuna interpretazione output
 
 #### ✅ OTTIMIZZATA
+
 ```python
 @mcp.tool()
 async def forecast_weight(input: ForecastWeightInput) -> dict:
@@ -492,6 +512,7 @@ async def forecast_weight(input: ForecastWeightInput) -> dict:
 Prima di committare un nuovo tool, verifica:
 
 ### ✅ Struttura Minima
+
 - [ ] Emoji presente e semanticamente corretto
 - [ ] Prima frase descrive chiaramente l'azione
 - [ ] Args documentati con tipi e vincoli
@@ -499,12 +520,14 @@ Prima di committare un nuovo tool, verifica:
 - [ ] Almeno UN esempio concreto
 
 ### ✅ Contesto
+
 - [ ] Spiega QUANDO usare il tool
 - [ ] Differenzia da tool simili (quando usare X vs Y)
 - [ ] Documenta prerequisiti (es. "requires JWT token")
 - [ ] Indica effetti collaterali (es. "creates PENDING meal")
 
 ### ✅ Tool Complessi
+
 - [ ] Workflow multi-step documentato
 - [ ] Enum values listati con pipe notation
 - [ ] Formati specificati (ISO 8601, YYYY-MM-DD, UUID RFC 4122)
@@ -512,17 +535,20 @@ Prima di committare un nuovo tool, verifica:
 - [ ] Idempotency documentata se applicabile
 
 ### ✅ Error Handling
+
 - [ ] Raises documenta errori comuni
 - [ ] Edge cases spiegati
 - [ ] Limitazioni chiare (es. "max 1000 results")
 
 ### ✅ Esempi
+
 - [ ] Valori concreti (no "xxx", "123", "test")
 - [ ] Mostra output atteso
 - [ ] Multi-step workflow se applicabile
 - [ ] Commenti esplicativi inline
 
 ### ✅ Performance
+
 - [ ] Note su ottimizzazioni se rilevanti
 - [ ] Limiti di paginazione
 - [ ] Cache behavior documentato
@@ -532,6 +558,7 @@ Prima di committare un nuovo tool, verifica:
 ## Pattern Verbali per Categoria
 
 ### Query Tools
+
 ```python
 """📊 Query {entity} with {filtering/pagination/sorting}.
 
@@ -552,6 +579,7 @@ Returns:
 ```
 
 ### Mutation Tools
+
 ```python
 """✏️ {Action} {entity} with {side_effects}.
 
@@ -570,6 +598,7 @@ Returns:
 ```
 
 ### Sync Tools
+
 ```python
 """⬆️ Batch sync {data_type} (IDEMPOTENT).
 
@@ -588,6 +617,7 @@ Workflow:
 ```
 
 ### Analysis Tools (AI/ML)
+
 ```python
 """🔮 {AI_capability} using {model/algorithm}.
 
@@ -618,16 +648,19 @@ Interpretation:
 ## Anti-Patterns da Evitare
 
 ### ❌ Troppo Generico
+
 ```python
 """Process data."""
 ```
 
 ### ❌ Solo Tecnico
+
 ```python
 """Execute GraphQL mutation syncActivityEvents with event array."""
 ```
 
 ### ❌ Nessun Esempio
+
 ```python
 """Args:
     input: SyncInput object
@@ -635,6 +668,7 @@ Interpretation:
 ```
 
 ### ❌ Return Vago
+
 ```python
 """Returns:
     Object with results
@@ -642,6 +676,7 @@ Interpretation:
 ```
 
 ### ❌ Enum Impliciti
+
 ```python
 """Args:
     meal_type: Type of meal
@@ -654,6 +689,7 @@ Interpretation:
 ## Testing delle Descrizioni
 
 ### Test Manuale
+
 1. Leggi la descrizione come se fossi un LLM
 2. Puoi rispondere a queste domande?
    - Quando usare questo tool?
@@ -663,7 +699,9 @@ Interpretation:
 3. Se manca qualcosa → aggiungi alla descrizione
 
 ### Test con LLM
+
 Prompt test:
+
 ```
 Basandoti SOLO sulla descrizione del tool, dimmi:
 1. Quando useresti questo tool?
@@ -679,6 +717,7 @@ Se l'LLM non può rispondere → descrizione insufficiente.
 ## Manutenzione
 
 ### Quando Aggiornare
+
 - ✅ Nuovo parametro aggiunto
 - ✅ Enum values cambiano
 - ✅ Behavior cambia (es. diventa idempotent)
@@ -686,7 +725,9 @@ Se l'LLM non può rispondere → descrizione insufficiente.
 - ✅ Performance improvements
 
 ### Versioning
+
 Se il tool cambia significativamente, considera:
+
 - Deprecation warning nella descrizione old version
 - Link alla nuova versione
 - Migration guide negli esempi

@@ -289,6 +289,7 @@ Per usare i server vanilla `server.py`, cambia semplicemente i path:
 **NEW:** Tutti i tool FastMCP seguono le [MCP Tool Description Best Practices](./MCP_TOOL_DESCRIPTION_BEST_PRACTICES.md).
 
 **Le 7 Regole per Descrizioni Efficaci:**
+
 1. **🎨 Visual Anchors** - Emoji strategici per attention bias
 2. **📋 Imperativi Chiari** - MUST/REQUIRED/BEFORE per disambiguare
 3. **🔄 Workflow Sequenziali** - Step-by-step per tool complessi

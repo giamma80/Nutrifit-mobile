@@ -157,3 +157,10 @@ mobile/DOCS/draft.md
 backend/.coverage
 .server.pid
 backend/.env.prod
+
+# Temporary MCP files
+MCP/.env
+MCP/verify_claude_mcp.sh
+
+# Redis data
+redis/

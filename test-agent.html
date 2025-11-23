@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html lang="it">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nutrifit Agent - Test</title>
+    <script src="https://cdn.auth0.com/js/auth0-spa-js/2.1/auth0-spa-js.production.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .header {
+            background: rgba(255, 255, 255, 0.95);
+            padding: 1rem 2rem;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header h1 {
+            font-size: 1.5rem;
+            color: #333;
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .user-info span {
+            font-size: 0.9rem;
+            color: #666;
+        }
+
+        button {
+            padding: 0.5rem 1.5rem;
+            border: none;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #5568d3;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-danger {
+            background: #e53e3e;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #c53030;
+        }
+
+        .container {
+            flex: 1;
+            max-width: 1200px;
+            width: 100%;
+            margin: 2rem auto;
+            padding: 0 2rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .login-container {
+            background: white;
+            padding: 3rem;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            text-align: center;
+            max-width: 400px;
+            margin: auto;
+        }
+
+        .login-container h2 {
+            margin-bottom: 1rem;
+            color: #333;
+        }
+
+        .login-container p {
+            color: #666;
+            margin-bottom: 2rem;
+        }
+
+        .chat-container {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            display: flex;
+            flex-direction: column;
+            height: calc(100vh - 180px);
+            overflow: hidden;
+        }
+
+        .chat-header {
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid #e2e8f0;
+            background: #f7fafc;
+        }
+
+        .chat-header h2 {
+            font-size: 1.2rem;
+            color: #333;
+        }
+
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .message {
+            display: flex;
+            gap: 0.75rem;
+            max-width: 80%;
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .message.user {
+            align-self: flex-end;
+            flex-direction: row-reverse;
+        }
+
+        .message-avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            color: white;
+            flex-shrink: 0;
+        }
+
+        .message.user .message-avatar {
+            background: #667eea;
+        }
+
+        .message.assistant .message-avatar {
+            background: #48bb78;
+        }
+
+        .message-content {
+            background: #f7fafc;
+            padding: 0.75rem 1rem;
+            border-radius: 12px;
+            line-height: 1.6;
+            color: #333;
+        }
+
+        .message-content h1,
+        .message-content h2,
+        .message-content h3 {
+            margin-top: 0.5rem;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+        }
+
+        .message-content h1 {
+            font-size: 1.25rem;
+        }
+
+        .message-content h2 {
+            font-size: 1.1rem;
+        }
+
+        .message-content h3 {
+            font-size: 1rem;
+        }
+
+        .message-content p {
+            margin-bottom: 0.5rem;
+        }
+
+        .message-content ul,
+        .message-content ol {
+            margin-left: 1.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .message-content li {
+            margin-bottom: 0.25rem;
+        }
+
+        .message-content code {
+            background: rgba(0, 0, 0, 0.05);
+            padding: 0.125rem 0.25rem;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+        }
+
+        .message-content pre {
+            background: rgba(0, 0, 0, 0.05);
+            padding: 0.75rem;
+            border-radius: 6px;
+            overflow-x: auto;
+            margin-bottom: 0.5rem;
+        }
+
+        .message-content pre code {
+            background: none;
+            padding: 0;
+        }
+
+        .message-content blockquote {
+            border-left: 3px solid #667eea;
+            padding-left: 0.75rem;
+            margin: 0.5rem 0;
+            color: #555;
+        }
+
+        .message-content strong {
+            font-weight: 600;
+        }
+
+        .message-content em {
+            font-style: italic;
+        }
+
+        .message-content a {
+            color: #667eea;
+            text-decoration: underline;
+        }
+
+        .message-content table {
+            border-collapse: collapse;
+            width: 100%;
+            margin-bottom: 0.5rem;
+        }
+
+        .message-content th,
+        .message-content td {
+            border: 1px solid #e2e8f0;
+            padding: 0.5rem;
+            text-align: left;
+        }
+
+        .message-content th {
+            background: rgba(102, 126, 234, 0.1);
+            font-weight: 600;
+        }
+
+        .message.user .message-content {
+            background: #667eea;
+            color: white;
+        }
+
+        .message.user .message-content code {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+        }
+
+        .message.user .message-content pre {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .message.user .message-content a {
+            color: white;
+            text-decoration: underline;
+        }
+
+        .message.assistant .message-content {
+            background: #f7fafc;
+        }
+
+        .message.system .message-content {
+            background: #fed7d7;
+            color: #c53030;
+            font-size: 0.9rem;
+        }
+
+        .chat-input {
+            padding: 1.5rem;
+            border-top: 1px solid #e2e8f0;
+            background: #f7fafc;
+        }
+
+        .input-container {
+            display: flex;
+            gap: 0.75rem;
+        }
+
+        .input-container input {
+            flex: 1;
+            padding: 0.75rem 1rem;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: border-color 0.2s;
+        }
+
+        .input-container input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .input-container button {
+            padding: 0.75rem 2rem;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border: 2px solid #e2e8f0;
+            border-top-color: #667eea;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .status {
+            padding: 0.5rem 1rem;
+            background: #edf2f7;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            color: #4a5568;
+        }
+
+        .status.connected {
+            background: #c6f6d5;
+            color: #22543d;
+        }
+
+        .status.error {
+            background: #fed7d7;
+            color: #c53030;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Header -->
+    <div class="header">
+        <h1>🥗 Nutrifit Agent</h1>
+        <div class="user-info" id="userInfo" class="hidden">
+            <span id="userName"></span>
+            <button class="btn-danger" onclick="logout()">Logout</button>
+        </div>
+    </div>
+
+    <!-- Main Container -->
+    <div class="container">
+        <!-- Login View -->
+        <div id="loginView" class="login-container">
+            <h2>Benvenuto su Nutrifit Agent</h2>
+            <p>Accedi per iniziare a chattare con il tuo assistente nutrizionale personale.</p>
+            <button class="btn-primary" onclick="login()">Accedi con Auth0</button>
+        </div>
+
+        <!-- Chat View -->
+        <div id="chatView" class="chat-container hidden">
+            <div class="chat-header">
+                <h2>Chat con Nutrifit Agent</h2>
+                <div class="status" id="status">Connessione in corso...</div>
+            </div>
+            <div class="chat-messages" id="messages"></div>
+            <div class="chat-input">
+                <div class="input-container">
+                    <input type="text" id="messageInput" placeholder="Scrivi un messaggio..."
+                        onkeypress="handleKeyPress(event)" />
+                    <button class="btn-primary" onclick="sendMessage()" id="sendBtn">
+                        Invia
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Configuration
+        const AUTH0_DOMAIN = 'dev-1grp81dl273fd86f.us.auth0.com';
+        const AUTH0_CLIENT_ID = 'F6lE9BtUrXo50whmvy6yrGSOxLPwRIiF';
+        const AUTH0_AUDIENCE = 'https://api.nutrifit.app';
+        const AGENT_API_URL = 'http://localhost:8000';
+
+        let auth0Client;
+        let accessToken;
+        let currentUser;
+
+        // Initialize Auth0
+        async function initAuth0() {
+            auth0Client = await auth0.createAuth0Client({
+                domain: AUTH0_DOMAIN,
+                clientId: AUTH0_CLIENT_ID,
+                authorizationParams: {
+                    redirect_uri: window.location.origin + window.location.pathname,
+                    audience: AUTH0_AUDIENCE,
+                }
+            });
+
+            // Check if returning from redirect
+            if (window.location.search.includes('code=')) {
+                await auth0Client.handleRedirectCallback();
+                window.history.replaceState({}, document.title, window.location.pathname);
+            }
+
+            // Check if user is authenticated
+            const isAuthenticated = await auth0Client.isAuthenticated();
+
+            if (isAuthenticated) {
+                currentUser = await auth0Client.getUser();
+                accessToken = await auth0Client.getTokenSilently();
+                showChat();
+                checkHealth();
+            } else {
+                showLogin();
+            }
+        }
+
+        // Login
+        async function login() {
+            await auth0Client.loginWithRedirect();
+        }
+
+        // Logout
+        async function logout() {
+            await auth0Client.logout({
+                logoutParams: {
+                    returnTo: window.location.origin + window.location.pathname
+                }
+            });
+        }
+
+        // Show login view
+        function showLogin() {
+            document.getElementById('loginView').classList.remove('hidden');
+            document.getElementById('chatView').classList.add('hidden');
+            document.getElementById('userInfo').classList.add('hidden');
+        }
+
+        // Show chat view
+        function showChat() {
+            document.getElementById('loginView').classList.add('hidden');
+            document.getElementById('chatView').classList.remove('hidden');
+            document.getElementById('userInfo').classList.remove('hidden');
+            document.getElementById('userName').textContent = currentUser.email || currentUser.name;
+
+            addSystemMessage('Benvenuto! Sono Nutrifit Agent, il tuo assistente nutrizionale. Come posso aiutarti oggi?');
+        }
+
+        // Check agent health
+        async function checkHealth() {
+            try {
+                const response = await fetch(`${AGENT_API_URL}/health`);
+                const data = await response.json();
+
+                const statusEl = document.getElementById('status');
+                if (data.status === 'healthy') {
+                    statusEl.textContent = '✅ Connesso';
+                    statusEl.classList.add('connected');
+                } else {
+                    statusEl.textContent = '⚠️ Servizio non disponibile';
+                    statusEl.classList.add('error');
+                }
+            } catch (error) {
+                const statusEl = document.getElementById('status');
+                statusEl.textContent = '❌ Errore di connessione';
+                statusEl.classList.add('error');
+            }
+        }
+
+        // Add message to chat
+        function addMessage(content, type = 'user') {
+            const messagesContainer = document.getElementById('messages');
+            const messageEl = document.createElement('div');
+            messageEl.className = `message ${type}`;
+
+            const avatarEl = document.createElement('div');
+            avatarEl.className = 'message-avatar';
+            avatarEl.textContent = type === 'user' ? 'U' : (type === 'assistant' ? 'A' : '!');
+
+            const contentEl = document.createElement('div');
+            contentEl.className = 'message-content';
+
+            // Render markdown for assistant messages
+            if (type === 'assistant' && typeof marked !== 'undefined') {
+                // Configure marked options
+                marked.setOptions({
+                    breaks: true,
+                    gfm: true
+                });
+                contentEl.innerHTML = marked.parse(content);
+            } else {
+                contentEl.textContent = content;
+            }
+
+            messageEl.appendChild(avatarEl);
+            messageEl.appendChild(contentEl);
+            messagesContainer.appendChild(messageEl);
+
+            // Scroll to bottom
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+
+        function addSystemMessage(content) {
+            addMessage(content, 'system');
+        }
+
+        // Send message to agent
+        async function sendMessage() {
+            const input = document.getElementById('messageInput');
+            const message = input.value.trim();
+
+            if (!message) return;
+
+            // Add user message
+            addMessage(message, 'user');
+            input.value = '';
+
+            // Disable send button
+            const sendBtn = document.getElementById('sendBtn');
+            sendBtn.disabled = true;
+            sendBtn.innerHTML = '<div class="loading"></div>';
+
+            try {
+                const response = await fetch(`${AGENT_API_URL}/api/agent/chat`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${accessToken}`
+                    },
+                    body: JSON.stringify({ message })
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.detail || 'Errore nella richiesta');
+                }
+
+                const data = await response.json();
+
+                // Add assistant response
+                addMessage(data.response, 'assistant');
+
+                // Log tool calls if any
+                if (data.tool_calls && data.tool_calls.length > 0) {
+                    console.log('Tools used:', data.tool_calls);
+                }
+
+            } catch (error) {
+                console.error('Error:', error);
+                addSystemMessage(`Errore: ${error.message}`);
+            } finally {
+                // Re-enable send button
+                sendBtn.disabled = false;
+                sendBtn.textContent = 'Invia';
+                input.focus();
+            }
+        }
+
+        // Handle enter key
+        function handleKeyPress(event) {
+            if (event.key === 'Enter') {
+                sendMessage();
+            }
+        }
+
+        // Initialize on load
+        window.addEventListener('load', initAuth0);
+    </script>
+</body>
+
+</html>

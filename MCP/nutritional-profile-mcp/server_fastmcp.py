@@ -79,30 +79,45 @@ async def get_nutritional_profile(user_id: str) -> dict:
         NutritionalProfile with all metrics
     """
     query = """
-    query GetNutritionalProfile($userId: ID!) {
-        nutritionalProfile(userId: $userId) {
-            id
-            userId
-            currentWeight
-            targetWeight
-            height
-            age
-            gender
-            activityLevel
-            goalType
-            bmr
-            tdee
-            targetCalories
-            targetProteinRatio
-            targetCarbsRatio
-            targetFatRatio
-            createdAt
-            updatedAt
+    query GetNutritionalProfile($userId: String) {
+        nutritionalProfile {
+            nutritionalProfile(userId: $userId) {
+                profileId
+                userId
+                userData {
+                    weight
+                    height
+                    age
+                    sex
+                    activityLevel
+                }
+                goal
+                bmr {
+                    value
+                }
+                tdee {
+                    value
+                    activityLevel
+                }
+                caloriesTarget
+                macroSplit {
+                    proteinG
+                    carbsG
+                    fatG
+                }
+                progressHistory {
+                    date
+                    weight
+                    consumedCalories
+                }
+                createdAt
+                updatedAt
+            }
         }
     }
     """
     data = await graphql_query(query, variables={"userId": user_id})
-    return data["nutritionalProfile"]
+    return data["nutritionalProfile"]["nutritionalProfile"]
 
 
 # Tool 2: Create Nutritional Profile
@@ -142,14 +157,14 @@ async def create_nutritional_profile(input: CreateNutritionalProfileInput) -> di
                 → "MALE" | "FEMALE"
             - activity_level: Physical activity level (required)
                 → "SEDENTARY" (desk job, no exercise)
-                → "LIGHTLY_ACTIVE" (1-3 days/week)
-                → "MODERATELY_ACTIVE" (3-5 days/week)
-                → "VERY_ACTIVE" (6-7 days/week)
-                → "EXTRA_ACTIVE" (athlete, 2x/day training)
+                → "LIGHT" (light exercise 1-3 days/week)
+                → "MODERATE" (moderate exercise 3-5 days/week)
+                → "ACTIVE" (hard exercise 6-7 days/week)
+                → "VERY_ACTIVE" (very hard exercise, athlete)
             - goal_type: Weight goal (required)
-                → "LOSE_WEIGHT" (500 kcal deficit)
-                → "MAINTAIN_WEIGHT" (TDEE)
-                → "GAIN_WEIGHT" (500 kcal surplus)
+                → "CUT" (calorie deficit for weight loss)
+                → "MAINTAIN" (maintenance calories)
+                → "BULK" (calorie surplus for muscle gain)
     
     Returns:
         Created profile with calculated metrics:
@@ -170,45 +185,57 @@ async def create_nutritional_profile(input: CreateNutritionalProfileInput) -> di
             height=175,
             age=30,
             gender="MALE",
-            activity_level="MODERATELY_ACTIVE",
-            goal_type="LOSE_WEIGHT"
+            activity_level="MODERATE",
+            goal_type="CUT"
         )
         # Returns: bmr=1800, tdee=2700, targetCalories=2200 (-500 deficit)
     """
     query = """
-    mutation CreateNutritionalProfile($input: CreateNutritionalProfileInput!) {
-        createNutritionalProfile(input: $input) {
-            id
-            userId
-            currentWeight
-            targetWeight
-            height
-            age
-            gender
-            activityLevel
-            goalType
-            bmr
-            tdee
-            targetCalories
-            targetProteinRatio
-            targetCarbsRatio
-            targetFatRatio
-            createdAt
+    mutation CreateNutritionalProfile($input: CreateProfileInput!) {
+        nutritionalProfile {
+            createNutritionalProfile(input: $input) {
+                profileId
+                userId
+                userData {
+                    weight
+                    height
+                    age
+                    sex
+                    activityLevel
+                }
+                goal
+                bmr {
+                    value
+                }
+                tdee {
+                    value
+                    activityLevel
+                }
+                caloriesTarget
+                macroSplit {
+                    proteinG
+                    carbsG
+                    fatG
+                }
+                createdAt
+            }
         }
     }
     """
     graphql_input = {
         "userId": input.user_id,
-        "currentWeight": input.current_weight,
-        "targetWeight": input.target_weight,
-        "height": input.height,
-        "age": input.age,
-        "gender": input.gender,
-        "activityLevel": input.activity_level,
-        "goalType": input.goal_type
+        "userData": {
+            "weight": input.current_weight,
+            "height": input.height,
+            "age": input.age,
+            "sex": "M" if input.gender == "MALE" else "F",
+            "activityLevel": input.activity_level
+        },
+        "goal": input.goal_type,  # No transformation - agent sends correct value
+        "initialWeight": input.current_weight
     }
     data = await graphql_query(query, variables={"input": graphql_input})
-    return data["createNutritionalProfile"]
+    return data["nutritionalProfile"]["createNutritionalProfile"]
 
 
 # Tool 3: Update Nutritional Profile
@@ -233,40 +260,57 @@ async def update_nutritional_profile(input: UpdateNutritionalProfileInput) -> di
     
     Args:
         input: Profile updates (all optional)
+            - profile_id: Profile UUID (required)
+            - current_weight: New weight in kg (optional)
+            - target_weight: New goal weight in kg (optional)
+            - activity_level: New activity level (optional)
+                → "SEDENTARY" | "LIGHT" | "MODERATE" | "ACTIVE" | "VERY_ACTIVE"
+            - goal_type: New goal (optional)
+                → "CUT" | "MAINTAIN" | "BULK"
     
     Returns:
         Updated NutritionalProfile with recalculated metrics
     """
     query = """
-    mutation UpdateNutritionalProfile($profileId: ID!, $input: UpdateNutritionalProfileInput!) {
-        updateNutritionalProfile(profileId: $profileId, input: $input) {
-            id
-            currentWeight
-            targetWeight
-            activityLevel
-            goalType
-            bmr
-            tdee
-            targetCalories
-            updatedAt
+    mutation UpdateNutritionalProfile($input: UpdateProfileInput!) {
+        nutritionalProfile {
+            updateNutritionalProfile(input: $input) {
+                profileId
+                userData {
+                    weight
+                    height
+                    age
+                    sex
+                    activityLevel
+                }
+                goal
+                bmr {
+                    value
+                }
+                tdee {
+                    value
+                }
+                caloriesTarget
+                updatedAt
+            }
         }
     }
     """
-    graphql_input = {}
-    if input.current_weight:
-        graphql_input["currentWeight"] = input.current_weight
-    if input.target_weight:
-        graphql_input["targetWeight"] = input.target_weight
-    if input.activity_level:
-        graphql_input["activityLevel"] = input.activity_level
-    if input.goal_type:
-        graphql_input["goalType"] = input.goal_type
+    graphql_input = {"profileId": input.profile_id}
     
-    data = await graphql_query(query, variables={
-        "profileId": input.profile_id,
-        "input": graphql_input
-    })
-    return data["updateNutritionalProfile"]
+    if input.current_weight or input.activity_level:
+        user_data = {}
+        if input.current_weight:
+            user_data["weight"] = input.current_weight
+        if input.activity_level:
+            user_data["activityLevel"] = input.activity_level
+        graphql_input["userData"] = user_data
+    
+    if input.goal_type:
+        graphql_input["goal"] = input.goal_type  # No transformation - agent sends correct value
+    
+    data = await graphql_query(query, variables={"input": graphql_input})
+    return data["nutritionalProfile"]["updateNutritionalProfile"]
 
 
 # Tool 4: Record Progress
@@ -298,42 +342,55 @@ async def record_progress(input: RecordProgressInput) -> dict:
     """
     query = """
     mutation RecordProgress($input: RecordProgressInput!) {
-        recordProgress(input: $input) {
-            id
-            userId
-            date
-            weight
-            caloriesConsumed
-            consumedProtein
-            consumedCarbs
-            consumedFat
-            caloriesBurnedBMR
-            caloriesBurnedActive
-            createdAt
+        nutritionalProfile {
+            recordProgress(input: $input) {
+                date
+                weight
+                consumedCalories
+                consumedProteinG
+                consumedCarbsG
+                consumedFatG
+                caloriesBurnedBmr
+                caloriesBurnedActive
+                notes
+            }
         }
     }
     """
-    graphql_input = {
-        "userId": input.user_id,
-        "date": input.date
+    
+    # Need profileId - get it first from user
+    profile_query = """
+    query GetProfileId($userId: String) {
+        nutritionalProfile {
+            nutritionalProfile(userId: $userId) {
+                profileId
+            }
+        }
     }
-    if input.weight:
-        graphql_input["weight"] = input.weight
+    """
+    profile_data = await graphql_query(profile_query, variables={"userId": input.user_id})
+    profile_id = profile_data["nutritionalProfile"]["nutritionalProfile"]["profileId"]
+    
+    graphql_input = {
+        "profileId": profile_id,
+        "date": input.date,
+        "weight": input.weight or 0.0
+    }
     if input.calories_consumed:
-        graphql_input["caloriesConsumed"] = input.calories_consumed
+        graphql_input["consumedCalories"] = input.calories_consumed
     if input.consumed_protein:
-        graphql_input["consumedProtein"] = input.consumed_protein
+        graphql_input["consumedProteinG"] = input.consumed_protein
     if input.consumed_carbs:
-        graphql_input["consumedCarbs"] = input.consumed_carbs
+        graphql_input["consumedCarbsG"] = input.consumed_carbs
     if input.consumed_fat:
-        graphql_input["consumedFat"] = input.consumed_fat
+        graphql_input["consumedFatG"] = input.consumed_fat
     if input.calories_burned_bmr:
-        graphql_input["caloriesBurnedBMR"] = input.calories_burned_bmr
+        graphql_input["caloriesBurnedBmr"] = input.calories_burned_bmr
     if input.calories_burned_active:
         graphql_input["caloriesBurnedActive"] = input.calories_burned_active
     
     data = await graphql_query(query, variables={"input": graphql_input})
-    return data["recordProgress"]
+    return data["nutritionalProfile"]["recordProgress"]
 
 
 # Tool 5: Get Progress Score
@@ -362,16 +419,20 @@ async def get_progress_score(input: GetProgressScoreInput) -> dict:
         ProgressScore with analytics
     """
     query = """
-    query GetProgressScore($userId: ID!, $startDate: String!, $endDate: String!) {
-        progressScore(userId: $userId, startDate: $startDate, endDate: $endDate) {
-            weightChange
-            weightChangePercentage
-            adherenceRate
-            averageCalorieDeficit
-            macroBalanceScore
-            trendDirection
-            totalDays
-            loggedDays
+    query GetProgressScore($userId: String!, $startDate: Date!, $endDate: Date!) {
+        nutritionalProfile {
+            progressScore(userId: $userId, startDate: $startDate, endDate: $endDate) {
+                startDate
+                endDate
+                weightDelta
+                avgDailyCalories
+                avgCaloriesBurned
+                avgDeficit
+                daysDeficitOnTrack
+                daysMacrosOnTrack
+                totalDays
+                adherenceRate
+            }
         }
     }
     """
@@ -380,7 +441,7 @@ async def get_progress_score(input: GetProgressScoreInput) -> dict:
         "startDate": input.start_date,
         "endDate": input.end_date
     })
-    return data["progressScore"]
+    return data["nutritionalProfile"]["progressScore"]
 
 
 # Tool 6: Forecast Weight
@@ -446,16 +507,23 @@ async def forecast_weight(input: ForecastWeightInput) -> dict:
         - Wider bounds = more uncertainty (normal for longer forecasts)
     """
     query = """
-    query ForecastWeight($profileId: ID!, $daysAhead: Int!, $confidenceLevel: Float!) {
-        forecastWeight(profileId: $profileId, daysAhead: $daysAhead, confidenceLevel: $confidenceLevel) {
-            predictions {
-                date
-                predictedWeight
-                lowerBound
-                upperBound
+    query ForecastWeight($profileId: String!, $daysAhead: Int!, $confidenceLevel: Float!) {
+        nutritionalProfile {
+            forecastWeight(profileId: $profileId, daysAhead: $daysAhead, confidenceLevel: $confidenceLevel) {
+                profileId
+                generatedAt
+                predictions {
+                    date
+                    predictedWeight
+                    lowerBound
+                    upperBound
+                }
+                modelUsed
+                confidenceLevel
+                dataPointsUsed
+                trendDirection
+                trendMagnitude
             }
-            confidence
-            model
         }
     }
     """
@@ -464,7 +532,7 @@ async def forecast_weight(input: ForecastWeightInput) -> dict:
         "daysAhead": input.days_ahead,
         "confidenceLevel": input.confidence_level
     })
-    return data["forecastWeight"]
+    return data["nutritionalProfile"]["forecastWeight"]
 
 
 if __name__ == "__main__":

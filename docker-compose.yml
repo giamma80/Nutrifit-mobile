@@ -1,10 +1,12 @@
 ###############################################
 # Nutrifit - Docker Compose Setup
-# MongoDB + Backend (local development)
+# MongoDB + Backend + Agent Service + Redis
 #
 # Configurazione:
 # - Backend usa backend/.env per tutte le variabili
 # - MongoDB usa mongodb/.env per credenziali
+# - Agent Service usa agent-service/.env
+# - Redis per caching e sessioni
 # - Scegli MEAL_REPOSITORY in backend/.env:
 #   - inmemory: no persistenza (default dev)
 #   - mongodb: persistenza completa (production-like)
@@ -44,7 +46,7 @@ services:
     env_file:
       - ./backend/.env
     ports:
-      - "8000:8000"
+      - "8080:8000"
     # Note: volume mount disabled to avoid RO filesystem issues
     # For hot reload development, use: ./backend:/app
     # volumes:
@@ -61,14 +63,67 @@ services:
       retries: 3
       start_period: 40s
 
+  # Agent Service - Strands + MCP + FastAPI
+  agent-service:
+    build:
+      context: .
+      dockerfile: ./agent-service/Dockerfile
+    container_name: nutrifit-agent
+    restart: unless-stopped
+    env_file:
+      - ./agent-service/.env
+    environment:
+      - GRAPHQL_ENDPOINT=http://nutrifit-backend:8000/graphql
+      - REST_API_ENDPOINT=http://nutrifit-backend:8000/api/v1
+      - REDIS_URL=redis://redis:6379
+    ports:
+      - "8000:8000"
+    # volumes:
+      # Mount MCP servers for development hot reload
+      # Disabled: causes .venv symlink issues, MCP servers are embedded in Docker image
+      # - ./MCP:/app/MCP:ro
+    depends_on:
+      - backend
+      - redis
+    networks:
+      - nutrifit-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # Redis - Cache and session storage
+  redis:
+    build:
+      context: ./redis
+      dockerfile: Dockerfile
+    container_name: nutrifit-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - nutrifit-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+
 # Network isolata
 networks:
   nutrifit-network:
     driver: bridge
 
-# Volumes per persistenza MongoDB
+# Volumes per persistenza
 volumes:
   mongodb_data:
     driver: local
   mongodb_config:
+    driver: local
+  redis_data:
     driver: local

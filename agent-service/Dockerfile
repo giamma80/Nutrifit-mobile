@@ -37,11 +37,12 @@ COPY MCP/nutritional-profile-mcp /build/MCP/nutritional-profile-mcp
 
 # Install MCP dependencies in virtualenv using uv
 # Create fresh venv in container (not copying local .venv with broken symlinks)
+# Include fastapi and uvicorn for HTTP servers
 RUN uv venv /build/MCP/.venv && \
-    cd /build/MCP/user-mcp && uv pip install --python /build/MCP/.venv/bin/python mcp httpx pydantic fastmcp && \
-    cd /build/MCP/meal-mcp && uv pip install --python /build/MCP/.venv/bin/python mcp httpx pydantic fastmcp && \
-    cd /build/MCP/activity-mcp && uv pip install --python /build/MCP/.venv/bin/python mcp httpx pydantic fastmcp && \
-    cd /build/MCP/nutritional-profile-mcp && uv pip install --python /build/MCP/.venv/bin/python mcp httpx pydantic fastmcp
+    cd /build/MCP/user-mcp && uv pip install --python /build/MCP/.venv/bin/python mcp httpx pydantic fastmcp "fastapi>=0.115.0" "uvicorn[standard]>=0.32.0" && \
+    cd /build/MCP/meal-mcp && uv pip install --python /build/MCP/.venv/bin/python mcp httpx pydantic fastmcp "fastapi>=0.115.0" "uvicorn[standard]>=0.32.0" && \
+    cd /build/MCP/activity-mcp && uv pip install --python /build/MCP/.venv/bin/python mcp httpx pydantic fastmcp "fastapi>=0.115.0" "uvicorn[standard]>=0.32.0" && \
+    cd /build/MCP/nutritional-profile-mcp && uv pip install --python /build/MCP/.venv/bin/python mcp httpx pydantic fastmcp "fastapi>=0.115.0" "uvicorn[standard]>=0.32.0"
 
 # Copy agent-service files
 COPY agent-service/pyproject.toml ./

@@ -101,34 +101,27 @@ async def get_activity_entries(input: GetActivityEntriesInput) -> dict:
         )
     """
     query = """
-    query GetActivityEntries($userId: ID!, $startDate: String, $endDate: String, $source: ActivitySource, $limit: Int) {
-        activityEntries(userId: $userId, startDate: $startDate, endDate: $endDate, source: $source, first: $limit) {
-            edges {
-                node {
-                    id
-                    userId
-                    timestamp
-                    source
-                    steps
-                    caloriesOut
-                    hrAvg
-                }
-            }
-            pageInfo {
-                hasNextPage
-                hasPreviousPage
+    query GetActivityEntries($userId: String, $limit: Int, $after: String, $before: String) {
+        activity {
+            entries(userId: $userId, limit: $limit, after: $after, before: $before) {
+                userId
+                ts
+                steps
+                caloriesOut
+                hrAvg
+                source
             }
         }
     }
     """
-    data = await graphql_query(query, variables={
-        "userId": input.user_id,
-        "startDate": input.start_date,
-        "endDate": input.end_date,
-        "source": input.source,
-        "limit": input.limit
-    })
-    return data["activityEntries"]
+    variables = {"userId": input.user_id, "limit": input.limit}
+    if input.start_date:
+        variables["after"] = input.start_date
+    if input.end_date:
+        variables["before"] = input.end_date
+    
+    data = await graphql_query(query, variables=variables)
+    return data["activity"]["entries"]
 
 
 # Tool 2: Get Activity Sync Entries
@@ -158,14 +151,19 @@ async def get_activity_sync_entries(user_id: str, date: str) -> dict:
         - syncedAt: Last sync timestamp
     """
     query = """
-    query GetActivitySyncEntries($userId: ID!, $date: String!) {
-        activitySyncEntries(userId: $userId, date: $date) {
-            date
-            stepsDelta
-            stepsTotal
-            caloriesOutDelta
-            caloriesOutTotal
-            syncedAt
+    query GetActivitySyncEntries($date: String!, $userId: String, $after: String, $limit: Int) {
+        activity {
+            syncEntries(date: $date, userId: $userId, after: $after, limit: $limit) {
+                id
+                userId
+                date
+                timestamp
+                stepsDelta
+                caloriesOutDelta
+                stepsTotal
+                caloriesOutTotal
+                hrAvgSession
+            }
         }
     }
     """
@@ -173,7 +171,7 @@ async def get_activity_sync_entries(user_id: str, date: str) -> dict:
         "userId": user_id,
         "date": date
     })
-    return data["activitySyncEntries"]
+    return data["activity"]["syncEntries"]
 
 
 # Tool 3: Aggregate Activity Range
@@ -214,14 +212,31 @@ async def aggregate_activity_range(input: AggregateActivityRangeInput) -> dict:
     Performance: Pre-aggregated data → fast queries even for large ranges.
     """
     query = """
-    query AggregateActivityRange($userId: ID!, $startDate: String!, $endDate: String!, $groupBy: ActivityGroupBy!) {
-        aggregateActivityRange(userId: $userId, startDate: $startDate, endDate: $endDate, groupBy: $groupBy) {
-            period
-            startDate
-            endDate
-            totalSteps
-            totalCalories
-            avgHeartRate
+    query AggregateActivityRange($userId: String!, $startDate: String!, $endDate: String!, $groupBy: GroupByPeriod!) {
+        activity {
+            aggregateRange(userId: $userId, startDate: $startDate, endDate: $endDate, groupBy: $groupBy) {
+                periods {
+                    period
+                    startDate
+                    endDate
+                    totalSteps
+                    totalCaloriesOut
+                    totalActiveMinutes
+                    avgHeartRate
+                    eventCount
+                    hasActivity
+                    avgDailySteps
+                }
+                total {
+                    period
+                    startDate
+                    endDate
+                    totalSteps
+                    totalCaloriesOut
+                    totalActiveMinutes
+                    avgHeartRate
+                }
+            }
         }
     }
     """
@@ -231,7 +246,7 @@ async def aggregate_activity_range(input: AggregateActivityRangeInput) -> dict:
         "endDate": input.end_date,
         "groupBy": input.group_by
     })
-    return data["aggregateActivityRange"]
+    return data["activity"]["aggregateRange"]
 
 
 # Tool 4: Sync Activity Events
@@ -277,32 +292,38 @@ async def sync_activity_events(input: SyncActivityEventsInput) -> dict:
         Sync confirmation with count of inserted/updated events
     """
     query = """
-    mutation SyncActivityEvents($userId: ID!, $events: [ActivityEventInput!]!, $source: ActivitySource!, $idempotencyKey: String) {
-        syncActivityEvents(userId: $userId, events: $events, source: $source, idempotencyKey: $idempotencyKey) {
-            success
-            insertedCount
-            updatedCount
+    mutation SyncActivityEvents($input: [ActivityMinuteInput!]!, $idempotencyKey: String, $userId: String) {
+        activity {
+            syncActivityEvents(input: $input, idempotencyKey: $idempotencyKey, userId: $userId) {
+                accepted
+                duplicates
+                rejected {
+                    index
+                    reason
+                }
+                idempotencyKeyUsed
+            }
         }
     }
     """
     # Convert snake_case to camelCase for GraphQL
     events_graphql = [
         {
-            "timestamp": e.timestamp,
-            "steps": e.steps,
+            "ts": e.timestamp,
+            "steps": e.steps or 0,
             "caloriesOut": e.calories_out,
-            "hrAvg": e.hr_avg
+            "hrAvg": e.hr_avg,
+            "source": input.source
         }
         for e in input.events
     ]
     
     data = await graphql_query(query, variables={
         "userId": input.user_id,
-        "events": events_graphql,
-        "source": input.source,
+        "input": events_graphql,
         "idempotencyKey": input.idempotency_key
     })
-    return data["syncActivityEvents"]
+    return data["activity"]["syncActivityEvents"]
 
 
 # Tool 5: Sync Health Totals
@@ -332,31 +353,42 @@ async def sync_health_totals(input: SyncHealthTotalsInput) -> dict:
         HealthTotalsDelta confirmation
     """
     query = """
-    mutation SyncHealthTotals($input: HealthTotalsDeltaInput!) {
-        syncHealthTotals(input: $input) {
-            date
-            stepsDelta
-            stepsTotal
-            caloriesOutDelta
-            caloriesOutTotal
-            syncedAt
+    mutation SyncHealthTotals($input: HealthTotalsInput!, $idempotencyKey: String, $userId: String) {
+        syncHealthTotals(input: $input, idempotencyKey: $idempotencyKey, userId: $userId) {
+            accepted
+            duplicate
+            reset
+            idempotencyKeyUsed
+            idempotencyConflict
+            delta {
+                id
+                userId
+                date
+                timestamp
+                stepsDelta
+                caloriesOutDelta
+                stepsTotal
+                caloriesOutTotal
+                hrAvgSession
+            }
         }
     }
     """
-    # Build GraphQL input with camelCase
+    # Build GraphQL input with camelCase - HealthTotalsInput
+    import datetime
     graphql_input = {
-        "userId": input.user_id,
+        "timestamp": datetime.datetime.now().isoformat(),
         "date": input.date,
-        "stepsDelta": input.steps_delta,
-        "stepsTotal": input.steps_total,
-        "caloriesOutDelta": input.calories_delta,
-        "caloriesOutTotal": input.calories_total,
-        "source": input.source
+        "steps": input.steps_total,
+        "caloriesOut": input.calories_total,
+        "hrAvgSession": None
     }
-    if input.idempotency_key:
-        graphql_input["idempotencyKey"] = input.idempotency_key
     
-    data = await graphql_query(query, variables={"input": graphql_input})
+    data = await graphql_query(query, variables={
+        "input": graphql_input,
+        "idempotencyKey": input.idempotency_key,
+        "userId": input.user_id
+    })
     return data["syncHealthTotals"]
 
 

@@ -321,25 +321,35 @@ async def analyze_meal_photo(input: AnalyzeMealPhotoInput) -> dict:
     """
     query = """
     mutation AnalyzeMealPhoto($input: AnalyzeMealPhotoInput!) {
-        analyzeMealPhoto(input: $input) {
-            id
-            userId
-            mealType
-            timestamp
-            totalCalories
-            totalProtein
-            totalCarbs
-            totalFat
-            status
-            photoUrl
-            entries {
-                id
-                foodLabel
-                quantityG
-                calories
-                protein
-                carbs
-                fat
+        meals {
+            analyzeMealPhoto(input: $input) {
+                ... on MealAnalysisSuccess {
+                    meal {
+                        id
+                        userId
+                        mealType
+                        timestamp
+                        totalCalories
+                        totalProtein
+                        totalCarbs
+                        totalFat
+                        dishName
+                        imageUrl
+                        entries {
+                            id
+                            name
+                            quantityG
+                            calories
+                            protein
+                            carbs
+                            fat
+                        }
+                    }
+                }
+                ... on MealAnalysisError {
+                    message
+                    code
+                }
             }
         }
     }
@@ -350,7 +360,10 @@ async def analyze_meal_photo(input: AnalyzeMealPhotoInput) -> dict:
         "mealType": input.meal_type
     }
     data = await graphql_query(query, variables={"input": graphql_input})
-    return data["analyzeMealPhoto"]
+    result = data["meals"]["analyzeMealPhoto"]
+    if "message" in result:
+        raise Exception(f"Analysis failed: {result['message']} ({result['code']})")
+    return result["meal"]
 
 
 # Tool 6: Analyze Meal Text
@@ -376,24 +389,34 @@ async def analyze_meal_text(input: AnalyzeMealTextInput) -> dict:
     """
     query = """
     mutation AnalyzeMealText($input: AnalyzeMealTextInput!) {
-        analyzeMealText(input: $input) {
-            id
-            userId
-            mealType
-            timestamp
-            totalCalories
-            totalProtein
-            totalCarbs
-            totalFat
-            status
-            entries {
-                id
-                foodLabel
-                quantityG
-                calories
-                protein
-                carbs
-                fat
+        meals {
+            analyzeMealText(input: $input) {
+                ... on MealAnalysisSuccess {
+                    meal {
+                        id
+                        userId
+                        mealType
+                        timestamp
+                        totalCalories
+                        totalProtein
+                        totalCarbs
+                        totalFat
+                        dishName
+                        entries {
+                            id
+                            name
+                            quantityG
+                            calories
+                            protein
+                            carbs
+                            fat
+                        }
+                    }
+                }
+                ... on MealAnalysisError {
+                    message
+                    code
+                }
             }
         }
     }
@@ -404,7 +427,10 @@ async def analyze_meal_text(input: AnalyzeMealTextInput) -> dict:
         "mealType": input.meal_type
     }
     data = await graphql_query(query, variables={"input": graphql_input})
-    return data["analyzeMealText"]
+    result = data["meals"]["analyzeMealText"]
+    if "message" in result:
+        raise Exception(f"Analysis failed: {result['message']} ({result['code']})")
+    return result["meal"]
 
 
 # Tool 7: Analyze Meal Barcode
@@ -431,24 +457,34 @@ async def analyze_meal_barcode(input: AnalyzeMealBarcodeInput) -> dict:
     """
     query = """
     mutation AnalyzeMealBarcode($input: AnalyzeMealBarcodeInput!) {
-        analyzeMealBarcode(input: $input) {
-            id
-            userId
-            mealType
-            timestamp
-            totalCalories
-            totalProtein
-            totalCarbs
-            totalFat
-            status
-            entries {
-                id
-                foodLabel
-                quantityG
-                calories
-                protein
-                carbs
-                fat
+        meals {
+            analyzeMealBarcode(input: $input) {
+                ... on MealAnalysisSuccess {
+                    meal {
+                        id
+                        userId
+                        mealType
+                        timestamp
+                        totalCalories
+                        totalProtein
+                        totalCarbs
+                        totalFat
+                        dishName
+                        entries {
+                            id
+                            name
+                            quantityG
+                            calories
+                            protein
+                            carbs
+                            fat
+                        }
+                    }
+                }
+                ... on MealAnalysisError {
+                    message
+                    code
+                }
             }
         }
     }
@@ -460,7 +496,10 @@ async def analyze_meal_barcode(input: AnalyzeMealBarcodeInput) -> dict:
         "mealType": input.meal_type
     }
     data = await graphql_query(query, variables={"input": graphql_input})
-    return data["analyzeMealBarcode"]
+    result = data["meals"]["analyzeMealBarcode"]
+    if "message" in result:
+        raise Exception(f"Analysis failed: {result['message']} ({result['code']})")
+    return result["meal"]
 
 
 # Tool 8: Confirm Meal Analysis
@@ -516,28 +555,43 @@ async def confirm_meal_analysis(input: ConfirmMealAnalysisInput) -> dict:
         # Returns: entries with only chicken + rice
     """
     query = """
-    mutation ConfirmMealAnalysis($mealId: ID!, $userId: ID!, $confirmedEntryIds: [ID!]!) {
-        confirmMealAnalysis(mealId: $mealId, userId: $userId, confirmedEntryIds: $confirmedEntryIds) {
-            id
-            status
-            totalCalories
-            totalProtein
-            totalCarbs
-            totalFat
-            entries {
-                id
-                foodLabel
-                quantityG
+    mutation ConfirmMealAnalysis($input: ConfirmAnalysisInput!) {
+        meals {
+            confirmMealAnalysis(input: $input) {
+                ... on ConfirmAnalysisSuccess {
+                    meal {
+                        id
+                        totalCalories
+                        totalProtein
+                        totalCarbs
+                        totalFat
+                        entries {
+                            id
+                            name
+                            quantityG
+                        }
+                    }
+                    confirmedCount
+                    rejectedCount
+                }
+                ... on ConfirmAnalysisError {
+                    message
+                    code
+                }
             }
         }
     }
     """
-    data = await graphql_query(query, variables={
+    graphql_input = {
         "mealId": input.meal_id,
         "userId": input.user_id,
         "confirmedEntryIds": input.confirmed_entry_ids
-    })
-    return data["confirmMealAnalysis"]
+    }
+    data = await graphql_query(query, variables={"input": graphql_input})
+    result = data["meals"]["confirmMealAnalysis"]
+    if "message" in result:
+        raise Exception(f"Confirmation failed: {result['message']} ({result['code']})")
+    return result
 
 
 # Tool 9: Get Meal
@@ -553,32 +607,34 @@ async def get_meal(meal_id: str, user_id: str) -> dict:
         Complete meal with all entries
     """
     query = """
-    query GetMeal($mealId: ID!, $userId: ID!) {
-        meal(mealId: $mealId, userId: $userId) {
-            id
-            userId
-            mealType
-            timestamp
-            totalCalories
-            totalProtein
-            totalCarbs
-            totalFat
-            status
-            photoUrl
-            entries {
+    query GetMeal($mealId: String!, $userId: String!) {
+        meals {
+            meal(mealId: $mealId, userId: $userId) {
                 id
-                foodLabel
-                quantityG
-                calories
-                protein
-                carbs
-                fat
+                userId
+                mealType
+                timestamp
+                totalCalories
+                totalProtein
+                totalCarbs
+                totalFat
+                dishName
+                imageUrl
+                entries {
+                    id
+                    name
+                    quantityG
+                    calories
+                    protein
+                    carbs
+                    fat
+                }
             }
         }
     }
     """
     data = await graphql_query(query, variables={"mealId": meal_id, "userId": user_id})
-    return data["meal"]
+    return data["meals"]["meal"]
 
 
 # Tool 10: Get Meal History
@@ -602,17 +658,23 @@ async def get_meal_history(input: GetMealHistoryInput) -> dict:
         List of meals sorted by timestamp DESC
     """
     query = """
-    query GetMealHistory($userId: ID!, $startDate: String, $endDate: String, $mealType: MealType, $limit: Int) {
-        mealHistory(userId: $userId, startDate: $startDate, endDate: $endDate, mealType: $mealType, limit: $limit) {
-            id
-            mealType
-            timestamp
-            totalCalories
-            totalProtein
-            totalCarbs
-            totalFat
-            status
-            photoUrl
+    query GetMealHistory($userId: String!, $startDate: DateTime, $endDate: DateTime, $mealType: String, $limit: Int) {
+        meals {
+            mealHistory(userId: $userId, startDate: $startDate, endDate: $endDate, mealType: $mealType, limit: $limit) {
+                meals {
+                    id
+                    mealType
+                    timestamp
+                    totalCalories
+                    totalProtein
+                    totalCarbs
+                    totalFat
+                    dishName
+                    imageUrl
+                }
+                totalCount
+                hasMore
+            }
         }
     }
     """
@@ -625,7 +687,7 @@ async def get_meal_history(input: GetMealHistoryInput) -> dict:
         graphql_vars["mealType"] = input.meal_type
     
     data = await graphql_query(query, variables=graphql_vars)
-    return data["mealHistory"]
+    return data["meals"]["mealHistory"]
 
 
 # Tool 11: Search Meals
@@ -643,23 +705,28 @@ async def search_meals(user_id: str, query_text: str) -> dict:
         Matching meals with highlighted entries
     """
     query = """
-    query SearchMeals($userId: ID!, $query: String!) {
-        searchMeals(userId: $userId, query: $query) {
-            id
-            mealType
-            timestamp
-            totalCalories
-            entries {
-                id
-                foodLabel
-                quantityG
-                calories
+    query SearchMeals($userId: String!, $queryText: String!) {
+        meals {
+            search(userId: $userId, queryText: $queryText) {
+                meals {
+                    id
+                    mealType
+                    timestamp
+                    totalCalories
+                    entries {
+                        id
+                        name
+                        quantityG
+                        calories
+                    }
+                }
+                totalCount
             }
         }
     }
     """
-    data = await graphql_query(query, variables={"userId": user_id, "query": query_text})
-    return data["searchMeals"]
+    data = await graphql_query(query, variables={"userId": user_id, "queryText": query_text})
+    return data["meals"]["search"]
 
 
 # Tool 12: Get Daily Summary
@@ -675,19 +742,22 @@ async def get_daily_summary(user_id: str, date: str) -> dict:
         Total calories, protein, carbs, fat for the day
     """
     query = """
-    query GetDailySummary($userId: ID!, $date: String!) {
-        dailySummary(userId: $userId, date: $date) {
-            date
-            totalCalories
-            totalProtein
-            totalCarbs
-            totalFat
-            mealCount
+    query GetDailySummary($userId: String!, $date: DateTime!) {
+        meals {
+            dailySummary(userId: $userId, date: $date) {
+                date
+                totalCalories
+                totalProtein
+                totalCarbs
+                totalFat
+                mealCount
+                hasMeals
+            }
         }
     }
     """
     data = await graphql_query(query, variables={"userId": user_id, "date": date})
-    return data["dailySummary"]
+    return data["meals"]["dailySummary"]
 
 
 # Tool 13: Get Summary Range
@@ -712,14 +782,27 @@ async def get_summary_range(input: GetSummaryRangeInput) -> dict:
         List of summaries grouped by time period
     """
     query = """
-    query GetSummaryRange($userId: ID!, $startDate: String!, $endDate: String!, $groupBy: GroupBy!) {
-        summaryRange(userId: $userId, startDate: $startDate, endDate: $endDate, groupBy: $groupBy) {
-            period
-            totalCalories
-            totalProtein
-            totalCarbs
-            totalFat
-            mealCount
+    query GetSummaryRange($userId: String!, $startDate: DateTime!, $endDate: DateTime!, $groupBy: GroupByPeriod!) {
+        meals {
+            summaryRange(userId: $userId, startDate: $startDate, endDate: $endDate, groupBy: $groupBy) {
+                periods {
+                    period
+                    totalCalories
+                    totalProtein
+                    totalCarbs
+                    totalFat
+                    mealCount
+                    hasMeals
+                }
+                total {
+                    period
+                    totalCalories
+                    totalProtein
+                    totalCarbs
+                    totalFat
+                    mealCount
+                }
+            }
         }
     }
     """
@@ -729,7 +812,7 @@ async def get_summary_range(input: GetSummaryRangeInput) -> dict:
         "endDate": input.end_date,
         "groupBy": input.group_by
     })
-    return data["summaryRange"]
+    return data["meals"]["summaryRange"]
 
 
 # Tool 14: Update Meal
@@ -752,27 +835,39 @@ async def update_meal(input: UpdateMealInput) -> dict:
         Updated meal
     """
     query = """
-    mutation UpdateMeal($mealId: ID!, $userId: ID!, $input: UpdateMealInput!) {
-        updateMeal(mealId: $mealId, userId: $userId, input: $input) {
-            id
-            mealType
-            timestamp
-            totalCalories
+    mutation UpdateMeal($input: UpdateMealInput!) {
+        meals {
+            updateMeal(input: $input) {
+                ... on UpdateMealSuccess {
+                    meal {
+                        id
+                        mealType
+                        timestamp
+                        totalCalories
+                    }
+                }
+                ... on UpdateMealError {
+                    message
+                    code
+                }
+            }
         }
     }
     """
-    graphql_input = {}
+    graphql_input = {
+        "mealId": input.meal_id,
+        "userId": input.user_id
+    }
     if input.meal_type:
         graphql_input["mealType"] = input.meal_type
     if input.timestamp:
         graphql_input["timestamp"] = input.timestamp
     
-    data = await graphql_query(query, variables={
-        "mealId": input.meal_id,
-        "userId": input.user_id,
-        "input": graphql_input
-    })
-    return data["updateMeal"]
+    data = await graphql_query(query, variables={"input": graphql_input})
+    result = data["meals"]["updateMeal"]
+    if "message" in result:
+        raise Exception(f"Update failed: {result['message']} ({result['code']})")
+    return result["meal"]
 
 
 # Tool 15: Delete Meal
@@ -788,15 +883,26 @@ async def delete_meal(meal_id: str, user_id: str) -> dict:
         Success confirmation
     """
     query = """
-    mutation DeleteMeal($mealId: ID!, $userId: ID!) {
-        deleteMeal(mealId: $mealId, userId: $userId) {
-            success
-            deletedMealId
+    mutation DeleteMeal($input: DeleteMealInput!) {
+        meals {
+            deleteMeal(input: $input) {
+                ... on DeleteMealSuccess {
+                    mealId
+                    message
+                }
+                ... on DeleteMealError {
+                    message
+                    code
+                }
+            }
         }
     }
     """
-    data = await graphql_query(query, variables={"mealId": meal_id, "userId": user_id})
-    return data["deleteMeal"]
+    data = await graphql_query(query, variables={"input": {"mealId": meal_id, "userId": user_id}})
+    result = data["meals"]["deleteMeal"]
+    if "code" in result:
+        raise Exception(f"Delete failed: {result['message']} ({result['code']})")
+    return result
 
 
 if __name__ == "__main__":

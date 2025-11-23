@@ -4,6 +4,7 @@ This service provides an AI agent interface powered by Strands and MCP servers.
 """
 
 import os
+import json
 from contextlib import asynccontextmanager
 from datetime import datetime
 from typing import Dict, Any, Optional
@@ -15,11 +16,14 @@ from pydantic import BaseModel
 import redis.asyncio as redis
 
 from auth.middleware import get_current_user
-from agents.nutrifit_agent import agent_manager
+from agents.nutrifit_agent_mcp import agent_manager
 
 
 # Redis client (optional)
 redis_client: Optional[redis.Redis] = None
+
+# In-memory conversation storage (fallback se Redis non disponibile)
+conversation_store: Dict[str, Dict[str, Any]] = {}
 
 
 @asynccontextmanager
@@ -27,7 +31,7 @@ async def lifespan(app: FastAPI):
     """Application lifecycle management."""
     print("🚀 Starting Nutrifit Agent Service...")
 
-    # Initialize MCP clients
+    # Initialize MCP clients (native STDIO)
     agent_manager.initialize_mcp_clients()
 
     # Initialize Redis (optional)
@@ -56,7 +60,7 @@ async def lifespan(app: FastAPI):
     # Shutdown
     print("🛑 Shutting down Agent Service...")
 
-    # Cleanup MCP clients
+    # Shutdown MCP clients
     agent_manager.shutdown_mcp_clients()
 
     # Close Redis
@@ -119,6 +123,40 @@ class HealthResponse(BaseModel):
 
 
 # ============================================
+# Conversation State Management
+# ============================================
+
+async def get_conversation_state(conversation_id: str) -> Optional[Dict[str, Any]]:
+    """Retrieve conversation state from Redis or memory."""
+    if redis_client:
+        try:
+            state_json = await redis_client.get(f"conv:{conversation_id}")
+            if state_json:
+                return json.loads(state_json)
+        except Exception as e:
+            print(f"⚠️ Redis get failed: {e}")
+    
+    return conversation_store.get(conversation_id)
+
+
+async def save_conversation_state(conversation_id: str, state: Dict[str, Any]) -> None:
+    """Save conversation state to Redis or memory."""
+    if redis_client:
+        try:
+            await redis_client.setex(
+                f"conv:{conversation_id}",
+                3600,  # TTL 1 hour
+                json.dumps(state)
+            )
+            return
+        except Exception as e:
+            print(f"⚠️ Redis save failed: {e}")
+    
+    # Fallback to memory
+    conversation_store[conversation_id] = state
+
+
+# ============================================
 # Endpoints
 # ============================================
 
@@ -164,17 +202,48 @@ async def chat(
     Returns:
         Agent response with tool calls
     """
+    from datetime import datetime as dt
     start_time = datetime.utcnow()
 
     user_id = user["user_id"]
     auth_token = user["token"]
+    conversation_id = request.conversation_id or f"{user_id}:default"
 
     # Get swarm for user (router + nutrizionista + personal_trainer)
-    swarm = await agent_manager.get_swarm_for_user(user_id, auth_token)
+    swarm = agent_manager.get_swarm_for_user(user_id, auth_token)
+
+    # Enrich message with current date context (prevents date confusion)
+    current_date = dt.now().strftime("%Y-%m-%d")
+    current_datetime = dt.now().strftime("%Y-%m-%d %H:%M:%S")
+    
+    enriched_message = f"""[CONTESTO TEMPORALE]
+Data corrente: {current_date}
+Ora corrente: {current_datetime}
+IMPORTANTE: Usa SEMPRE questa data per calcoli e query. NON assumere che siamo nel 2024.
+
+[MESSAGGIO UTENTE]
+{request.message}"""
+
+    # Restore conversation state if exists
+    prev_state = await get_conversation_state(conversation_id)
+    if prev_state:
+        try:
+            swarm.deserialize_state(prev_state)
+            print(f"♻️ Restored conversation state for {conversation_id}")
+        except Exception as e:
+            print(f"⚠️ Failed to restore state: {e}")
 
     # Run swarm
     try:
-        result = swarm(request.message)
+        result = swarm(enriched_message)
+        
+        # Save conversation state after execution
+        try:
+            new_state = swarm.serialize_state()
+            await save_conversation_state(conversation_id, new_state)
+            print(f"💾 Saved conversation state for {conversation_id}")
+        except Exception as e:
+            print(f"⚠️ Failed to save state: {e}")
 
         # Extract response from swarm result
         # The final agent's message contains the response
@@ -215,17 +284,6 @@ async def chat(
                     agent_result = node_result.result
                     if hasattr(agent_result, "tool_calls") and agent_result.tool_calls:
                         tool_calls.extend([call["name"] for call in agent_result.tool_calls])
-        
-        conversation_id = getattr(result, "conversation_id", "default")
-
-        # Cache conversation in Redis (optional)
-        if redis_client:
-            try:
-                key = f"conversation:{user_id}:{conversation_id}"
-                await redis_client.rpush(key, f"{request.message}|{response_text}")
-                await redis_client.expire(key, 3600)  # 1 hour TTL
-            except Exception as e:
-                print(f"⚠️ Redis cache error: {e}")
 
         # Calculate processing time
         processing_time = int((datetime.utcnow() - start_time).total_seconds() * 1000)
@@ -242,48 +300,14 @@ async def chat(
         raise HTTPException(status_code=500, detail=f"Agent error: {str(e)}") from e
 
 
-@app.get("/api/agent/stream-sse")
-async def stream_sse(
-    message: str,
-    user: Dict[str, Any] = Depends(get_current_user),
-) -> StreamingResponse:
-    """Server-Sent Events streaming endpoint.
-
-    Args:
-        message: User message (query param)
-        user: Authenticated user from JWT
-
-    Returns:
-        SSE stream with agent responses
-    """
-    user_id = user["user_id"]
-    auth_token = user["token"]
-
-    # Get agent for user
-    agent = await agent_manager.get_agent_for_user(user_id, auth_token)
-
-    async def event_generator():
-        """Generate SSE events."""
-        try:
-            # Stream agent response
-            async for chunk in agent.stream(message):
-                if hasattr(chunk, "content"):
-                    yield f"data: {chunk.content}\n\n"
-
-            yield "data: [DONE]\n\n"
-
-        except Exception as e:
-            yield f"event: error\ndata: {str(e)}\n\n"
-
-    return StreamingResponse(
-        event_generator(),
-        media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "Connection": "keep-alive",
-            "X-Accel-Buffering": "no",  # Disable nginx buffering
-        },
-    )
+# SSE streaming not yet implemented with Swarm
+# @app.get("/api/agent/stream-sse")
+# async def stream_sse(
+#     message: str,
+#     user: Dict[str, Any] = Depends(get_current_user),
+# ) -> StreamingResponse:
+#     """Server-Sent Events streaming endpoint (TODO: implement with Swarm)."""
+#     raise HTTPException(status_code=501, detail="Streaming not yet implemented")
 
 
 @app.get("/api/agent/history")

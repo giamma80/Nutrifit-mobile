@@ -7,6 +7,7 @@ dependencies = [
     "fastapi>=0.115.0",
     "uvicorn[standard]>=0.32.0",
     "strands-agents>=1.0.0",
+    "mcp>=1.1.2",
     "anthropic>=0.40.0",
     "httpx>=0.28.0",
     "python-jose[cryptography]>=3.3.0",
@@ -33,7 +34,7 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["auth*", "agents*", "tools*"]
+include = ["auth*", "agents*"]
 exclude = ["MCP*"]
 
 [tool.black]

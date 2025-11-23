@@ -1,73 +1,205 @@
-"""HTTP-based GraphQL tool adapter for Strands agents."""
-from strands import tool
+"""
+HTTP Tool Adapter for MCP Servers
+
+Carica tools da server MCP HTTP e crea funzioni Python decorate con @tool per Strands Agent.
+Risolve il problema del blocking STDIO handshake usando HTTP transport.
+"""
+
+import asyncio
+import logging
+from typing import Any, Dict, List, Optional, Callable
+
 import httpx
-from typing import Optional, Callable, Dict, Any
+from strands import tool as tool_decorator
 
 
-def create_graphql_tool(
-    name: str,
-    description: str,
-    query: str,
-    graphql_endpoint: str,
-    auth_token: str,
-    variables_mapper: Optional[Callable[[Dict[str, Any]], Dict[str, Any]]] = None
-):
+logger = logging.getLogger(__name__)
+
+
+class HTTPToolAdapter:
     """
-    Create a Strands tool that executes GraphQL queries via HTTP.
+    Adapter per caricare tools da MCP server HTTP.
+    
+    Pattern:
+    1. Chiama GET /tools per ottenere lista tools
+    2. Per ogni tool, crea un Tool object con funzione che chiama POST /tools/{name}
+    3. Ritorna lista di Tool objects per Strands Agent
+    """
+    
+    def __init__(
+        self,
+        base_url: str,
+        auth_token: str,
+        timeout: float = 30.0,
+        max_retries: int = 3,
+    ):
+        """
+        Inizializza adapter.
+        
+        Args:
+            base_url: URL base del server MCP (es: "http://localhost:8001")
+            auth_token: Token di autenticazione da passare al server
+            timeout: Timeout per richieste HTTP (secondi)
+            max_retries: Numero massimo di tentativi in caso di fallimento
+        """
+        self.base_url = base_url.rstrip("/")
+        self.auth_token = auth_token
+        self.timeout = timeout
+        self.max_retries = max_retries
+        
+        # HTTP client configurato con retry
+        self.client = httpx.AsyncClient(
+            timeout=timeout,
+            headers={"Authorization": f"Bearer {auth_token}"},
+        )
+    
+    async def close(self):
+        """Chiude il client HTTP."""
+        await self.client.aclose()
+    
+    async def health_check(self) -> bool:
+        """
+        Verifica che il server MCP sia raggiungibile.
+        
+        Returns:
+            True se server risponde, False altrimenti
+        """
+        try:
+            response = await self.client.get(f"{self.base_url}/health")
+            return response.status_code == 200
+        except Exception as e:
+            logger.error(f"Health check failed for {self.base_url}: {e}")
+            return False
+    
+    async def list_tools(self) -> List[Dict[str, Any]]:
+        """
+        Ottiene lista dei tools disponibili dal server.
+        
+        Returns:
+            Lista di dict con name, description, parameters per ogni tool
+        
+        Raises:
+            httpx.HTTPError: Se richiesta fallisce
+        """
+        response = await self.client.get(f"{self.base_url}/tools")
+        response.raise_for_status()
+        return response.json()
+    
+    def _create_tool_function(self, tool_name: str):
+        """
+        Crea funzione che chiama il tool via HTTP.
+        
+        Args:
+            tool_name: Nome del tool sul server MCP
+        
+        Returns:
+            Funzione async che accetta **kwargs e chiama il tool
+        """
+        async def tool_function(**kwargs) -> Any:
+            """Esegue tool via HTTP POST."""
+            for attempt in range(self.max_retries):
+                try:
+                    response = await self.client.post(
+                        f"{self.base_url}/tools/{tool_name}",
+                        json={"arguments": kwargs},
+                    )
+                    response.raise_for_status()
+                    
+                    result = response.json()
+                    
+                    # Check for errors in response
+                    if result.get("error"):
+                        raise Exception(f"Tool error: {result['error']}")
+                    
+                    return result.get("result")
+                
+                except httpx.HTTPError as e:
+                    if attempt < self.max_retries - 1:
+                        logger.warning(f"Tool {tool_name} failed (attempt {attempt + 1}/{self.max_retries}): {e}")
+                        await asyncio.sleep(0.5 * (attempt + 1))  # Exponential backoff
+                        continue
+                    else:
+                        logger.error(f"Tool {tool_name} failed after {self.max_retries} attempts: {e}")
+                        raise
+        
+        return tool_function
+    
+    async def load_tools(self) -> List[Tool]:
+        """
+        Carica tutti i tools dal server MCP e crea Tool objects.
+        
+        Returns:
+            Lista di Tool objects pronti per Strands Agent
+        
+        Raises:
+            httpx.HTTPError: Se comunicazione con server fallisce
+        """
+        # Get tools metadata
+        tools_specs = await self.list_tools()
+        
+        logger.info(f"Loading {len(tools_specs)} tools from {self.base_url}")
+        
+        # Create Tool objects
+        tools = []
+        for spec in tools_specs:
+            tool_name = spec["name"]
+            
+            # Create callable function
+            tool_function = self._create_tool_function(tool_name)
+            
+            # Wrap in sync function for Strands (se necessario)
+            def sync_wrapper(**kwargs):
+                return asyncio.run(tool_function(**kwargs))
+            
+            # Create Tool object
+            tool = Tool(
+                name=tool_name,
+                description=spec["description"],
+                function=tool_function,  # Strands supporta async
+                parameters=spec.get("parameters", {}),
+            )
+            
+            tools.append(tool)
+            logger.debug(f"✅ Loaded tool: {tool_name}")
+        
+        logger.info(f"✅ Successfully loaded {len(tools)} tools from {self.base_url}")
+        return tools
+
+
+async def load_tools_from_url(
+    url: str,
+    auth_token: str,
+    timeout: float = 30.0,
+) -> List[Tool]:
+    """
+    Helper function per caricare tools da URL in modo semplice.
     
     Args:
-        name: Tool name (unique identifier)
-        description: Tool description for LLM
-        query: GraphQL query/mutation string
-        graphql_endpoint: Backend GraphQL endpoint URL
-        auth_token: JWT Bearer token
-        variables_mapper: Optional function to map tool params to GraphQL variables
+        url: URL base del server MCP
+        auth_token: Token di autenticazione
+        timeout: Timeout richieste HTTP
     
     Returns:
-        Async tool function decorated with @strands.tool
+        Lista di Tool objects
+    
+    Example:
+        tools = await load_tools_from_url(
+            "http://localhost:8001",
+            auth_token="eyJhbG...",
+        )
+        agent = Agent(name="Nutritionist", tools=tools)
     """
+    adapter = HTTPToolAdapter(url, auth_token, timeout)
     
-    @tool(name=name, description=description)
-    async def tool_fn(**params):
-        print(f"🔧 Executing tool '{name}' with params: {params}")
+    try:
+        # Health check
+        if not await adapter.health_check():
+            logger.warning(f"Health check failed for {url}, attempting to load anyway...")
         
-        # Map parameters to GraphQL variables
-        variables = variables_mapper(params) if variables_mapper else {}
-        print(f"📊 GraphQL variables: {variables}")
+        # Load tools
+        tools = await adapter.load_tools()
         
-        async with httpx.AsyncClient() as client:
-            try:
-                response = await client.post(
-                    graphql_endpoint,
-                    json={"query": query, "variables": variables},
-                    headers={
-                        "Authorization": f"Bearer {auth_token}",
-                        "Content-Type": "application/json"
-                    },
-                    timeout=30.0
-                )
-                
-                print(f"📡 GraphQL response status: {response.status_code}")
-                
-                if response.status_code != 200:
-                    raise Exception(f"HTTP {response.status_code}: {response.text}")
-                
-                data = response.json()
-                
-                # Check for GraphQL errors
-                if "errors" in data:
-                    errors = data["errors"]
-                    print(f"❌ GraphQL errors in '{name}': {errors}")
-                    raise Exception(f"GraphQL errors in '{name}': {errors}")
-                
-                print(f"✅ Tool '{name}' succeeded")
-                return data.get("data")
-                
-            except httpx.HTTPError as e:
-                print(f"❌ HTTP error in '{name}': {e}")
-                raise Exception(f"HTTP error in '{name}': {e}")
-            except Exception as e:
-                print(f"❌ Unexpected error in '{name}': {e}")
-                raise
+        return tools
     
-    return tool_fn
+    finally:
+        await adapter.close()

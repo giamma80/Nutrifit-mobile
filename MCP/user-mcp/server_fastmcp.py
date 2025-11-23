@@ -90,21 +90,22 @@ async def get_current_user() -> dict:
     query = """
     query GetCurrentUser {
         user {
-            id
-            auth0Sub
-            email
-            name
-            language
-            theme
-            notificationsEnabled
-            isActive
-            createdAt
-            updatedAt
+            me {
+                userId
+                auth0Sub
+                preferences {
+                    data
+                }
+                createdAt
+                updatedAt
+                lastAuthenticatedAt
+                isActive
+            }
         }
     }
     """
     data = await graphql_query(query, require_auth=True)
-    return data["user"]
+    return data["user"]["me"]
 
 
 # Tool 2: Check User Exists
@@ -129,57 +130,18 @@ async def check_user_exists(auth0_sub: str) -> bool:
             await authenticate_or_create(...)
     """
     query = """
-    query CheckUserExists($auth0Sub: String!) {
-        checkUserExists(auth0Sub: $auth0Sub)
-    }
-    """
-    data = await graphql_query(query, variables={"auth0Sub": auth0_sub})
-    return data["checkUserExists"]
-
-
-# Tool 3: Get User By ID
-@mcp.tool()
-async def get_user_by_id(user_id: str) -> dict:
-    """👤 Get user profile by UUID.
-    
-    Use this to retrieve ANY user's profile by their unique ID.
-    Requires JWT token - authenticated query only.
-    
-    Args:
-        user_id: User UUID
-            Format: "550e8400-e29b-41d4-a716-446655440000" (RFC 4122)
-    
-    Returns:
-        Full user profile (same structure as get_current_user):
-        - id, auth0Sub, email, name
-        - language, theme, notificationsEnabled
-        - isActive, createdAt, updatedAt
-    
-    Raises:
-        Exception: If user_id not found or JWT invalid
-    """
-    query = """
-    query GetUserById($userId: ID!) {
-        getUserById(id: $userId) {
-            id
-            auth0Sub
-            email
-            name
-            language
-            theme
-            notificationsEnabled
-            isActive
-            createdAt
-            updatedAt
+    query CheckUserExists {
+        user {
+            exists
         }
     }
     """
-    data = await graphql_query(
-        query,
-        variables={"userId": user_id},
-        require_auth=True
-    )
-    return data["getUserById"]
+    data = await graphql_query(query, require_auth=True)
+    return data["user"]["exists"]
+
+
+# Tool 3: Get User By ID (REMOVED - not supported by backend schema)
+# Backend only exposes 'user { me }' for authenticated user, not arbitrary user lookup
 
 
 # Tool 4: Authenticate or Create User
@@ -223,31 +185,24 @@ async def authenticate_or_create(input: AuthenticateOrCreateInput) -> dict:
         )
     """
     query = """
-    mutation AuthenticateOrCreate($auth0Sub: String!, $email: String, $name: String) {
-        authenticateOrCreateUser(auth0Sub: $auth0Sub, email: $email, name: $name) {
-            id
-            auth0Sub
-            email
-            name
-            language
-            theme
-            notificationsEnabled
-            isActive
-            createdAt
-            updatedAt
+    mutation AuthenticateOrCreate {
+        user {
+            authenticate {
+                userId
+                auth0Sub
+                preferences {
+                    data
+                }
+                createdAt
+                updatedAt
+                lastAuthenticatedAt
+                isActive
+            }
         }
     }
     """
-    data = await graphql_query(
-        query,
-        variables={
-            "auth0Sub": input.auth0_sub,
-            "email": input.email,
-            "name": input.name
-        },
-        require_auth=True
-    )
-    return data["authenticateOrCreateUser"]
+    data = await graphql_query(query, require_auth=True)
+    return data["user"]["authenticate"]
 
 
 # Tool 5: Update Preferences
@@ -288,31 +243,34 @@ async def update_preferences(input: UpdatePreferencesInput) -> dict:
             notifications=True
         )
     """
+    # Build preferences JSON object
+    preferences_data = {}
+    if input.language:
+        preferences_data["language"] = input.language
+    if input.theme:
+        preferences_data["theme"] = input.theme
+    if input.notifications is not None:
+        preferences_data["notificationsEnabled"] = input.notifications
+    
     query = """
-    mutation UpdatePreferences($language: String, $theme: String, $notifications: Boolean) {
-        updateUserPreferences(
-            language: $language
-            theme: $theme
-            notificationsEnabled: $notifications
-        ) {
-            id
-            language
-            theme
-            notificationsEnabled
-            updatedAt
+    mutation UpdatePreferences($preferences: UserPreferencesInput!) {
+        user {
+            updatePreferences(preferences: $preferences) {
+                userId
+                preferences {
+                    data
+                }
+                updatedAt
+            }
         }
     }
     """
-    variables = {}
-    if input.language:
-        variables["language"] = input.language
-    if input.theme:
-        variables["theme"] = input.theme
-    if input.notifications is not None:
-        variables["notifications"] = input.notifications
-    
-    data = await graphql_query(query, variables=variables, require_auth=True)
-    return data["updateUserPreferences"]
+    data = await graphql_query(
+        query,
+        variables={"preferences": {"data": preferences_data}},
+        require_auth=True
+    )
+    return data["user"]["updatePreferences"]
 
 
 # Tool 6: Deactivate Account
@@ -327,15 +285,17 @@ async def deactivate_account() -> dict:
     """
     query = """
     mutation DeactivateAccount {
-        deactivateAccount {
-            id
-            isActive
-            updatedAt
+        user {
+            deactivate {
+                userId
+                isActive
+                updatedAt
+            }
         }
     }
     """
     data = await graphql_query(query, require_auth=True)
-    return data["deactivateAccount"]
+    return data["user"]["deactivate"]
 
 
 if __name__ == "__main__":
