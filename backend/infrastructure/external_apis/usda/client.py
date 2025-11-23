@@ -317,11 +317,30 @@ class USDAClient:
             if any(kw in desc_lower for kw in processed_keywords):
                 return -100
 
+            # Penalize ultra-fried/deep-fried variants (often unrealistic calories)
+            if any(kw in desc_lower for kw in ["deep-fried", "deep fried"]):
+                return -50
+
             # Favor fresh/raw forms
             if any(kw in desc_lower for kw in ["raw", "fresh"]):
                 return 50
 
-            # Neutral for normal preparations (fried, boiled, etc.)
+            # Favor common cooking methods
+            if any(
+                kw in desc_lower
+                for kw in [
+                    "grilled",
+                    "baked",
+                    "broiled",
+                    "pan-fried",
+                    "roasted",
+                    "boiled",
+                    "steamed",
+                ]
+            ):
+                return 30
+
+            # Neutral for other preparations
             return 0
 
         # Sort by naturalness score (highest first)
@@ -330,14 +349,51 @@ class USDAClient:
         ]
         foods_sorted = sorted(foods_with_scores, key=lambda x: x[1], reverse=True)
 
-        logger.debug(
-            "USDA food selection",
+        # Log TOP 3 results for debugging
+        top_3 = foods_sorted[:3]
+        logger.info(
+            "USDA search results TOP 3",
             extra={
                 "identifier": identifier,
-                "top_result": foods_sorted[0][0].get("description"),
-                "score": foods_sorted[0][1],
+                "results": [
+                    {
+                        "rank": i + 1,
+                        "fdc_id": food.get("fdcId"),
+                        "description": food.get("description"),
+                        "score": score,
+                    }
+                    for i, (food, score) in enumerate(top_3)
+                ],
             },
         )
+
+        # Sanity check thresholds (max realistic calories per 100g)
+        calorie_sanity_limits = {
+            # Meats and proteins (cooked)
+            "chicken": 250,  # Max ~240 kcal/100g for fried chicken
+            "beef": 350,  # Max ~300 kcal/100g for fatty beef
+            "pork": 350,  # Max ~300 kcal/100g
+            "bacon": 600,  # Max ~540 kcal/100g cooked (not ultra-fried)
+            "fish": 250,  # Max ~220 kcal/100g for fatty fish
+            "salmon": 250,
+            "tuna": 200,
+            "egg": 200,  # Max ~155 kcal/100g whole cooked eggs
+            # Carbs
+            "pasta": 180,  # Max ~160 kcal/100g cooked
+            "rice": 160,  # Max ~140 kcal/100g cooked
+            "bread": 300,  # Max ~265 kcal/100g
+            "potato": 150,  # Max ~130 kcal/100g cooked (not fried)
+            # Vegetables
+            "tomato": 50,
+            "lettuce": 30,
+            "broccoli": 50,
+            "carrot": 60,
+            "onion": 60,
+            # Fruits
+            "apple": 80,
+            "banana": 120,
+            "orange": 70,
+        }
 
         # Try results in order of preference (best score first)
         for food, score in foods_sorted:
@@ -348,18 +404,48 @@ class USDAClient:
             # Get detailed nutrients
             nutrients_dict = await self.get_nutrients_by_id(fdc_id)
 
-            if nutrients_dict and nutrients_dict.get("calories", 0) > 0:
-                # Found valid result with calories > 0
-                logger.info(
-                    "USDA food selected",
+            if not nutrients_dict or nutrients_dict.get("calories", 0) <= 0:
+                continue
+
+            calories_per_100g = nutrients_dict["calories"]
+
+            # Sanity check: detect anomalous calorie values
+            # Check if identifier contains any known food keyword
+            max_limit = None
+            matched_keyword = None
+            for keyword, limit in calorie_sanity_limits.items():
+                if keyword in normalized_label.lower():
+                    max_limit = limit
+                    matched_keyword = keyword
+                    break
+
+            if max_limit and calories_per_100g > max_limit:
+                logger.warning(
+                    "USDA result exceeds sanity limit - REJECTED",
                     extra={
                         "identifier": identifier,
                         "fdc_id": fdc_id,
                         "description": food.get("description"),
+                        "calories_per_100g": calories_per_100g,
+                        "matched_keyword": matched_keyword,
+                        "max_limit": max_limit,
                         "score": score,
                     },
                 )
-                break
+                continue  # Skip this result
+
+            # Found valid result
+            logger.info(
+                "USDA food selected",
+                extra={
+                    "identifier": identifier,
+                    "fdc_id": fdc_id,
+                    "description": food.get("description"),
+                    "calories_per_100g": calories_per_100g,
+                    "score": score,
+                },
+            )
+            break
         else:
             # No valid results found
             logger.warning(
