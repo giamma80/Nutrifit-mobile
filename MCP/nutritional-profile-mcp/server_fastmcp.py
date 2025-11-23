@@ -22,8 +22,8 @@ IMPORTANT FOR AI ASSISTANTS:
 6. forecast_weight(profile_id, days_ahead, confidence_level) - AI weight prediction
 
 ENUM VALUES:
-- activity_level: "SEDENTARY", "LIGHTLY_ACTIVE", "MODERATELY_ACTIVE", "VERY_ACTIVE", "EXTRA_ACTIVE"
-- goal_type: "LOSE_WEIGHT", "MAINTAIN_WEIGHT", "GAIN_WEIGHT"
+- activity_level: "SEDENTARY", "LIGHT", "MODERATE", "ACTIVE", "VERY_ACTIVE"
+- goal_type: "CUT", "MAINTAIN", "BULK"
 """
 
 import os
@@ -138,8 +138,8 @@ class CreateNutritionalProfileInput(BaseModel):
     height: float = Field(description="Height in cm")
     age: int = Field(description="Age in years")
     gender: str = Field(description="MALE or FEMALE")
-    activity_level: str = Field(description="SEDENTARY | LIGHTLY_ACTIVE | MODERATELY_ACTIVE | VERY_ACTIVE | EXTRA_ACTIVE")
-    goal_type: str = Field(description="LOSE_WEIGHT | MAINTAIN_WEIGHT | GAIN_WEIGHT")
+    activity_level: str = Field(description="SEDENTARY | LIGHT | MODERATE | ACTIVE | VERY_ACTIVE")
+    goal_type: str = Field(description="CUT | MAINTAIN | BULK")
 
 
 @mcp.tool()
@@ -254,7 +254,7 @@ class UpdateNutritionalProfileInput(BaseModel):
     current_weight: Optional[float] = Field(None, description="Updated weight in kg")
     target_weight: Optional[float] = Field(None, description="Updated target weight")
     activity_level: Optional[str] = Field(None, description="Updated activity level")
-    goal_type: Optional[str] = Field(None, description="Updated goal type")
+    goal_type: Optional[str] = Field(None, description="CUT | MAINTAIN | BULK")
 
 
 @mcp.tool()
