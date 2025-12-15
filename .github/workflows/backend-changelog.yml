@@ -44,7 +44,7 @@ jobs:
           echo 'Show environment variables (filtered)'
           env | grep -E 'GIT_CLIFF|RUST_LOG' || true
       - name: Upload artifact
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
             name: backend-changelog-preview
             path: backend/CHANGELOG_PENDING.md
