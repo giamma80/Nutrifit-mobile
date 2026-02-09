@@ -15,7 +15,7 @@ dependencies = [
   "openai>=2.5.0,<3.0.0",
   "pydantic>=2.12.3,<3.0.0",
   "circuitbreaker>=1.4.0,<3.0.0",
-  "tenacity==9.1.2",
+  "tenacity==9.1.4",
   # flake8 rimosso - è già in dev dependencies
   "aiohttp>=3.13.1,<4.0.0",
   "python-dotenv>=1.0.0",
